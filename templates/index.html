@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ArtCraft — Storytold</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="plugins-page">
+      <div class="plugins-layout">
+        <aside class="sidebar">
+          <div class="sidebar-header">
+            <button class="mini-action">Menu</button>
+            <button class="header-search" aria-label="Search">⌕</button>
+          </div>
+
+          <nav class="sidebar-nav" aria-label="Primary navigation">
+            <button class="nav-item active">Plugins</button>
+            <button class="nav-item">Project catalog</button>
+            <button class="nav-item">MCP tools</button>
+          </nav>
+
+          <div class="sidebar-group">
+            <p class="group-label">Available MCP tools</p>
+            <ul class="installed-list">
+              <li><span class="mini-icon github">L</span> list_artcraft_projects</li>
+              <li><span class="mini-icon github">S</span> search_artcraft_projects</li>
+              <li><span class="mini-icon github">G</span> get_artcraft_project</li>
+            </ul>
+          </div>
+        </aside>
+
+        <main class="marketplace-panel">
+          <header class="marketplace-header">
+            <div class="marketplace-title-wrap">
+              <h1>ArtCraft plugins</h1>
+              <p>Connect ChatGPT to public creative-tool project information from <a href="{{ org_url }}" target="_blank" rel="noreferrer">{{ org_name }}</a>.</p>
+            </div>
+
+            <div class="toolbar" aria-label="Toolbar">
+              <label class="search-box" aria-label="Search plugins">
+                <span class="search-icon">⌕</span>
+                <input type="text" placeholder="Search plugins" />
+              </label>
+              <button class="icon-button" aria-label="Filter">↕</button>
+              <a class="add-button" href="https://chatgpt.com/plugins">Open ChatGPT Apps</a>
+            </div>
+          </header>
+
+          <div class="tabs" aria-label="Categories">
+            <button class="tab active">All</button>
+            <button class="tab">Creative</button>
+            <button class="tab">AI tools</button>
+            <button class="tab">Productivity</button>
+          </div>
+
+          {% if error_message %}
+          <p class="error-message">{{ error_message }}</p>
+          {% endif %}
+
+          <section class="plugin-groups" aria-label="Storytold projects">
+            {% for section_name, repos in repo_sections %}
+            <div class="plugin-group">
+              <h2>{{ section_name }} <span>• {{ repos|length }} apps</span></h2>
+              <div class="plugin-grid">
+                {% for repo in repos %}
+                <article class="plugin-card">
+                  <div class="plugin-main">
+                    <div class="plugin-icon storytold">S</div>
+                    <div class="plugin-copy">
+                      <h3>{{ repo.name }}</h3>
+                      <p>{{ repo.description }}</p>
+                    </div>
+                  </div>
+                  <a class="plugin-action" href="{{ repo.url }}" target="_blank" rel="noreferrer" aria-label="View {{ repo.name }} on GitHub">↗</a>
+                </article>
+                {% endfor %}
+              </div>
+            </div>
+            {% endfor %}
+          </section>
+          <aside class="mcp-setup">
+            <h2>Connect this MCP server to ChatGPT</h2>
+            <p>Deploy this app to a public HTTPS URL, then add its <code>/mcp/</code> endpoint in ChatGPT’s developer settings as a custom MCP app.</p>
+            <pre>https://YOUR-PUBLIC-HOST/mcp/</pre>
+            <p class="setup-note">The tools currently search, list, and read public Storytold repositories. They do not control ArtCraft’s desktop editor or create/edit media.</p>
+          </aside>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
