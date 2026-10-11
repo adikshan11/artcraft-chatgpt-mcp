@@ -14,14 +14,14 @@
     />
     <meta property="og:type" content="website" />
     <link rel="canonical" href="{{ site_url }}" />
-    <link rel="icon" href="https://getartcraft.com/artcraft-icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="{{ icon_url }}" type="image/svg+xml" />
     <title>ArtCraft — creative workflows, connected</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
     <header class="site-header">
       <a class="brand" href="#top" aria-label="ArtCraft home">
-        <img src="https://getartcraft.com/artcraft-icon.svg" alt="" />
+        <img src="{{ icon_url }}" alt="" />
         <span>ArtCraft</span>
       </a>
       <nav class="main-nav" aria-label="Main navigation">
@@ -56,7 +56,7 @@
           <div class="art-orbit orbit-one"></div>
           <div class="art-orbit orbit-two"></div>
           <div class="art-glow"></div>
-          <img src="https://getartcraft.com/artcraft-icon.svg" alt="" />
+          <img src="{{ icon_url }}" alt="" />
           <span class="art-label">ARTCRAFT&nbsp; × &nbsp;CHATGPT</span>
         </div>
       </section>
@@ -162,11 +162,12 @@
 
     <footer class="site-footer page-width">
       <a class="brand footer-brand" href="#top">
-        <img src="https://getartcraft.com/artcraft-icon.svg" alt="" />
+        <img src="{{ icon_url }}" alt="" />
         <span>ArtCraft</span>
       </a>
       <p>An independent, open-source community integration for creative workflows.</p>
       <a href="{{ project_url }}" target="_blank" rel="noopener noreferrer">Source on GitHub ↗</a>
+      <a href="{{ product_url }}" target="_blank" rel="noopener noreferrer">Official ArtCraft ↗</a>
     </footer>
   </body>
 </html>

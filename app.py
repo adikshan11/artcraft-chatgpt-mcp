@@ -22,11 +22,16 @@ ORG_NAME = "storytold"
 ORG_URL = f"https://github.com/{ORG_NAME}"
 PROJECT_URL = "https://github.com/adikshan11/artcraft-chatgpt-mcp"
 ARTCRAFT_SITE_URL = "https://artcraft-storytold-mcp.onrender.com"
-ARTCRAFT_ICON_URL = "https://getartcraft.com/artcraft-icon.svg"
+ARTCRAFT_PRODUCT_URL = "https://getartcraft.com"
+ARTCRAFT_ICON_URL = (
+    "https://raw.githubusercontent.com/storytold/artcraft/main/"
+    "frontend/apps/artcraft/app/public/artcraft-icon.svg"
+)
 ARTCRAFT_APP_DESCRIPTION = (
     "A community-built ChatGPT connection for ArtCraft image generation, public "
     "Storytold projects, local PDF workflows, and PhotoCraft tools. Image generation "
-    "may use credits; some other Craft app controls are not yet available."
+    "may use credits; some other Craft app controls are not yet available. Project "
+    f"website: {ARTCRAFT_SITE_URL}. Official ArtCraft: {ARTCRAFT_PRODUCT_URL}"
 )
 GITHUB_API = "https://api.github.com"
 MAX_README_CHARS = 12000
@@ -232,7 +237,9 @@ def index():
         org_name=ORG_NAME,
         org_url=ORG_URL,
         project_url=PROJECT_URL,
+        product_url=ARTCRAFT_PRODUCT_URL,
         site_url=ARTCRAFT_SITE_URL,
+        icon_url=ARTCRAFT_ICON_URL,
         repos=repos,
         error_message=error_message,
     )
