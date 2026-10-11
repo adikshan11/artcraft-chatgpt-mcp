@@ -221,7 +221,7 @@ def get_artcraft_project(name: str) -> ProjectDetails:
 
 @app.get("/health")
 def health():
-    return jsonify({"status": "ok", "mcp_endpoint": "/mcp/"})
+    return jsonify({"status": "ok", "mcp_endpoint": "/mcp/", "studio_endpoint": "/studio"})
 
 
 @app.get("/")
@@ -260,18 +260,34 @@ def create_asgi_app():
         transport_security=TransportSecuritySettings(allowed_hosts=mcp_allowed_hosts()),
     )
 
+    from studio_mcp import STUDIO_PATH, create_studio_app, studio
+
+    studio_app = create_studio_app(mcp_allowed_hosts())
+
     @asynccontextmanager
     async def lifespan(_app):
-        async with mcp.session_manager.run():
+        async with mcp.session_manager.run(), studio.session_manager.run():
             yield
 
-    return Starlette(
+    site = Starlette(
         routes=[
             Mount("/mcp", app=mcp_app),
             Mount("/", app=WSGIMiddleware(app)),
         ],
         lifespan=lifespan,
     )
+    # The Studio app serves its own OAuth protected-resource metadata at the site
+    # root, so it is dispatched by path instead of being mounted under a prefix.
+    studio_prefixes = (STUDIO_PATH, "/.well-known/oauth-protected-resource")
+
+    async def dispatch(scope, receive, send):
+        path = scope.get("path", "")
+        if scope["type"] in ("http", "websocket") and path.startswith(studio_prefixes):
+            await studio_app(scope, receive, send)
+        else:
+            await site(scope, receive, send)
+
+    return dispatch
 
 
 asgi_app = create_asgi_app()
