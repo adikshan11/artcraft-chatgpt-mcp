@@ -11,7 +11,7 @@ from flask import Flask, jsonify, render_template
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
-from mcp.types import ToolAnnotations
+from mcp.types import Icon, ToolAnnotations
 from pydantic import BaseModel
 from starlette.applications import Starlette
 from starlette.routing import Mount
@@ -20,6 +20,14 @@ app = Flask(__name__)
 
 ORG_NAME = "storytold"
 ORG_URL = f"https://github.com/{ORG_NAME}"
+PROJECT_URL = "https://github.com/adikshan11/artcraft-chatgpt-mcp"
+ARTCRAFT_SITE_URL = "https://artcraft-storytold-mcp.onrender.com"
+ARTCRAFT_ICON_URL = "https://getartcraft.com/artcraft-icon.svg"
+ARTCRAFT_APP_DESCRIPTION = (
+    "A community-built ChatGPT connection for ArtCraft image generation, public "
+    "Storytold projects, local PDF workflows, and PhotoCraft tools. Image generation "
+    "may use credits; some other Craft app controls are not yet available."
+)
 GITHUB_API = "https://api.github.com"
 MAX_README_CHARS = 12000
 MCP_INSTRUCTIONS = (
@@ -27,7 +35,15 @@ MCP_INSTRUCTIONS = (
     "They search, list, and read repository information only; they do not control "
     "the ArtCraft desktop editor or create or edit media."
 )
-mcp = MCPServer("artcraft-storytold", version="0.1.0", instructions=MCP_INSTRUCTIONS)
+mcp = MCPServer(
+    "artcraft-storytold",
+    title="ArtCraft Project Catalog",
+    description="Browse public Storytold creative apps and open-source project information.",
+    website_url=ARTCRAFT_SITE_URL,
+    icons=[Icon(src=ARTCRAFT_ICON_URL, mimeType="image/svg+xml")],
+    version="0.1.0",
+    instructions=MCP_INSTRUCTIONS,
+)
 
 
 class ProjectSummary(BaseModel):
@@ -126,6 +142,35 @@ def list_projects(limit=15):
     return relevant_projects()[:limit]
 
 
+def search_projects(query, limit=10):
+    query = query.strip().lower()
+    if not query:
+        raise ValueError("Provide a non-empty query.")
+    limit = max(1, min(int(limit), 30))
+    return [
+        repo
+        for repo in relevant_projects()
+        if query in repo["name"].lower() or query in repo["description"].lower()
+    ][:limit]
+
+
+def get_project_details(name):
+    project_name = name.strip()
+    if not re.fullmatch(r"[A-Za-z0-9._-]{1,100}", project_name):
+        raise ValueError("Provide a valid repository name.")
+    repo = github_get(f"/repos/{ORG_NAME}/{project_name}")
+    data = normalize_repo(repo)
+    readme = github_get(f"/repos/{ORG_NAME}/{project_name}/readme")
+    if isinstance(readme, dict) and readme.get("content"):
+        full_readme = base64.b64decode(readme["content"]).decode("utf-8", errors="replace")
+        data["readme"] = full_readme[:MAX_README_CHARS]
+        data["readme_truncated"] = len(full_readme) > MAX_README_CHARS
+    else:
+        data["readme"] = ""
+        data["readme_truncated"] = False
+    return ProjectDetails(**data)
+
+
 @mcp.tool(
     title="List ArtCraft projects",
     annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False),
@@ -146,17 +191,10 @@ def list_artcraft_projects(limit: int = 15) -> ProjectList:
 )
 def search_artcraft_projects(query: str, limit: int = 10) -> ProjectList:
     """Search public Storytold repositories by project name or description."""
-    query = query.strip().lower()
-    if not query:
-        raise ToolError("Provide a non-empty query.")
-    limit = max(1, min(limit, 30))
     try:
-        projects = [
-            repo
-            for repo in relevant_projects()
-            if query in repo["name"].lower() or query in repo["description"].lower()
-        ][:limit]
-        return ProjectList(projects=projects)
+        return ProjectList(projects=search_projects(query, limit))
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     except GitHubRequestError as exc:
         raise ToolError(str(exc)) from exc
 
@@ -168,21 +206,10 @@ def search_artcraft_projects(query: str, limit: int = 10) -> ProjectList:
 )
 def get_artcraft_project(name: str) -> ProjectDetails:
     """Get public details and the README for one Storytold project such as artcraft or photocraft."""
-    project_name = name.strip()
-    if not re.fullmatch(r"[A-Za-z0-9._-]{1,100}", project_name):
-        raise ToolError("Provide a valid repository name.")
     try:
-        repo = github_get(f"/repos/{ORG_NAME}/{project_name}")
-        data = normalize_repo(repo)
-        readme = github_get(f"/repos/{ORG_NAME}/{project_name}/readme")
-        if isinstance(readme, dict) and readme.get("content"):
-            full_readme = base64.b64decode(readme["content"]).decode("utf-8", errors="replace")
-            data["readme"] = full_readme[:MAX_README_CHARS]
-            data["readme_truncated"] = len(full_readme) > MAX_README_CHARS
-        else:
-            data["readme"] = ""
-            data["readme_truncated"] = False
-        return ProjectDetails(**data)
+        return get_project_details(name)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
     except GitHubRequestError as exc:
         raise ToolError(str(exc)) from exc
 
@@ -195,21 +222,18 @@ def health():
 @app.get("/")
 def index():
     try:
-        repos = list_projects(15)
-        sections = [
-            ("Popular", repos[:5]),
-            ("Creative tools", repos[5:10]),
-            ("More from Storytold", repos[10:15]),
-        ]
+        repos = list_projects(12)
         error_message = None
     except GitHubRequestError as exc:
-        sections = []
+        repos = []
         error_message = str(exc)
     return render_template(
         "index.html",
         org_name=ORG_NAME,
         org_url=ORG_URL,
-        repo_sections=sections,
+        project_url=PROJECT_URL,
+        site_url=ARTCRAFT_SITE_URL,
+        repos=repos,
         error_message=error_message,
     )
 
