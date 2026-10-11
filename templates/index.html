@@ -3,91 +3,170 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ArtCraft — Storytold</title>
+    <meta
+      name="description"
+      content="Explore the open-source ArtCraft community integration for ChatGPT: image generation, PDF workflows, PhotoCraft, and Storytold projects."
+    />
+    <meta property="og:title" content="ArtCraft — creative workflows, connected" />
+    <meta
+      property="og:description"
+      content="A community-built ChatGPT connection for ArtCraft and the Storytold creative ecosystem."
+    />
+    <meta property="og:type" content="website" />
+    <link rel="canonical" href="{{ site_url }}" />
+    <link rel="icon" href="https://getartcraft.com/artcraft-icon.svg" type="image/svg+xml" />
+    <title>ArtCraft — creative workflows, connected</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
-    <div class="plugins-page">
-      <div class="plugins-layout">
-        <aside class="sidebar">
-          <div class="sidebar-header">
-            <button class="mini-action">Menu</button>
-            <button class="header-search" aria-label="Search">⌕</button>
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="ArtCraft home">
+        <img src="https://getartcraft.com/artcraft-icon.svg" alt="" />
+        <span>ArtCraft</span>
+      </a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a href="#capabilities">Capabilities</a>
+        <a href="#projects">Project catalog</a>
+        <a href="#about">About</a>
+      </nav>
+      <a class="header-link" href="{{ project_url }}" target="_blank" rel="noopener noreferrer">
+        View source <span aria-hidden="true">↗</span>
+      </a>
+    </header>
+
+    <main id="top">
+      <section class="hero page-width">
+        <div class="hero-copy">
+          <p class="eyebrow"><span></span> OPEN-SOURCE COMMUNITY INTEGRATION</p>
+          <h1>Creative work,<br /><em>connected.</em></h1>
+          <p class="hero-description">
+            Bring selected ArtCraft and Storytold workflows into ChatGPT through
+            one thoughtfully designed MCP app. Keep local file workflows on your
+            Mac and explore the projects behind the tools.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#capabilities">Explore capabilities</a>
+            <a class="button button-secondary" href="{{ project_url }}" target="_blank" rel="noopener noreferrer">
+              Explore the source <span aria-hidden="true">↗</span>
+            </a>
           </div>
+          <p class="hero-note">Independent, community-built software. Not an official Storytold product.</p>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="art-orbit orbit-one"></div>
+          <div class="art-orbit orbit-two"></div>
+          <div class="art-glow"></div>
+          <img src="https://getartcraft.com/artcraft-icon.svg" alt="" />
+          <span class="art-label">ARTCRAFT&nbsp; × &nbsp;CHATGPT</span>
+        </div>
+      </section>
 
-          <nav class="sidebar-nav" aria-label="Primary navigation">
-            <button class="nav-item active">Plugins</button>
-            <button class="nav-item">Project catalog</button>
-            <button class="nav-item">MCP tools</button>
-          </nav>
-
-          <div class="sidebar-group">
-            <p class="group-label">Available MCP tools</p>
-            <ul class="installed-list">
-              <li><span class="mini-icon github">L</span> list_artcraft_projects</li>
-              <li><span class="mini-icon github">S</span> search_artcraft_projects</li>
-              <li><span class="mini-icon github">G</span> get_artcraft_project</li>
-            </ul>
+      <section class="capabilities-section" id="capabilities">
+        <div class="page-width">
+          <div class="section-heading">
+            <p class="eyebrow">BUILT FOR CREATIVE WORK</p>
+            <h2>One connection. Useful workflows.</h2>
+            <p>Connect the unified ArtCraft app once. Available tools are clearly scoped and run where they belong.</p>
           </div>
-        </aside>
-
-        <main class="marketplace-panel">
-          <header class="marketplace-header">
-            <div class="marketplace-title-wrap">
-              <h1>ArtCraft plugins</h1>
-              <p>Connect ChatGPT to public creative-tool project information from <a href="{{ org_url }}" target="_blank" rel="noreferrer">{{ org_name }}</a>.</p>
-            </div>
-
-            <div class="toolbar" aria-label="Toolbar">
-              <label class="search-box" aria-label="Search plugins">
-                <span class="search-icon">⌕</span>
-                <input type="text" placeholder="Search plugins" />
-              </label>
-              <button class="icon-button" aria-label="Filter">↕</button>
-              <a class="add-button" href="https://chatgpt.com/plugins">Open ChatGPT Apps</a>
-            </div>
-          </header>
-
-          <div class="tabs" aria-label="Categories">
-            <button class="tab active">All</button>
-            <button class="tab">Creative</button>
-            <button class="tab">AI tools</button>
-            <button class="tab">Productivity</button>
+          <div class="capability-grid">
+            <article class="capability-card capability-featured">
+              <span class="card-number">01</span>
+              <div class="card-icon" aria-hidden="true">✳</div>
+              <h3>ArtCraft image generation</h3>
+              <p>Submit image prompts and check job progress using your ArtCraft account. Your API key stays in macOS Keychain.</p>
+              <span class="card-tag">May use account credits</span>
+            </article>
+            <article class="capability-card">
+              <span class="card-number">02</span>
+              <div class="card-icon card-icon-lilac" aria-hidden="true">▤</div>
+              <h3>PdfCraft workflows</h3>
+              <p>Inspect, search, and extract PDF content, or create new combined, extracted, and rotated PDFs within your Documents folder.</p>
+              <span class="card-tag">Local files · ~/Documents</span>
+            </article>
+            <article class="capability-card">
+              <span class="card-number">03</span>
+              <div class="card-icon card-icon-green" aria-hidden="true">◈</div>
+              <h3>PhotoCraft tools</h3>
+              <p>Discover and use PhotoCraft’s native MCP tools with file access confined to your dedicated ArtCraft workspace.</p>
+              <span class="card-tag">Local files · ~/Documents/ArtCraft</span>
+            </article>
+            <article class="capability-card">
+              <span class="card-number">04</span>
+              <div class="card-icon card-icon-amber" aria-hidden="true">⌘</div>
+              <h3>Storytold projects</h3>
+              <p>Browse, search, and read public repositories from the Storytold creative software ecosystem.</p>
+              <span class="card-tag">Read-only · Open source</span>
+            </article>
           </div>
+          <p class="capability-note">
+            Other Craft apps can be discovered here, but their editing controls are not yet available through this MCP integration.
+            Local capabilities require the ArtCraft app and Secure MCP Tunnel to be running on your Mac.
+          </p>
+        </div>
+      </section>
 
-          {% if error_message %}
-          <p class="error-message">{{ error_message }}</p>
-          {% endif %}
+      <section class="projects-section page-width" id="projects">
+        <div class="section-heading project-heading">
+          <div>
+            <p class="eyebrow">THE OPEN-SOURCE ECOSYSTEM</p>
+            <h2>Explore Storytold projects.</h2>
+            <p>Discover the public repositories shaping a new generation of creative software.</p>
+          </div>
+          <a class="text-link" href="{{ org_url }}" target="_blank" rel="noopener noreferrer">
+            Visit Storytold on GitHub <span aria-hidden="true">↗</span>
+          </a>
+        </div>
 
-          <section class="plugin-groups" aria-label="Storytold projects">
-            {% for section_name, repos in repo_sections %}
-            <div class="plugin-group">
-              <h2>{{ section_name }} <span>• {{ repos|length }} apps</span></h2>
-              <div class="plugin-grid">
-                {% for repo in repos %}
-                <article class="plugin-card">
-                  <div class="plugin-main">
-                    <div class="plugin-icon storytold">S</div>
-                    <div class="plugin-copy">
-                      <h3>{{ repo.name }}</h3>
-                      <p>{{ repo.description }}</p>
-                    </div>
-                  </div>
-                  <a class="plugin-action" href="{{ repo.url }}" target="_blank" rel="noreferrer" aria-label="View {{ repo.name }} on GitHub">↗</a>
-                </article>
-                {% endfor %}
-              </div>
+        {% if error_message %}
+        <p class="error-message" role="status">{{ error_message }}</p>
+        {% elif repos %}
+        <div class="project-grid">
+          {% for repo in repos %}
+          <article class="project-card">
+            <div class="project-card-top">
+              <span class="project-mark" aria-hidden="true">{{ repo.name[:1]|upper }}</span>
+              <span class="project-stars" aria-label="{{ repo.stars }} GitHub stars">☆ {{ repo.stars }}</span>
             </div>
-            {% endfor %}
-          </section>
-          <aside class="mcp-setup">
-            <h2>Connect this MCP server to ChatGPT</h2>
-            <p>Deploy this app to a public HTTPS URL, then add its <code>/mcp/</code> endpoint in ChatGPT’s developer settings as a custom MCP app.</p>
-            <pre>https://YOUR-PUBLIC-HOST/mcp/</pre>
-            <p class="setup-note">The tools currently search, list, and read public Storytold repositories. They do not control ArtCraft’s desktop editor or create/edit media.</p>
-          </aside>
-        </main>
-      </div>
-    </div>
+            <h3><a href="{{ repo.url }}" target="_blank" rel="noopener noreferrer">{{ repo.name }}</a></h3>
+            <p>{{ repo.description }}</p>
+            <div class="project-meta">
+              {% if repo.language %}<span>{{ repo.language }}</span>{% endif %}
+              {% for topic in repo.topics[:2] %}<span>{{ topic }}</span>{% endfor %}
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-state">No public projects are available right now. Please try again shortly.</p>
+        {% endif %}
+      </section>
+
+      <section class="connect-section" id="about">
+        <div class="connect-card page-width">
+          <div>
+            <p class="eyebrow">ONE ARTCRAFT APP</p>
+            <h2>Designed to work as one.</h2>
+            <p>
+              The unified local MCP server already includes project discovery,
+              image generation, PdfCraft, and PhotoCraft. Connect that server in
+              ChatGPT; adding the public catalog separately would duplicate the
+              project tools.
+            </p>
+          </div>
+          <a class="button button-light" href="{{ project_url }}" target="_blank" rel="noopener noreferrer">
+            Read the setup guide <span aria-hidden="true">↗</span>
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer page-width">
+      <a class="brand footer-brand" href="#top">
+        <img src="https://getartcraft.com/artcraft-icon.svg" alt="" />
+        <span>ArtCraft</span>
+      </a>
+      <p>An independent, open-source community integration for creative workflows.</p>
+      <a href="{{ project_url }}" target="_blank" rel="noopener noreferrer">Source on GitHub ↗</a>
+    </footer>
   </body>
 </html>
