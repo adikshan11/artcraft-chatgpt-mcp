@@ -84,6 +84,23 @@ class IdentityAndIsolationTests(StudioTestCase):
             with self.assertRaises(StorageError):
                 object_key(self.user, bad)
 
+    def test_storage_config_supports_backblaze_and_r2(self):
+        from media_storage import S3Storage, storage_from_env
+
+        b2 = {"S3_ENDPOINT_URL": "https://s3.us-west-004.backblazeb2.com", "S3_ACCESS_KEY_ID": "k",
+              "S3_SECRET_ACCESS_KEY": "s", "S3_BUCKET": "b"}
+        with patch.dict(os.environ, b2, clear=True):
+            store = storage_from_env()
+            self.assertIsInstance(store, S3Storage)
+            self.assertEqual(store.client.meta.region_name, "us-west-004")
+            self.assertIn("backblazeb2.com", store.client.meta.endpoint_url)
+        r2 = {"R2_ACCOUNT_ID": "acct", "R2_ACCESS_KEY_ID": "k", "R2_SECRET_ACCESS_KEY": "s", "R2_BUCKET": "b"}
+        with patch.dict(os.environ, r2, clear=True):
+            self.assertEqual(storage_from_env().client.meta.endpoint_url, "https://acct.r2.cloudflarestorage.com")
+        with patch.dict(os.environ, {"RENDER": "true"}, clear=True):
+            with self.assertRaises(StorageError):
+                storage_from_env()
+
     def test_url_import_blocks_private_networks(self):
         for url in ("http://example.com/a.png", "https://127.0.0.1/a.png", "https://169.254.169.254/x.png"):
             with self.assertRaises(engine.MediaError):

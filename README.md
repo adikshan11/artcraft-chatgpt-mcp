@@ -230,7 +230,8 @@ python -m unittest discover -s tests -v
 
 `/studio` is the public MCP endpoint for anyone using ChatGPT, Claude, or another
 MCP client. Users sign in with OAuth; every tool works only on the signed-in
-user's own files in Cloudflare R2 (`users/<opaque-user-id>/media/…`). No
+user's own files in S3-compatible storage such as Backblaze B2 or Cloudflare R2
+(`users/<opaque-user-id>/media/…`). No
 personal API key is shared with the public.
 
 | Area | Tools |
@@ -257,14 +258,23 @@ user to 5 GB (`STUDIO_MAX_FILE_MB`, `STUDIO_USER_QUOTA_MB`).
    signing. Enable *Dynamic Client Registration* and the *Resource Parameter
    Compatibility Profile* so ChatGPT and Claude can register themselves, and
    promote a login connection (e.g. Google, email) to a domain-level connection.
-2. **Cloudflare R2.** Create a private bucket and an API token scoped to *Object
-   Read & Write* on that bucket only. Add a CORS rule allowing `PUT` and `GET`
-   from any origin (presigned URLs carry their own authorization), and a
-   lifecycle rule expiring objects after, e.g., 30 days.
+2. **Storage.** Either provider works; Backblaze B2 needs no card for its free
+   10 GB.
+   - *Backblaze B2:* create a **private** bucket, then an application key
+     restricted to that bucket with read and write access. Set `S3_ENDPOINT_URL`
+     (the bucket's endpoint, e.g. `https://s3.us-west-004.backblazeb2.com`),
+     `S3_ACCESS_KEY_ID` (keyID), `S3_SECRET_ACCESS_KEY` (applicationKey), and
+     `S3_BUCKET`.
+   - *Cloudflare R2:* create a private bucket and an API token scoped to *Object
+     Read & Write* on it; set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
+     `R2_SECRET_ACCESS_KEY`, and `R2_BUCKET`.
+
+   Allow `GET` and `PUT` from any origin in the bucket's CORS rules (presigned
+   URLs carry their own authorization) and expire objects after, e.g., 7 days.
 3. **Render.** The service builds from `Dockerfile` (includes FFmpeg). Set
    `OAUTH_ISSUER` (e.g. `https://<tenant>.us.auth0.com/` — exact, including the
-   trailing slash), `OAUTH_AUDIENCE` (the API identifier above), and the four
-   `R2_*` variables in the dashboard. Long videos need more than the free plan's
+   trailing slash), `OAUTH_AUDIENCE` (the API identifier above), and the storage
+   variables in the dashboard. Long videos need more than the free plan's
    512 MB of memory.
 4. **Connect.** In ChatGPT developer mode or Claude's custom connectors, add
    `https://artcraft-storytold-mcp.onrender.com/studio` and sign in.

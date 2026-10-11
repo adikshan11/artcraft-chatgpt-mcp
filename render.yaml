@@ -14,12 +14,12 @@ services:
         sync: false
       - key: OAUTH_AUDIENCE
         sync: false
-      # Cloudflare R2 storage for user files.
-      - key: R2_ACCOUNT_ID
+      # S3-compatible storage for user files (Backblaze B2 shown; R2_* also works).
+      - key: S3_ENDPOINT_URL
         sync: false
-      - key: R2_ACCESS_KEY_ID
+      - key: S3_ACCESS_KEY_ID
         sync: false
-      - key: R2_SECRET_ACCESS_KEY
+      - key: S3_SECRET_ACCESS_KEY
         sync: false
-      - key: R2_BUCKET
+      - key: S3_BUCKET
         sync: false
