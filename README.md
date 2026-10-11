@@ -4,8 +4,9 @@ This project provides one unified **ArtCraft** MCP connection for ChatGPT:
 
 - **Website**: [artcraft-storytold-mcp.onrender.com](https://artcraft-storytold-mcp.onrender.com)
   is the public introduction and read-only Storytold project catalog.
-- **ArtCraft branding**: the local MCP server uses the official
-  [ArtCraft icon](https://getartcraft.com/artcraft-icon.svg).
+- **Official ArtCraft website**: [getartcraft.com](https://getartcraft.com).
+- **ArtCraft branding**: the local MCP server uses the
+  [open-source ArtCraft icon from the Storytold repository](https://github.com/storytold/artcraft/blob/main/frontend/apps/artcraft/app/public/artcraft-icon.svg).
 - **ArtCraft apps and projects**: list, search, and read public Storytold
   repositories, including the Craft creative-app projects.
 - **ArtCraft image generation**: submit image-generation jobs and check their

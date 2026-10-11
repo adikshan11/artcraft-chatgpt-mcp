@@ -15,6 +15,8 @@ from starlette.testclient import TestClient as AsgiTestClient
 
 from app import (
     ARTCRAFT_APP_DESCRIPTION,
+    ARTCRAFT_ICON_URL,
+    ARTCRAFT_PRODUCT_URL,
     ARTCRAFT_SITE_URL,
     GitHubRequestError,
     app,
@@ -88,6 +90,12 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b"PdfCraft workflows", response.data)
         self.assertIn(b"PhotoCraft tools", response.data)
         self.assertIn(b"ArtCraft image generation", response.data)
+        self.assertIn(ARTCRAFT_ICON_URL.encode(), response.data)
+        self.assertIn(
+            f'href="{ARTCRAFT_PRODUCT_URL}"'.encode(),
+            response.data,
+        )
+        self.assertIn(ARTCRAFT_PRODUCT_URL.encode(), ARTCRAFT_APP_DESCRIPTION.encode())
         self.assertNotIn(b"Adobe Express", response.data)
 
     def test_mcp_streamable_http_mount_exists(self):
