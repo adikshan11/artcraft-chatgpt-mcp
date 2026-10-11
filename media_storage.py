@@ -1,8 +1,8 @@
 """Per-user media storage for the hosted ArtCraft Studio service.
 
 Every object lives under ``users/<user-id>/media/<media-id>`` so one signed-in
-user can never name another user's files. Production uses Cloudflare R2 through
-its S3-compatible API; tests and local development use a plain directory.
+user can never name another user's files. Production uses S3-compatible object
+storage (Cloudflare R2 or Backblaze B2); tests and local development use a plain directory.
 """
 
 import hashlib
@@ -125,20 +125,20 @@ class LocalStorage:
         return self._path(user_id, media_id).resolve().as_uri()
 
 
-class R2Storage:
-    """Cloudflare R2 storage using the S3-compatible API and presigned URLs."""
+class S3Storage:
+    """S3-compatible storage (Cloudflare R2, Backblaze B2, ...) with presigned URLs."""
 
-    def __init__(self, account_id, access_key_id, secret_access_key, bucket):
+    def __init__(self, endpoint_url, access_key_id, secret_access_key, bucket, region="auto"):
         import boto3
         from botocore.config import Config
 
         self.bucket = bucket
         self.client = boto3.client(
             "s3",
-            endpoint_url=f"https://{account_id}.r2.cloudflarestorage.com",
+            endpoint_url=endpoint_url,
             aws_access_key_id=access_key_id,
             aws_secret_access_key=secret_access_key,
-            region_name="auto",
+            region_name=region,
             config=Config(signature_version="s3v4", retries={"max_attempts": 3}),
         )
 
@@ -198,10 +198,27 @@ class R2Storage:
 
 
 def storage_from_env():
-    """R2 when its credentials are configured, otherwise a local directory."""
+    """S3-compatible storage when configured, otherwise a local directory.
+
+    Generic S3 (e.g. Backblaze B2): S3_ENDPOINT_URL, S3_ACCESS_KEY_ID,
+    S3_SECRET_ACCESS_KEY, S3_BUCKET, optional S3_REGION.
+    Cloudflare R2 shorthand: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET.
+    """
+    s3_vars = ("S3_ENDPOINT_URL", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "S3_BUCKET")
+    if all(os.environ.get(name) for name in s3_vars):
+        endpoint = os.environ["S3_ENDPOINT_URL"]
+        region = os.environ.get("S3_REGION") or _region_from_endpoint(endpoint)
+        return S3Storage(*(os.environ[name] for name in s3_vars), region=region)
     r2_vars = ("R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET")
     if all(os.environ.get(name) for name in r2_vars):
-        return R2Storage(*(os.environ[name] for name in r2_vars))
+        account_id, *rest = (os.environ[name] for name in r2_vars)
+        return S3Storage(f"https://{account_id}.r2.cloudflarestorage.com", *rest)
     if os.environ.get("RENDER"):
-        raise StorageError("R2 storage is not configured on this deployment.")
+        raise StorageError("File storage is not configured on this deployment.")
     return LocalStorage(Path(os.environ.get("STUDIO_LOCAL_STORAGE", ".studio-storage")))
+
+
+def _region_from_endpoint(endpoint: str) -> str:
+    """Backblaze-style endpoints embed the region: https://s3.<region>.backblazeb2.com."""
+    match = re.match(r"^https://s3\.([a-z0-9-]+)\.", endpoint)
+    return match.group(1) if match else "auto"
