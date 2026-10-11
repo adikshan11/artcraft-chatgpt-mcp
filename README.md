@@ -225,3 +225,58 @@ rate limit.
 ```sh
 python -m unittest discover -s tests -v
 ```
+
+## ArtCraft Studio (public, multi-user)
+
+`/studio` is the public MCP endpoint for anyone using ChatGPT, Claude, or another
+MCP client. Users sign in with OAuth; every tool works only on the signed-in
+user's own files in Cloudflare R2 (`users/<opaque-user-id>/media/…`). No
+personal API key is shared with the public.
+
+| Area | Tools |
+| --- | --- |
+| Library | `list_media`, `import_media_from_url`, `create_upload_link`, `get_download_link`, `inspect_media`, `delete_media` |
+| Video & audio (FFmpeg) | `trim_video`, `transform_video` (resize, speed, mute, rotate, crop, convert), `join_videos`, `add_audio_to_video`, `add_text_to_video`, `extract_audio`, `capture_frame` |
+| Images (Pillow) | `edit_image` (crop, resize, rotate, flip, brightness/contrast/saturation, blur, sharpen, grayscale, sepia, border, text…), `layer_images` |
+| PDF | `read_pdf_text`, `organize_pdf` (reorder, delete, extract, rotate), `merge_pdfs`, `add_text_to_pdf`, `fill_pdf_form`, `watermark_pdf`, `sign_pdf` |
+
+Edits never overwrite: each produces a new file and a one-hour download link.
+`sign_pdf` adds a visible electronic signature plus an audit-trail page with the
+original document's SHA-256; it is not a certificate-based (PAdES) digital
+signature.
+
+Safety limits: URL imports are HTTPS-only and refuse private/internal addresses;
+FFmpeg only accepts ordinary media containers from local files (no playlists or
+network inputs); images are capped at 80 MP; files default to 500 MB and each
+user to 5 GB (`STUDIO_MAX_FILE_MB`, `STUDIO_USER_QUOTA_MB`).
+
+### Deploy
+
+1. **OAuth (Auth0 shown; Clerk works the same way).** Create an API with
+   identifier `https://artcraft-storytold-mcp.onrender.com/studio` and RS256
+   signing. Enable *Dynamic Client Registration* and the *Resource Parameter
+   Compatibility Profile* so ChatGPT and Claude can register themselves, and
+   promote a login connection (e.g. Google, email) to a domain-level connection.
+2. **Cloudflare R2.** Create a private bucket and an API token scoped to *Object
+   Read & Write* on that bucket only. Add a CORS rule allowing `PUT` and `GET`
+   from any origin (presigned URLs carry their own authorization), and a
+   lifecycle rule expiring objects after, e.g., 30 days.
+3. **Render.** The service builds from `Dockerfile` (includes FFmpeg). Set
+   `OAUTH_ISSUER` (e.g. `https://<tenant>.us.auth0.com/` — exact, including the
+   trailing slash), `OAUTH_AUDIENCE` (the API identifier above), and the four
+   `R2_*` variables in the dashboard. Long videos need more than the free plan's
+   512 MB of memory.
+4. **Connect.** In ChatGPT developer mode or Claude's custom connectors, add
+   `https://artcraft-storytold-mcp.onrender.com/studio` and sign in.
+
+Locally, without OAuth, set `STUDIO_DEV_USER=yourname` to act as one user; files
+go to `.studio-storage/`. This bypass is disabled on Render.
+
+### Publishing publicly
+
+The ChatGPT listing's **Website**, icon, and "Developer mode" label come from
+the app submission, not from this server. Submit the `/studio` URL through the
+OpenAI Platform's app submission flow with a verified developer identity,
+privacy policy, terms, support contact, icon, and test credentials; it is
+public only after review approval. Claude's connector directory has its own
+submission form.

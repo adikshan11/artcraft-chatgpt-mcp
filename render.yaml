@@ -1,11 +1,25 @@
 services:
   - type: web
     name: artcraft-storytold-mcp
-    runtime: python
+    runtime: docker
+    # Video processing needs more than the free plan's 512 MB for long clips;
+    # move to a paid instance before promoting video editing publicly.
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app:asgi_app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.12.11
+      - key: PUBLIC_BASE_URL
+        value: https://artcraft-storytold-mcp.onrender.com
+      # OAuth (Auth0 or Clerk). See README "ArtCraft Studio".
+      - key: OAUTH_ISSUER
+        sync: false
+      - key: OAUTH_AUDIENCE
+        sync: false
+      # Cloudflare R2 storage for user files.
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false

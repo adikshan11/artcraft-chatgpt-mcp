@@ -38,7 +38,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
     def test_health_endpoint(self):
         response = self.client.get("/health")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json, {"status": "ok", "mcp_endpoint": "/mcp/"})
+        self.assertEqual(response.json, {"status": "ok", "mcp_endpoint": "/mcp/", "studio_endpoint": "/studio"})
 
     @patch("app.request.urlopen")
     def test_github_token_is_sent_as_bearer_auth(self, urlopen):
