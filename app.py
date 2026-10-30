@@ -260,6 +260,7 @@ def create_asgi_app():
         transport_security=TransportSecuritySettings(allowed_hosts=mcp_allowed_hosts()),
     )
 
+    import craft_sessions
     from studio_mcp import STUDIO_PATH, create_studio_app, studio
 
     studio_app = create_studio_app(mcp_allowed_hosts())
@@ -267,7 +268,10 @@ def create_asgi_app():
     @asynccontextmanager
     async def lifespan(_app):
         async with mcp.session_manager.run(), studio.session_manager.run():
-            yield
+            try:
+                yield
+            finally:
+                await craft_sessions.manager.close_all()
 
     site = Starlette(
         routes=[

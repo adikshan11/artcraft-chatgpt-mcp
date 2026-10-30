@@ -5,6 +5,7 @@ access tokens). Every tool resolves the caller from their access token and only
 touches that caller's files in storage. No personal API keys are used.
 """
 
+import asyncio
 import os
 import tempfile
 from functools import lru_cache
@@ -17,9 +18,10 @@ from mcp.server.auth.provider import AccessToken
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
-from mcp.types import Icon, ToolAnnotations
+from mcp.types import CallToolResult, Icon, ImageContent, TextContent, ToolAnnotations
 from pydantic import BaseModel, Field
 
+import craft_sessions
 import media_engine as engine
 from media_storage import (
     StorageError,
@@ -44,7 +46,10 @@ STUDIO_INSTRUCTIONS = (
     "with import_media_from_url (or create_upload_link), then pass the returned media_id "
     "to video, image, or PDF tools. Every edit creates a new file and returns a "
     "download_url; originals are never modified. Only sign PDFs when the user explicitly "
-    "asks to sign as themselves."
+    "asks to sign as themselves. For documents, use the Craft apps: list_craft_apps, then "
+    "open_craft_session with the app and media_ids, call run_craft_tool with the app's own "
+    "tools (save with the app's save tool, e.g. save_document to a new filename), then "
+    "save_craft_files to store the results and close_craft_session when done."
 )
 
 
@@ -252,7 +257,7 @@ CREATE = ToolAnnotations(read_only_hint=False, destructive_hint=False, idempoten
 
 
 @studio.tool(title="List my media", annotations=READ, structured_output=True)
-def list_media(kind: Literal["all", "video", "image", "audio", "pdf"] = "all", limit: int = 50) -> MediaList:
+def list_media(kind: Literal["all", "video", "image", "audio", "pdf", "document"] = "all", limit: int = 50) -> MediaList:
     """List files in the user's ArtCraft Studio library, newest first."""
     user = current_user()
 
@@ -353,6 +358,9 @@ def inspect_media(media_id: str) -> MediaInfo:
             elif kind == "image":
                 image = engine._open_image(path)
                 details = {"width": image.width, "height": image.height, "mode": image.mode}
+            elif kind == "document":
+                details = {"size_bytes": path.stat().st_size,
+                           "hint": "Open it with open_craft_session to read or edit it."}
             else:
                 details = engine.probe(path)
             return MediaInfo(media_id=media_id, kind=kind, details=details)
@@ -674,6 +682,203 @@ def sign_pdf(
             return SignedPdf(**item.model_dump(), **record)
 
     return _run(body)
+
+
+# --------------------------------------------------------------------------- #
+# Hosted Craft apps
+# --------------------------------------------------------------------------- #
+
+MAX_CRAFT_TEXT_CHARS = 100_000
+MAX_CRAFT_IMAGE_CHARS = 8_000_000  # base64 characters per returned image
+
+
+class CraftAppInfo(BaseModel):
+    name: str
+    title: str
+    version: str
+    description: str
+    file_types: list[str]
+    website: str
+
+
+class CraftAppList(BaseModel):
+    apps: list[CraftAppInfo]
+
+
+class CraftToolInfo(BaseModel):
+    name: str
+    description: str
+    input_schema: dict
+
+
+class CraftSessionInfo(BaseModel):
+    session_id: str
+    app: str
+    files: list[str] = Field(description="Files in the session folder, by the path to pass to the app's tools.")
+    tools: list[CraftToolInfo]
+    idle_minutes: int
+
+
+class CraftFiles(BaseModel):
+    session_id: str
+    files: list[str]
+
+
+class SkippedFile(BaseModel):
+    path: str
+    reason: str
+
+
+class SavedCraftFile(MediaItem):
+    path: str
+
+
+class CraftSaveResult(BaseModel):
+    saved: list[SavedCraftFile]
+    skipped: list[SkippedFile]
+
+
+def _craft(action):
+    try:
+        return action()
+    except (craft_sessions.CraftError, StorageError) as exc:
+        raise ToolError(str(exc)) from exc
+
+
+async def _craft_async(coro):
+    try:
+        return await coro
+    except (craft_sessions.CraftError, StorageError) as exc:
+        raise ToolError(str(exc)) from exc
+
+
+def _copy_into(user_id: str, app: craft_sessions.CraftApp, media_ids: list[str], root: Path) -> list[str]:
+    """Copy the user's files into a session folder, named by their media ids."""
+    names = []
+    for media_id in media_ids:
+        validate_media_id(media_id)
+        ext = media_id.rsplit(".", 1)[1]
+        if ext not in app.extensions:
+            raise StorageError(f"{app.title} cannot open .{ext} files. It handles: {', '.join(app.extensions)}.")
+        if not (root / media_id).exists():
+            storage().get_file(user_id, media_id, root / media_id)
+        names.append(media_id)
+    return names
+
+
+def _craft_result(raw: dict) -> CallToolResult:
+    content = []
+    for block in raw.get("content") or []:
+        if block.get("type") == "text":
+            text = block.get("text", "")
+            if len(text) > MAX_CRAFT_TEXT_CHARS:
+                text = text[:MAX_CRAFT_TEXT_CHARS] + "\n[... output truncated by Studio]"
+            content.append(TextContent(type="text", text=text))
+        elif block.get("type") == "image" and len(block.get("data", "")) <= MAX_CRAFT_IMAGE_CHARS:
+            content.append(ImageContent(type="image", data=block["data"], mimeType=block.get("mimeType", "image/png")))
+        else:
+            content.append(TextContent(type="text", text=f"[{block.get('type', 'unknown')} content omitted by Studio]"))
+    return CallToolResult(content=content or [TextContent(type="text", text="(no output)")],
+                          isError=bool(raw.get("isError")))
+
+
+@studio.tool(title="List Craft apps", annotations=READ, structured_output=True)
+async def list_craft_apps() -> CraftAppList:
+    """List the open-source Craft apps (e.g. WordCraft) that Studio can run on your files."""
+    current_user()
+    await craft_sessions.manager.reap_idle()
+    return CraftAppList(apps=[
+        CraftAppInfo(name=a.name, title=a.title, version=a.version, description=a.description,
+                     file_types=list(a.extensions), website=a.website)
+        for a in craft_sessions.installed_apps()
+    ])
+
+
+@studio.tool(title="Open Craft session", annotations=CREATE, structured_output=True)
+async def open_craft_session(app: str, media_ids: list[str] | None = None) -> CraftSessionInfo:
+    """Start a Craft app for the signed-in user, with copies of the given files.
+
+    Returns the session id, the files in its private folder, and the app's own tools.
+    Pass file paths to those tools exactly as listed. Originals are never changed.
+    """
+    user = current_user()
+    craft_app = _craft(lambda: craft_sessions.get_app(app))
+    ids = list(media_ids or [])
+    session = await _craft_async(craft_sessions.manager.open(
+        user, craft_app, lambda root: _copy_into(user, craft_app, ids, root)))
+    return CraftSessionInfo(
+        session_id=session.id,
+        app=craft_app.name,
+        files=sorted(session.files()),
+        tools=[CraftToolInfo(name=t["name"], description=(t.get("description") or "")[:500],
+                             input_schema=t.get("inputSchema") or {}) for t in session.tools],
+        idle_minutes=craft_sessions.IDLE_SECONDS // 60,
+    )
+
+
+@studio.tool(title="Add files to Craft session", annotations=CREATE, structured_output=True)
+async def add_craft_files(session_id: str, media_ids: list[str]) -> CraftFiles:
+    """Copy more of the user's files into an open Craft session (for example a picture to insert)."""
+    user = current_user()
+    session = _craft(lambda: craft_sessions.manager.get(user, session_id))
+    await _craft_async(asyncio.to_thread(_copy_into, user, session.app, media_ids, session.root))
+    for media_id in media_ids:  # newly added inputs are not results to save
+        path = session.root / media_id
+        session.snapshot[media_id] = (path.stat().st_size, path.stat().st_mtime_ns)
+    return CraftFiles(session_id=session.id, files=sorted(session.files()))
+
+
+@studio.tool(
+    title="Run Craft tool",
+    annotations=ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world_hint=False),
+)
+async def run_craft_tool(session_id: str, tool: str, arguments: dict | None = None) -> CallToolResult:
+    """Call one of the session's Craft app tools (listed by open_craft_session) with its arguments.
+
+    Files are only stored in the user's library after save_craft_files.
+    """
+    user = current_user()
+    session = _craft(lambda: craft_sessions.manager.get(user, session_id))
+    raw = await _craft_async(craft_sessions.manager.call(session, tool, arguments or {}))
+    return _craft_result(raw)
+
+
+@studio.tool(title="Save Craft files", annotations=CREATE, structured_output=True)
+async def save_craft_files(session_id: str) -> CraftSaveResult:
+    """Store every file the app created or changed since the last save as new library files.
+
+    Call the app's own save tool first; open documents are only written to the folder then.
+    """
+    user = current_user()
+    session = _craft(lambda: craft_sessions.manager.get(user, session_id))
+
+    def body():
+        saved, skipped = [], []
+        for rel, path in sorted(session.changed_files().items()):
+            try:
+                media_id = new_media_id(rel)
+                size = path.stat().st_size
+                _check_quota(user, size)
+                storage().put_file(user, media_id, path)
+            except (StorageError, ToolError) as exc:
+                skipped.append(SkippedFile(path=rel, reason=str(exc)))
+                continue
+            saved.append(SavedCraftFile(**_item(user, media_id, size).model_dump(), path=rel))
+            session.snapshot[rel] = (size, path.stat().st_mtime_ns)
+        return CraftSaveResult(saved=saved, skipped=skipped)
+
+    return await _craft_async(asyncio.to_thread(body))
+
+
+@studio.tool(
+    title="Close Craft session",
+    annotations=ToolAnnotations(read_only_hint=False, destructive_hint=True, idempotent_hint=True, open_world_hint=False),
+)
+async def close_craft_session(session_id: str) -> str:
+    """Stop the app and delete the session folder. Unsaved changes are lost; save first."""
+    user = current_user()
+    await _craft_async(craft_sessions.manager.close(user, session_id))
+    return f"Closed {session_id}."
 
 
 def create_studio_app(allowed_hosts: list[str]):

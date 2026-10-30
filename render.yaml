@@ -2,8 +2,9 @@ services:
   - type: web
     name: artcraft-storytold-mcp
     runtime: docker
-    # Video processing needs more than the free plan's 512 MB for long clips;
-    # move to a paid instance before promoting video editing publicly.
+    # Video processing and hosted Craft sessions need more than the free plan's
+    # 512 MB; move to a paid instance (about 2 GB) before promoting them publicly.
+    # Craft sessions live in memory, so keep a single instance.
     plan: free
     healthCheckPath: /health
     envVars:

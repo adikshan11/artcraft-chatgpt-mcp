@@ -25,6 +25,9 @@ ALLOWED_EXTENSIONS = {
     "video": {"mp4", "mov", "webm", "mkv", "m4v"},
     "audio": {"mp3", "wav", "m4a", "aac", "ogg", "flac"},
     "pdf": {"pdf"},
+    # Word-processor files for the hosted Craft apps. HTML and SVG are left out on
+    # purpose: a download link that renders active content is an XSS risk.
+    "document": {"docx", "doc", "odt", "rtf", "md", "txt", "tex"},
 }
 EXTENSION_KIND = {ext: kind for kind, exts in ALLOWED_EXTENSIONS.items() for ext in exts}
 
