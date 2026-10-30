@@ -24,4 +24,6 @@ USER studio
 
 ENV PYTHONUNBUFFERED=1 \
     CRAFT_APPS_DIR=/opt/craft
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
+    CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.environ.get(\"PORT\", \"10000\")}/health', timeout=4)"
 CMD ["sh", "-c", "uvicorn app:asgi_app --host 0.0.0.0 --port ${PORT:-10000} --proxy-headers"]
