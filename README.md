@@ -258,6 +258,14 @@ rate limit.
 python -m unittest discover -s tests -v
 ```
 
+The real-app checks run inside the Docker image, where the Craft CLIs are installed:
+
+```sh
+docker build -t artcraft-plugin .
+docker run --rm -v "$PWD/tests:/app/tests:ro" artcraft-plugin \
+  python -m unittest tests.test_craft_real -v
+```
+
 ## ArtCraft Studio (public, multi-user)
 
 `/studio` is the public MCP endpoint for anyone using ChatGPT, Claude, or another
@@ -272,6 +280,7 @@ personal API key is shared with the public.
 | Video & audio (FFmpeg) | `trim_video`, `transform_video` (resize, speed, mute, rotate, crop, convert), `join_videos`, `add_audio_to_video`, `add_text_to_video`, `extract_audio`, `capture_frame` |
 | Images (Pillow) | `edit_image` (crop, resize, rotate, flip, brightness/contrast/saturation, blur, sharpen, grayscale, sepia, border, text…), `layer_images` |
 | PDF | `read_pdf_text`, `organize_pdf` (reorder, delete, extract, rotate), `merge_pdfs`, `add_text_to_pdf`, `fill_pdf_form`, `watermark_pdf`, `sign_pdf` |
+| Craft apps | `list_craft_apps`, `open_craft_session`, `describe_craft_tools`, `add_craft_files`, `run_craft_tool`, `save_craft_files`, `close_craft_session` |
 
 Edits never overwrite: each produces a new file and a one-hour download link.
 `sign_pdf` adds a visible electronic signature plus an audit-trail page with the
@@ -282,6 +291,54 @@ Safety limits: URL imports are HTTPS-only and refuse private/internal addresses;
 FFmpeg only accepts ordinary media containers from local files (no playlists or
 network inputs); images are capped at 80 MP; files default to 500 MB and each
 user to 5 GB (`STUDIO_MAX_FILE_MB`, `STUDIO_USER_QUOTA_MB`).
+
+### Hosted Craft apps
+
+Studio also runs Storytold's open-source Craft apps on the server, so people can
+use them from claude.ai, the ChatGPT website, or a phone with nothing installed.
+Five apps are included:
+
+| App | What it does | File types |
+| --- | --- | --- |
+| WordCraft 0.12.0 | Documents | docx, doc, odt, rtf, md, txt, tex; exports PDF, PNG |
+| DeckCraft 0.12.0 | Presentations | pptx, .deckcraft; exports PDF, PNG, JPEG |
+| PdfCraft 0.15.0 | PDF editing, forms, redaction, OCR, accessibility | pdf; exports docx, pptx, txt, images |
+| PhotoCraft 0.17.0 | Photo editing | png, jpg, webp, gif, bmp, tiff, psd, .pcraft |
+| VectorCraft 0.18.0 | Vector art (always started with `--headless`) | .vectorcraft, pdf, ai, png, jpg |
+
+SVG and HTML exports are not stored in the library, because a download link that
+renders active content is an XSS risk; save as PDF or PNG instead.
+
+An assistant calls `open_craft_session` with an app and the user's media ids,
+then drives the app with `run_craft_tool` using the app's own tools (listed in
+the session; for apps with many tools, such as PdfCraft, the list has names and
+short descriptions and `describe_craft_tools` returns full schemas), saves with the app's save tool, and calls `save_craft_files` to
+store the results as new library files.
+
+Each session is one copy of the app's MCP server for one user:
+
+- It runs in a private temporary folder holding copies of that user's files,
+  started inside the folder with `--automation-read-root` and
+  `--automation-write-root` set to it. Apps are only listed in
+  [`craft_apps.json`](craft_apps.json) after checking by hand that they refuse
+  every path outside the folder (absolute paths, `../`, and symlinks).
+- It gets a minimal environment, so it never sees storage keys or OAuth
+  settings, plus limits on memory (`CRAFT_MEMORY_LIMIT_MB`, default 1536), file
+  size, and time per call (`CRAFT_CALL_TIMEOUT_SECONDS`, default 120). A call
+  that runs over closes the session.
+- Tools that need the desktop app (screenshots, clicks, UI bridges) or reach
+  outside the session (printing, OS keychains, PdfCraft's JavaScript console)
+  are hidden.
+- Sessions close after `CRAFT_IDLE_MINUTES` (default 10) without use. Each user
+  may have `CRAFT_MAX_SESSIONS_PER_USER` (default 2) open, and the server
+  `CRAFT_MAX_SESSIONS` (default 6).
+- Sessions live in the server's memory, so run Studio as a single instance.
+
+The Docker build downloads each app's Linux release, checks it against the
+sha256 pinned in `craft_apps.json`, and keeps only `<app>-cli` (plus its license
+files) in `/opt/craft`. To add an app, check its confinement, then add its
+version, checksums, file types, hidden tools, and any start options (`mcp_args`)
+to the manifest.
 
 ### Deploy
 

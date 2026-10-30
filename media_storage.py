@@ -15,7 +15,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-MEDIA_ID_PATTERN = re.compile(r"^[0-9a-f]{32}\.[a-z0-9]{2,5}$")
+# Extensions run up to 11 characters for Craft project files such as .vectorcraft.
+MEDIA_ID_PATTERN = re.compile(r"^[0-9a-f]{32}\.[a-z0-9]{2,11}$")
 USER_ID_PATTERN = re.compile(r"^[0-9a-f]{32}$")
 DOWNLOAD_URL_TTL_SECONDS = 3600
 UPLOAD_URL_TTL_SECONDS = 900
@@ -25,6 +26,12 @@ ALLOWED_EXTENSIONS = {
     "video": {"mp4", "mov", "webm", "mkv", "m4v"},
     "audio": {"mp3", "wav", "m4a", "aac", "ogg", "flac"},
     "pdf": {"pdf"},
+    # Word-processor files for the hosted Craft apps. HTML and SVG are left out on
+    # purpose: a download link that renders active content is an XSS risk.
+    "document": {"docx", "doc", "odt", "rtf", "md", "txt", "tex"},
+    "presentation": {"pptx", "deckcraft"},
+    # Native Craft project files and other layered design formats.
+    "project": {"pcraft", "vectorcraft", "psd", "ai"},
 }
 EXTENSION_KIND = {ext: kind for kind, exts in ALLOWED_EXTENSIONS.items() for ext in exts}
 
