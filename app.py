@@ -38,6 +38,7 @@ ARTCRAFT_APP_DESCRIPTION = (
 )
 GITHUB_API = "https://api.github.com"
 MAX_README_CHARS = 12000
+LEGAL_LAST_UPDATED = "31 October 2026"
 MCP_INSTRUCTIONS = (
     "Use these read-only tools to discover public ArtCraft and Storytold projects. "
     "They search, list, and read repository information only; they do not control "
@@ -225,6 +226,38 @@ def get_artcraft_project(name: str) -> ProjectDetails:
 @app.get("/health")
 def health():
     return jsonify({"status": "ok", "mcp_endpoint": "/mcp/", "studio_endpoint": "/studio"})
+
+
+def legal_page(template):
+    from studio_mcp import MAX_FILE_BYTES, USER_QUOTA_BYTES
+
+    return render_template(
+        template,
+        site_url=ARTCRAFT_SITE_URL,
+        project_url=PROJECT_URL,
+        icon_url=ARTCRAFT_ICON_URL,
+        last_updated=LEGAL_LAST_UPDATED,
+        # Must match the expiry rule on the storage bucket (see README "Deploy").
+        retention_days=int(os.environ.get("STUDIO_FILE_RETENTION_DAYS", "7")),
+        max_file_mb=MAX_FILE_BYTES // 1_000_000,
+        quota_mb=USER_QUOTA_BYTES // 1_000_000,
+        support_email=os.environ.get("SUPPORT_EMAIL", "").strip(),
+    )
+
+
+@app.get("/privacy")
+def privacy():
+    return legal_page("privacy.html")
+
+
+@app.get("/terms")
+def terms():
+    return legal_page("terms.html")
+
+
+@app.get("/support")
+def support():
+    return legal_page("support.html")
 
 
 @app.get("/")

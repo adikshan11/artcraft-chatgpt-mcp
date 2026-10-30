@@ -551,6 +551,46 @@ p {
   font-weight: 650;
 }
 
+.site-footer p a {
+  color: inherit;
+}
+
+.legal {
+  max-width: 760px;
+  padding-block: 56px 72px;
+  line-height: 1.65;
+}
+
+.legal h1 {
+  margin: 0 0 6px;
+  font-size: clamp(32px, 5vw, 44px);
+  letter-spacing: -0.02em;
+}
+
+.legal-updated {
+  margin: 0 0 32px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.legal h2 {
+  margin: 36px 0 8px;
+  font-size: 20px;
+}
+
+.legal li + li {
+  margin-top: 6px;
+}
+
+.legal code {
+  font-size: 0.9em;
+  overflow-wrap: anywhere;
+}
+
+.legal a {
+  color: var(--blue);
+}
+
 @media (max-width: 900px) {
   .hero {
     gap: 24px;

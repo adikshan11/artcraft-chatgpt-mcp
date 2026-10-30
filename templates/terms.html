@@ -1,0 +1,66 @@
+{% extends "page.html" %}
+{% block title %}Terms of use{% endblock %}
+{% block description %}The terms for using ArtCraft Studio and the ArtCraft Plugin.{% endblock %}
+{% block content %}
+<p>
+  These terms cover ArtCraft Studio, the connector at <code>{{ site_url }}/studio</code>,
+  and this website. By connecting Studio to your AI assistant, you agree to them.
+</p>
+
+<h2>The service</h2>
+<p>
+  Studio is a free, independent open-source project run by Adithya Shankaran. It is not
+  operated or endorsed by Storytold or the ArtCraft team. It lets your AI assistant edit
+  video, images and PDFs and run Storytold's open-source Craft apps on your files. We
+  may change, limit or stop the service at any time.
+</p>
+
+<h2>Your files</h2>
+<ul>
+  <li>Your files stay yours. We use them only to do what you ask; see the
+    <a href="{{ url_for('privacy') }}">privacy policy</a>.</li>
+  <li>Upload only files you have the right to use.</li>
+  <li>Studio is a workspace, not backup storage. Files are deleted after
+    {{ retention_days }} days, so keep your own copies.</li>
+  <li>Limits: {{ max_file_mb }} MB per file and {{ quota_mb }} MB per account.</li>
+</ul>
+
+<h2>Acceptable use</h2>
+<p>Don't use Studio to:</p>
+<ul>
+  <li>break the law or infringe anyone's rights, including copyright and privacy;</li>
+  <li>upload malware, or try to reach other users' files, the server, or networks
+    behind it;</li>
+  <li>overload the service or get around its limits;</li>
+  <li>sign a document as someone else.</li>
+</ul>
+<p>We may suspend accounts that do.</p>
+
+<h2>Electronic signatures</h2>
+<p>
+  Studio adds a visible signature and an audit page with the document's hash. It is not
+  a certified or qualified electronic signature service. Whether a signature is legally
+  valid depends on where you are and what you sign.
+</p>
+
+<h2>Third-party software and services</h2>
+<p>
+  The Craft apps are made by Storytold and keep their own MIT and Apache-2.0 licenses.
+  Your AI assistant, Auth0, Render and our storage provider each have their own terms.
+  The project's source code is licensed under the
+  <a href="{{ project_url }}/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">Apache License 2.0</a>.
+</p>
+
+<h2>No warranty</h2>
+<p>
+  The service is provided "as is", without warranties of any kind. To the extent the law
+  allows, we aren't liable for lost files, lost data, or any indirect or consequential
+  damages from using it.
+</p>
+
+<h2>Changes</h2>
+<p>
+  If these terms change, we'll update them here and change the date at the top. Using
+  Studio after a change means you accept the new terms.
+</p>
+{% endblock %}

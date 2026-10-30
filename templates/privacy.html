@@ -1,0 +1,76 @@
+{% extends "page.html" %}
+{% block title %}Privacy policy{% endblock %}
+{% block description %}What ArtCraft Studio stores about you, for how long, and how to delete it.{% endblock %}
+{% block content %}
+<p>
+  ArtCraft Plugin is run by Adithya Shankaran as an independent open-source project.
+  It is not operated by Storytold or the ArtCraft team. This policy covers ArtCraft
+  Studio, the connector at <code>{{ site_url }}/studio</code>, and this website.
+</p>
+
+<h2>What we receive</h2>
+<ul>
+  <li><strong>An account ID.</strong> You sign in through our sign-in provider (Auth0).
+    Studio receives only a unique ID for your account from it. We never see your password.</li>
+  <li><strong>Your files.</strong> Files you upload or import, and the files Studio makes
+    for you, such as edited videos, images, documents and signed PDFs.</li>
+  <li><strong>Tool requests.</strong> When your AI assistant uses Studio, it sends the
+    tool name and its inputs, such as a file ID, a caption or a page number. We don't
+    receive your conversation.</li>
+  <li><strong>Request logs.</strong> Our host (Render) records each web request's time,
+    path, status and IP address to keep the service running. We don't log file contents
+    or tool inputs.</li>
+</ul>
+
+<h2>How it's used</h2>
+<p>
+  Only to do what you ask: store your files, run the edit or Craft app you asked for,
+  and give your files back to you. We have no ads and no analytics, set no tracking
+  cookies, don't sell or share your data, and don't use it to train AI models.
+</p>
+
+<h2>Where it's kept and for how long</h2>
+<ul>
+  <li>Files are kept in a private storage bucket (S3-compatible), filed under your
+    account ID. Other users can't list or open them.</li>
+  <li>Files are deleted automatically after {{ retention_days }} days. You can delete
+    any file sooner by asking your assistant to delete it.</li>
+  <li>While a tool runs, Studio copies the files it needs into a temporary folder on the
+    server. The folder is deleted when the tool finishes, or when a Craft app session
+    closes or has been idle for a few minutes.</li>
+  <li>Download links expire after one hour, and upload links after 15 minutes.</li>
+</ul>
+
+<h2>Other services involved</h2>
+<ul>
+  <li><strong>Your AI assistant</strong> (for example ChatGPT or Claude) handles your
+    conversation under its own privacy policy.</li>
+  <li><strong>Auth0</strong> handles sign-in.</li>
+  <li><strong>Render</strong> hosts the server, and a storage provider (Backblaze B2 or
+    Cloudflare R2) keeps the files.</li>
+  <li>When you ask Studio to import a file from a web address, the server downloads it
+    from that address. Only public <code>https</code> addresses are allowed.</li>
+</ul>
+
+<h2>Electronic signatures</h2>
+<p>
+  When you ask Studio to sign a PDF, it adds the name or signature image you choose and
+  an audit page containing the original document's SHA-256 hash. That signed PDF is
+  stored like any other file of yours.
+</p>
+
+<h2>Your choices</h2>
+<p>
+  You can delete your files at any time through the assistant. To have everything tied
+  to your account removed, or to ask what we hold, contact us as described on the
+  <a href="{{ url_for('support') }}">support page</a>. Studio isn't meant for children
+  under 13.
+</p>
+
+<h2>Changes</h2>
+<p>
+  If this policy changes, we'll update it here and change the date at the top. The
+  source code, including what gets stored, is public on
+  <a href="{{ project_url }}" target="_blank" rel="noopener noreferrer">GitHub</a>.
+</p>
+{% endblock %}
