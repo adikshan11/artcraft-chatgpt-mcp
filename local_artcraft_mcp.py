@@ -31,7 +31,7 @@ server = MCPServer(
         "ArtCraft image generation. Repository tools are read-only. Create images only when "
         "explicitly requested; generation can consume ArtCraft credits. After submitting a "
         "job, use get_artcraft_image_job to check its status. The image server reads its API "
-        "key from macOS Keychain; never ask the user to paste their key into ChatGPT. "
+        "key from macOS Keychain; never ask the user to paste their key into the chat. "
         "PdfCraft can inspect, search, extract text from, combine, extract pages from, and "
         "rotate PDFs inside ~/Documents. PdfCraft writes new outputs only and refuses to "
         "overwrite existing files. PhotoCraft's native MCP tools are available through a "

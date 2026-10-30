@@ -20,7 +20,7 @@ app = Flask(__name__)
 
 ORG_NAME = "storytold"
 ORG_URL = f"https://github.com/{ORG_NAME}"
-PROJECT_URL = "https://github.com/adikshan11/artcraft-chatgpt-mcp"
+PROJECT_URL = "https://github.com/adikshan11/artcraft-plugin"
 ARTCRAFT_SITE_URL = "https://artcraft-storytold-mcp.onrender.com"
 ARTCRAFT_PRODUCT_URL = "https://getartcraft.com"
 ARTCRAFT_ICON_URL = (
@@ -28,7 +28,7 @@ ARTCRAFT_ICON_URL = (
     "frontend/apps/artcraft/app/public/artcraft-icon.svg"
 )
 ARTCRAFT_APP_DESCRIPTION = (
-    "A community-built ChatGPT connection for ArtCraft image generation, public "
+    "A community-built MCP plugin for ArtCraft image generation, public "
     "Storytold projects, local PDF workflows, and PhotoCraft tools. Image generation "
     "may use credits; some other Craft app controls are not yet available. Project "
     f"website: {ARTCRAFT_SITE_URL}. Official ArtCraft: {ARTCRAFT_PRODUCT_URL}"
@@ -78,7 +78,7 @@ def github_get(path):
     token = os.environ.get("GITHUB_TOKEN")
     headers = {
         "Accept": "application/vnd.github+json",
-        "User-Agent": "ArtCraft-ChatGPT-MCP/1.0",
+        "User-Agent": "ArtCraft-Plugin/1.0",
         "X-GitHub-Api-Version": "2022-11-28",
     }
     if token:

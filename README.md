@@ -1,6 +1,8 @@
-# ArtCraft ChatGPT MCP
+# ArtCraft Plugin
 
-This project provides one unified **ArtCraft** MCP connection for ChatGPT:
+This project provides one unified **ArtCraft** MCP plugin that works with any
+MCP-capable AI assistant, including ChatGPT, Claude, Gemini CLI, Grok (via the
+xAI API), and Kimi:
 
 - **Website**: [artcraft-storytold-mcp.onrender.com](https://artcraft-storytold-mcp.onrender.com)
   is the public introduction and read-only Storytold project catalog.
@@ -31,14 +33,15 @@ their official MCP interfaces provide a verified workspace boundary.
 ArtCraft API keys are enabled per account. In
 [ArtCraft](https://app.getartcraft.com/), open **Account → Settings → API Keys**
 and create a key. If the API Keys section is missing, contact the ArtCraft team
-to enable API access. The key is shown once; do not paste it into ChatGPT, add
+to enable API access. The key is shown once; do not paste it into a chat, add
 it to Render, or commit it to Git.
 
 Save the key in the macOS Keychain:
 
 1. Open **Keychain Access** and select the **login** keychain.
 2. Create a new password item with the item name
-   `artcraft-chatgpt-mcp`.
+   `artcraft-plugin`. (Items saved under the earlier name
+   `artcraft-chatgpt-mcp` are still read.)
 3. Set **Account Name** to the output of `whoami` in Terminal and **Password**
    to the ArtCraft API key.
 
@@ -68,7 +71,7 @@ chmod 755 "$HOME/.local/share/pdfcraft-cli/0.4.0/pdfcraft-cli"
 ```
 
 Set `PDFCRAFT_CLI_PATH` if the executable is installed somewhere else. In
-ChatGPT, read-only tools can inspect, search, and extract PDF text; creating a
+your assistant, read-only tools can inspect, search, and extract PDF text; creating a
 combined, extracted, or rotated PDF is a write operation and should require
 approval. Source files are left unchanged. The output folder must already exist
 inside `~/Documents`, the output filename must be new, and input/output paths
@@ -101,11 +104,11 @@ cp /tmp/photocraft-cli-0.5.0/photocraft-cli-0.5.0-macos-universal/photocraft-cli
 chmod 755 "$HOME/.local/share/artcraft-cli/photocraft/0.5.0/photocraft-cli"
 ```
 
-Set `PHOTOCRAFT_CLI_PATH` if the CLI is installed elsewhere. In ChatGPT, call
+Set `PHOTOCRAFT_CLI_PATH` if the CLI is installed elsewhere. In your assistant, call
 `list_photocraft_tools` to see the upstream tool names and input schemas, then
 call `call_photocraft_tool` with a discovered name and its arguments. The native
 PhotoCraft tool result, including structured data and images, is forwarded to
-ChatGPT. Because the native tool set includes editing and UI controls, calls
+the assistant. Because the native tool set includes editing and UI controls, calls
 through the proxy are marked write-capable.
 
 VectorCraft is not enabled yet. Although current upstream source documents
@@ -130,6 +133,35 @@ directly for MCP Inspector:
 ```sh
 python local_artcraft_mcp.py
 ```
+
+## Connect it to Claude, Gemini, and other MCP clients
+
+Desktop and command-line clients can launch the local server directly over
+stdio, with no tunnel. Point them at the virtual environment's Python and
+`local_artcraft_mcp.py`:
+
+```json
+{
+  "mcpServers": {
+    "artcraft": {
+      "command": "/Users/YOUR_MAC_USERNAME/workspace/artcraft_plugin/.venv/bin/python",
+      "args": ["/Users/YOUR_MAC_USERNAME/workspace/artcraft_plugin/local_artcraft_mcp.py"]
+    }
+  }
+}
+```
+
+- **Claude Desktop:** add the block above to
+  `~/Library/Application Support/Claude/claude_desktop_config.json`.
+- **Claude Code:** `claude mcp add artcraft -- <python path> <server path>`.
+- **Gemini CLI:** add the same `mcpServers` block to `~/.gemini/settings.json`.
+- **Cursor, Kimi CLI, and other clients:** use their MCP settings with the same
+  command and arguments.
+
+Web chat apps that cannot launch local processes (claude.ai, the Gemini and
+Grok web apps) can use the public `/studio` endpoint instead, where the client
+supports custom remote MCP servers. Which consumer apps allow that is decided
+by each vendor, not by this server.
 
 ## Connect it to ChatGPT with Secure MCP Tunnel
 
@@ -167,7 +199,7 @@ use that tunnel in the ChatGPT workspace.
      --sample sample_mcp_stdio_local \
      --profile artcraft-local \
      --tunnel-id tunnel_REPLACE_WITH_YOUR_ID \
-     --mcp-command "/Users/YOUR_MAC_USERNAME/workspace/artcraft_chatgpt_app/.venv/bin/python /Users/YOUR_MAC_USERNAME/workspace/artcraft_chatgpt_app/local_artcraft_mcp.py"
+     --mcp-command "/Users/YOUR_MAC_USERNAME/workspace/artcraft_plugin/.venv/bin/python /Users/YOUR_MAC_USERNAME/workspace/artcraft_plugin/local_artcraft_mcp.py"
 
    tunnel-client doctor --profile artcraft-local --explain
    tunnel-client run --profile artcraft-local
@@ -203,7 +235,7 @@ the ArtCraft API key.
   restricted to `~/Documents/ArtCraft`.
 
 The API key and tunnel runtime key are different credentials. Never send either
-key in a ChatGPT prompt or commit them to source control.
+key in a chat prompt or commit them to source control.
 
 ## Public website and project catalog
 
