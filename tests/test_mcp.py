@@ -89,11 +89,13 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b"Creative work,", response.data)
         self.assertIn(b"OPEN-SOURCE COMMUNITY INTEGRATION", response.data)
         self.assertIn(b"One connection. Useful workflows.", response.data)
-        self.assertIn(b"ONE ARTCRAFT APP", response.data)
+        self.assertIn(b"CONNECT FROM ANYWHERE", response.data)
+        self.assertIn(b"https://artcraft-storytold-mcp.onrender.com/studio", response.data)
         self.assertIn(b"adikshan11/artcraft-plugin", response.data)
-        self.assertIn(b"PdfCraft workflows", response.data)
-        self.assertIn(b"PhotoCraft tools", response.data)
-        self.assertIn(b"ArtCraft image generation", response.data)
+        self.assertIn(b"Eight Craft apps, hosted", response.data)
+        self.assertIn(b"PDFs and e-signatures", response.data)
+        self.assertIn(b"#run-the-local-mcp-server", response.data)
+        self.assertNotIn(b"ONE ARTCRAFT APP", response.data)
         self.assertIn(ARTCRAFT_ICON_URL.encode(), response.data)
         self.assertIn(
             f'href="{ARTCRAFT_PRODUCT_URL}"'.encode(),
