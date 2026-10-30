@@ -24,14 +24,14 @@ UPLOAD_URL_TTL_SECONDS = 900
 ALLOWED_EXTENSIONS = {
     "image": {"png", "jpg", "jpeg", "webp", "gif", "bmp", "tiff"},
     "video": {"mp4", "mov", "webm", "mkv", "m4v"},
-    "audio": {"mp3", "wav", "m4a", "aac", "ogg", "flac"},
+    "audio": {"mp3", "wav", "m4a", "aac", "ogg", "flac", "aiff", "mid"},
     "pdf": {"pdf"},
     # Word-processor files for the hosted Craft apps. HTML and SVG are left out on
     # purpose: a download link that renders active content is an XSS risk.
     "document": {"docx", "doc", "odt", "rtf", "md", "txt", "tex"},
     "presentation": {"pptx", "deckcraft"},
     # Native Craft project files and other layered design formats.
-    "project": {"pcraft", "vectorcraft", "psd", "ai"},
+    "project": {"pcraft", "vectorcraft", "psd", "ai", "designcraft", "idml", "figcraft", "fig", "scraft"},
 }
 EXTENSION_KIND = {ext: kind for kind, exts in ALLOWED_EXTENSIONS.items() for ext in exts}
 
