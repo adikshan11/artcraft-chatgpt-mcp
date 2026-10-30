@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Explore the open-source ArtCraft MCP plugin for ChatGPT, Claude, Gemini, and other AI assistants: image generation, PDF workflows, PhotoCraft, and Storytold projects."
+      content="Use Storytold's Craft apps and video, image and PDF tools from ChatGPT, Claude, Gemini and other AI assistants, on the web or your phone, with nothing to install."
     />
     <meta property="og:title" content="ArtCraft — creative workflows, connected" />
     <meta
@@ -27,7 +27,7 @@
       <nav class="main-nav" aria-label="Main navigation">
         <a href="#capabilities">Capabilities</a>
         <a href="#projects">Project catalog</a>
-        <a href="#about">About</a>
+        <a href="#connect">Connect</a>
       </nav>
       <a class="header-link" href="{{ project_url }}" target="_blank" rel="noopener noreferrer">
         View source <span aria-hidden="true">↗</span>
@@ -40,13 +40,13 @@
           <p class="eyebrow"><span></span> OPEN-SOURCE COMMUNITY INTEGRATION</p>
           <h1>Creative work,<br /><em>connected.</em></h1>
           <p class="hero-description">
-            Bring selected ArtCraft and Storytold workflows into ChatGPT, Claude,
-            Gemini, and other MCP-capable assistants through one thoughtfully
-            designed MCP plugin. Keep local file workflows on your
-            Mac and explore the projects behind the tools.
+            Use Storytold's Craft apps and everyday video, image and PDF edits
+            from ChatGPT, Claude, Gemini and other MCP-capable assistants. It runs
+            on our server, so it works on the web and on your phone with nothing
+            to install.
           </p>
           <div class="hero-actions">
-            <a class="button button-primary" href="#capabilities">Explore capabilities</a>
+            <a class="button button-primary" href="#connect">Connect your assistant</a>
             <a class="button button-secondary" href="{{ project_url }}" target="_blank" rel="noopener noreferrer">
               Explore the source <span aria-hidden="true">↗</span>
             </a>
@@ -67,41 +67,41 @@
           <div class="section-heading">
             <p class="eyebrow">BUILT FOR CREATIVE WORK</p>
             <h2>One connection. Useful workflows.</h2>
-            <p>Connect the unified ArtCraft app once. Available tools are clearly scoped and run where they belong.</p>
+            <p>Connect once and your assistant can work on your files, each in your own private library.</p>
           </div>
           <div class="capability-grid">
             <article class="capability-card capability-featured">
               <span class="card-number">01</span>
               <div class="card-icon" aria-hidden="true">✳</div>
-              <h3>ArtCraft image generation</h3>
-              <p>Submit image prompts and check job progress using your ArtCraft account. Your API key stays in macOS Keychain.</p>
-              <span class="card-tag">May use account credits</span>
+              <h3>Eight Craft apps, hosted</h3>
+              <p>WordCraft, DeckCraft, PdfCraft, PhotoCraft, VectorCraft, DesignCraft, FigCraft and SoundCraft run on the server, each locked to a private folder holding your files.</p>
+              <span class="card-tag">Nothing to install</span>
             </article>
             <article class="capability-card">
               <span class="card-number">02</span>
-              <div class="card-icon card-icon-lilac" aria-hidden="true">▤</div>
-              <h3>PdfCraft workflows</h3>
-              <p>Inspect, search, and extract PDF content, or create new combined, extracted, and rotated PDFs within your Documents folder.</p>
-              <span class="card-tag">Local files · ~/Documents</span>
+              <div class="card-icon card-icon-lilac" aria-hidden="true">▶</div>
+              <h3>Video and audio</h3>
+              <p>Trim, join, resize, caption and convert videos, add or extract audio, and grab still frames.</p>
+              <span class="card-tag">Every edit makes a new file</span>
             </article>
             <article class="capability-card">
               <span class="card-number">03</span>
               <div class="card-icon card-icon-green" aria-hidden="true">◈</div>
-              <h3>PhotoCraft tools</h3>
-              <p>Discover and use PhotoCraft’s native MCP tools with file access confined to your dedicated ArtCraft workspace.</p>
-              <span class="card-tag">Local files · ~/Documents/ArtCraft</span>
+              <h3>Image editing</h3>
+              <p>Crop, resize, adjust colour, add text and borders, and layer one image over another.</p>
+              <span class="card-tag">Your private library</span>
             </article>
             <article class="capability-card">
               <span class="card-number">04</span>
-              <div class="card-icon card-icon-amber" aria-hidden="true">⌘</div>
-              <h3>Storytold projects</h3>
-              <p>Browse, search, and read public repositories from the Storytold creative software ecosystem.</p>
-              <span class="card-tag">Read-only · Open source</span>
+              <div class="card-icon card-icon-amber" aria-hidden="true">▤</div>
+              <h3>PDFs and e-signatures</h3>
+              <p>Read, reorder, merge, fill in, watermark and sign PDFs. A signature comes with an audit page.</p>
+              <span class="card-tag">Download links expire in an hour</span>
             </article>
           </div>
           <p class="capability-note">
-            Other Craft apps can be discovered here, but their editing controls are not yet available through this MCP integration.
-            Local capabilities require the ArtCraft app and Secure MCP Tunnel to be running on your Mac.
+            You sign in once, and the tools only ever see your own files. Files are deleted after a few days; see the
+            <a href="{{ url_for('privacy') }}">privacy policy</a>.
           </p>
         </div>
       </section>
@@ -142,20 +142,24 @@
         {% endif %}
       </section>
 
-      <section class="connect-section" id="about">
+      <section class="connect-section" id="connect">
         <div class="connect-card page-width">
           <div>
-            <p class="eyebrow">ONE ARTCRAFT APP</p>
-            <h2>Designed to work as one.</h2>
+            <p class="eyebrow">CONNECT FROM ANYWHERE</p>
+            <h2>Add it once. Use it everywhere.</h2>
             <p>
-              The unified local MCP server already includes project discovery,
-              image generation, PdfCraft, and PhotoCraft. Connect that server in
-              your AI assistant; adding the public catalog separately would duplicate the
-              project tools.
+              In Claude or ChatGPT, add a custom connector with
+              <code>{{ site_url }}/studio</code> and sign in. It then works in
+              the web app and on your phone.
+            </p>
+            <p class="connect-aside">
+              On a Mac and want ArtCraft image generation or your local files? The
+              <a href="{{ project_url }}#run-the-local-mcp-server" target="_blank" rel="noopener noreferrer">local server</a>
+              covers that.
             </p>
           </div>
-          <a class="button button-light" href="{{ project_url }}" target="_blank" rel="noopener noreferrer">
-            Read the setup guide <span aria-hidden="true">↗</span>
+          <a class="button button-light" href="{{ url_for('support') }}">
+            Step-by-step setup <span aria-hidden="true">→</span>
           </a>
         </div>
       </section>
