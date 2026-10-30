@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Adithya Shankaran
+
 """Download the Craft app CLIs listed in craft_apps.json into an image.
 
 Used by the Dockerfile at build time. Each release tarball is checked against

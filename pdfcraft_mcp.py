@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Adithya Shankaran
+
 import os
 from collections.abc import Awaitable, Callable
 from pathlib import Path

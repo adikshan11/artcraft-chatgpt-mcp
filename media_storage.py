@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Adithya Shankaran
+
 """Per-user media storage for the hosted ArtCraft Studio service.
 
 Every object lives under ``users/<user-id>/media/<media-id>`` so one signed-in

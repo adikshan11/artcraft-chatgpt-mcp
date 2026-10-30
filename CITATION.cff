@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use or build on this project, please credit it as below."
+title: "ArtCraft Plugin"
+abstract: "An MCP plugin that runs Storytold's open-source Craft apps for many signed-in users, from any MCP client including web and phone chat apps."
+authors:
+  - given-names: Adithya
+    family-names: Shankaran
+    alias: adikshan11
+repository-code: "https://github.com/adikshan11/artcraft-plugin"
+license: Apache-2.0
+date-released: 2026-10-31
+keywords:
+  - mcp
+  - model-context-protocol
+  - artcraft
+  - craft-apps

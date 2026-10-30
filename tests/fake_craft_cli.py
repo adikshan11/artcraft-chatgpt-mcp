@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Adithya Shankaran
+
 """A stand-in Craft CLI for tests: `fake_craft_cli.py mcp --automation-read-root R --automation-write-root W`.
 
 Speaks newline-delimited MCP over stdio and confines file paths to the roots the
