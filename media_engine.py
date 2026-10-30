@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Adithya Shankaran
+
 """Media processing for ArtCraft Studio: video (FFmpeg), images (Pillow), PDFs.
 
 Each function reads local input files and writes one new local output file.

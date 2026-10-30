@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Adithya Shankaran
+
 """End-to-end checks against the real Craft app CLIs.
 
 Each test is skipped unless its app is installed under CRAFT_APPS_DIR, which is

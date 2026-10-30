@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Adithya Shankaran
+
 """Hosted Craft app sessions for ArtCraft Studio.
 
 Each session runs one copy of a Craft app's MCP server (`<app>-cli mcp`) for one

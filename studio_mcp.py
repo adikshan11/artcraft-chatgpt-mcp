@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Adithya Shankaran
+
 """ArtCraft Studio: the public, multi-user MCP server for video, image, and PDF work.
 
 Users sign in with OAuth (Auth0, Clerk, or any OIDC provider that issues JWT

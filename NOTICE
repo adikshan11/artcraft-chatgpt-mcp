@@ -1,0 +1,15 @@
+ArtCraft Plugin
+Copyright 2026 Adithya Shankaran
+
+This product includes software developed by Adithya Shankaran
+(https://github.com/adikshan11/artcraft-plugin).
+
+ArtCraft Plugin is an unofficial community project. It is not affiliated with
+or endorsed by Storytold or the ArtCraft team. "ArtCraft" and the names of the
+Craft apps belong to their owners.
+
+The Craft app command-line tools (WordCraft, DeckCraft, PdfCraft, PhotoCraft,
+VectorCraft, DesignCraft, FigCraft and SoundCraft) are not part of this source
+code. The Docker build downloads them from Storytold's GitHub releases, and
+they remain under their own MIT and Apache-2.0 licenses, which the image keeps
+next to each app in /opt/craft.

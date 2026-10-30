@@ -398,3 +398,18 @@ OpenAI Platform's app submission flow with a verified developer identity,
 privacy policy, terms, support contact, icon, and test credentials; it is
 public only after review approval. Claude's connector directory has its own
 submission form.
+
+## License and credit
+
+Copyright 2026 Adithya Shankaran. ArtCraft Plugin is licensed under the
+[Apache License 2.0](LICENSE).
+
+You may use, change and share it, including commercially. If you redistribute
+it or a modified version, keep the [`NOTICE`](NOTICE) file and the copyright
+lines at the top of each source file, and state what you changed. To cite the
+project, use [`CITATION.cff`](CITATION.cff) (GitHub's "Cite this repository"
+button).
+
+This is an unofficial community project, not affiliated with Storytold or the
+ArtCraft team. The Craft apps are downloaded during the Docker build and keep
+their own MIT and Apache-2.0 licenses.
