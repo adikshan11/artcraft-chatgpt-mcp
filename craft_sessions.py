@@ -13,6 +13,7 @@ Sessions live in this process's memory, so Studio must run as a single worker.
 import asyncio
 import json
 import os
+import re
 import secrets
 import signal
 import tempfile
@@ -48,6 +49,9 @@ class CraftApp:
     extensions: tuple[str, ...]
     hidden_tools: frozenset[str]
     mcp_args: tuple[str, ...] = ()
+    # Engine commands refused even through the app's generic command tools. An entry
+    # ending in "." blocks every command with that prefix, e.g. "collab.".
+    blocked_commands: tuple[str, ...] = ()
 
     @property
     def cli(self) -> Path:
@@ -75,8 +79,35 @@ def load_apps() -> dict[str, CraftApp]:
             extensions=tuple(entry["extensions"]),
             hidden_tools=frozenset(entry.get("hidden_tools", ())),
             mcp_args=tuple(entry.get("mcp_args", ())),
+            blocked_commands=tuple(entry.get("blocked_commands", ())),
         )
     return apps
+
+
+def _strings(value):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            yield key
+            yield from _strings(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _strings(item)
+
+
+def blocked_command(app: CraftApp, arguments) -> str | None:
+    """The first blocked engine command named anywhere in a tool call's arguments."""
+    if not app.blocked_commands:
+        return None
+    for text in _strings(arguments):
+        # Undo \\uXXXX escapes so a command id can't be hidden inside embedded JSON.
+        text = re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m.group(1), 16)), text)
+        for blocked in app.blocked_commands:
+            tail = r"[A-Za-z_]" if blocked.endswith(".") else r"(?![\w.])"
+            if re.search(r"(?<![\w.])" + re.escape(blocked) + tail, text):
+                return blocked.rstrip(".") + ("…" if blocked.endswith(".") else "")
+    return None
 
 
 def installed_apps() -> list[CraftApp]:
@@ -326,6 +357,11 @@ class SessionManager:
     async def call(self, session: CraftSession, tool: str, arguments: dict) -> dict:
         if tool not in {t["name"] for t in session.tools}:
             raise CraftError(f"{session.app.title} has no tool '{tool}' here. Use one from open_craft_session's list.")
+        if command := blocked_command(session.app, arguments):
+            raise CraftError(
+                f"{session.app.title}'s `{command}` command is turned off in Studio, because it reaches outside "
+                "the session (network sharing, plug-ins or folders elsewhere on the server)."
+            )
         try:
             result = await asyncio.wait_for(
                 session.client.request("tools/call", {"name": tool, "arguments": arguments or {}}),

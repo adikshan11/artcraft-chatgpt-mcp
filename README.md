@@ -296,7 +296,7 @@ user to 5 GB (`STUDIO_MAX_FILE_MB`, `STUDIO_USER_QUOTA_MB`).
 
 Studio also runs Storytold's open-source Craft apps on the server, so people can
 use them from claude.ai, the ChatGPT website, or a phone with nothing installed.
-Five apps are included:
+Eight apps are included:
 
 | App | What it does | File types |
 | --- | --- | --- |
@@ -305,6 +305,21 @@ Five apps are included:
 | PdfCraft 0.15.0 | PDF editing, forms, redaction, OCR, accessibility | pdf; exports docx, pptx, txt, images |
 | PhotoCraft 0.17.0 | Photo editing | png, jpg, webp, gif, bmp, tiff, psd, .pcraft |
 | VectorCraft 0.18.0 | Vector art (always started with `--headless`) | .vectorcraft, pdf, ai, png, jpg |
+| DesignCraft 0.14.0 | Page layout | .designcraft, idml, images; exports PDF, PNG |
+| FigCraft 0.12.1 | Interface design | .figcraft, .fig, images; exports PNG, JPG, PDF, WebP |
+| SoundCraft 0.14.0 | Audio editing and mixing | .scraft, wav, aiff, flac, mp3, ogg, m4a, mid; bounces WAV, AIFF, FLAC |
+
+The other Craft apps are left out until their folder lock can be trusted on a
+shared server:
+
+- **CADCraft, FilmCraft, GridCraft and LightCraft** don't enforce
+  `--automation-read-root`/`--automation-write-root` in their current releases.
+  Support is in progress upstream. At least one earlier build accepted the flags
+  silently without enforcing them, so a listed flag is never taken on trust.
+- **EffectCraft 0.18.0** has the flags, but testing found commands that skip
+  them: one reads files outside the folder through relative paths and symlinks,
+  and another writes outside it.
+- **AniCraft** has no command-line or MCP server yet.
 
 SVG and HTML exports are not stored in the library, because a download link that
 renders active content is an XSS risk; save as PDF or PNG instead.
@@ -328,7 +343,10 @@ Each session is one copy of the app's MCP server for one user:
   that runs over closes the session.
 - Tools that need the desktop app (screenshots, clicks, UI bridges) or reach
   outside the session (printing, OS keychains, PdfCraft's JavaScript console)
-  are hidden.
+  are hidden. Engine commands that the apps' generic command tools could reach
+  and that leave the session are refused before the app sees them
+  (`blocked_commands`): FigCraft's live-collaboration servers, publishing and
+  JavaScript plug-ins, and SoundCraft's record-folder setting.
 - Sessions close after `CRAFT_IDLE_MINUTES` (default 10) without use. Each user
   may have `CRAFT_MAX_SESSIONS_PER_USER` (default 2) open, and the server
   `CRAFT_MAX_SESSIONS` (default 6).
@@ -336,9 +354,10 @@ Each session is one copy of the app's MCP server for one user:
 
 The Docker build downloads each app's Linux release, checks it against the
 sha256 pinned in `craft_apps.json`, and keeps only `<app>-cli` (plus its license
-files) in `/opt/craft`. To add an app, check its confinement, then add its
-version, checksums, file types, hidden tools, and any start options (`mcp_args`)
-to the manifest.
+files) in `/opt/craft`. To add an app, check its confinement (including its
+generic command tools, and paths that are relative or go through symlinks), then add its
+version, checksums, file types, hidden tools, blocked commands, and any start
+options (`mcp_args`) to the manifest.
 
 ### Deploy
 

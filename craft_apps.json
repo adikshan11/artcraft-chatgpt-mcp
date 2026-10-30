@@ -1,5 +1,5 @@
 {
-  "_comment": "Craft app CLIs bundled into the Studio image. Only list an app here after checking by hand that its --automation-read-root/--automation-write-root flags refuse every path outside the root (absolute paths, ../, and symlinks), because Studio runs one copy per signed-in user on a shared server. Also hide tools that need the desktop app or reach outside the session (printing, OS keychains, script consoles). sha256 values are the release's linux tarballs, copied from its SHA256SUMS.txt.",
+  "_comment": "Craft app CLIs bundled into the Studio image. Only list an app here after checking by hand that its --automation-read-root/--automation-write-root flags refuse every path outside the root (absolute paths, ../, and symlinks), because Studio runs one copy per signed-in user on a shared server. Also hide tools that need the desktop app or reach outside the session (printing, OS keychains, script consoles), and list in blocked_commands any engine command the generic command tools could reach that does (network sharing, plug-ins). Some apps accept the flags without enforcing them, so test before adding; never add an app because its --help lists the flags. sha256 values are the release's linux tarballs, copied from its SHA256SUMS.txt.",
   "apps": [
     {
       "name": "wordcraft",
@@ -71,6 +71,50 @@
         "aarch64": "191358b946897249f4a51dd8171060eb2867eda07f7d2eaf1b63c5c099c0e87e"
       },
       "confinement_checked": "2026-10-31, 0.18.0 linux-aarch64 with --headless: 20 of 20 escape attempts refused. Without --headless it first tries to attach to a desktop app on 127.0.0.1:7979, so --headless is required."
+    },
+    {
+      "name": "designcraft",
+      "title": "DesignCraft",
+      "version": "0.14.0",
+      "description": "Page layout: build multi-page documents with text frames, images and styles, open IDML, and export to PDF or PNG.",
+      "website": "https://getartcraft.com/apps/designcraft",
+      "extensions": ["designcraft", "idml", "pdf", "png", "jpg", "jpeg", "webp", "gif", "tiff"],
+      "hidden_tools": ["screenshot", "click", "drag", "menu_list", "ui_inspect", "ui_set", "dialog_set", "dialog_confirm", "dialog_cancel"],
+      "sha256": {
+        "x86_64": "25c87be759d35a81ca44e1f625ed4304b16e5aab6a03a1051bca498a81bfc547",
+        "aarch64": "81bfc265d5e353ca5fe6be3dc18db0383526c3cdbc7328f4c85a44f2c3d0d046"
+      },
+      "confinement_checked": "2026-10-31, 0.14.0 linux-aarch64: 50 of 50 escape attempts refused, including file.package, links.copyTo, file.recovery.* and paths inside script.run and batch. Printing and URLs fail; no listening ports opened."
+    },
+    {
+      "name": "figcraft",
+      "title": "FigCraft",
+      "version": "0.12.1",
+      "description": "Interface design: frames, shapes, text, components and auto layout; open .fig files and export to PNG, JPG, PDF or WebP.",
+      "website": "https://getartcraft.com/apps/figcraft",
+      "extensions": ["figcraft", "fig", "png", "jpg", "jpeg", "webp", "pdf"],
+      "hidden_tools": [],
+      "blocked_commands": ["collab.", "library.publish", "libraries.publish", "library.publishToServer", "pref.publishServer", "plugin.", "plugins."],
+      "sha256": {
+        "x86_64": "00a29f4cc382807d840f5d3e9b59f4c8829356789afbb956a0964918295e49dd",
+        "aarch64": "72269287aafcfd681100a30e0ec80619a383c75f8e1b845ff73973754d5d1e59"
+      },
+      "confinement_checked": "2026-10-31, 0.12.1 linux-aarch64: 24 of 24 escape attempts refused. collab.host can open a listening live-session server and plug-ins run JavaScript and install from an online directory, so collab.*, publishing and plug-in commands are blocked."
+    },
+    {
+      "name": "soundcraft",
+      "title": "SoundCraft",
+      "version": "0.14.0",
+      "description": "Audio editing and mixing: import audio and MIDI, arrange clips on tracks, mix, and bounce to WAV, AIFF or FLAC.",
+      "website": "https://getartcraft.com/apps/soundcraft",
+      "extensions": ["scraft", "wav", "aiff", "flac", "mp3", "ogg", "m4a", "aac", "mid"],
+      "hidden_tools": ["screenshot", "ui_inspect", "ui_set", "menu_invoke", "click", "drag", "key", "parity"],
+      "blocked_commands": ["setup.disk_allocation"],
+      "sha256": {
+        "x86_64": "2f83503feda6aa2c8d4bc12c44f571422c4389fc664a92bbed092d2bf1d500ad",
+        "aarch64": "912ef157833753c5ec87c79fe76ef42a7f68c746fd117882cbc2c8d6e1eb357d"
+      },
+      "confinement_checked": "2026-10-31, 0.14.0 linux-aarch64: 79 of 79 file escape attempts refused, including clip and stem exports. setup.disk_allocation accepts a record folder outside the root (nothing was written there headless), so it is blocked. A plug-in file in the session folder is not loaded."
     }
   ]
 }

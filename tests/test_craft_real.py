@@ -38,7 +38,7 @@ class RealCraftAppTests(CraftTestCase):
         for path in (f"/tmp/escape.{ext}", f"../escape.{ext}"):
             refused = await self.run_tool(session_id, tool, path=path, **arguments)
             self.assertTrue(refused.is_error, f"{tool} wrote {path}")
-            self.assertIn("rejected", self.text_of(refused))
+            self.assertRegex(self.text_of(refused), "rejected|outside")
         self.assertFalse(os.path.exists(f"/tmp/escape.{ext}"))
 
     async def assert_saved(self, session_id, expected: dict):
@@ -147,3 +147,62 @@ class RealCraftAppTests(CraftTestCase):
         await self.assert_escapes_refused(sid, "save_file", "vectorcraft")
         result = await self.assert_saved(sid, {"art.vectorcraft": "project", "art.pdf": "pdf"})
         self.assertEqual([s["path"] for s in result["skipped"]], ["art.svg"], "SVG is not stored (XSS risk)")
+
+    async def assert_blocked(self, session_id, tool, **arguments):
+        refused = await self.run_tool(session_id, tool, **arguments)
+        self.assertTrue(refused.is_error)
+        self.assertIn("turned off in Studio", self.text_of(refused))
+
+    @needs("designcraft")
+    async def test_lay_out_a_page_with_an_uploaded_image(self):
+        from PIL import Image
+
+        photo = self.tmp / "photo.png"
+        Image.new("RGB", (120, 80), (40, 120, 200)).save(photo)
+        media_id = self.add(photo)
+        hidden = {"screenshot", "click", "drag", "menu_list", "ui_inspect", "ui_set", "dialog_set", "dialog_confirm", "dialog_cancel"}
+        sid = (await self.open_session("designcraft", hidden, [media_id]))["session_id"]
+        await self.assert_ok(sid, "new_document", pages=1)
+        await self.assert_ok(sid, "place_image", path=media_id)
+        page = await self.assert_ok(sid, "render_page", page=0, scale=0.25)
+        self.assertIn("image", [block.type for block in page.content])
+        await self.assert_ok(sid, "save_document", path="flyer.designcraft")
+        await self.assert_ok(sid, "export_png", path="flyer.png", page=0, scale=0.25)
+        await self.assert_ok(sid, "execute", command="file.exportPdf", params={"path": "flyer.pdf"})
+        await self.assert_escapes_refused(sid, "save_document", "designcraft")
+        await self.assert_saved(sid, {"flyer.designcraft": "project", "flyer.png": "image", "flyer.pdf": "pdf"})
+
+    @needs("figcraft")
+    async def test_design_a_screen_and_export_it(self):
+        sid = (await self.open_session("figcraft", set()))["session_id"]
+        await self.assert_ok(sid, "create_node", type="frame", x=0, y=0, width=320, height=200, name="Card")
+        await self.assert_ok(sid, "create_node", type="text", x=16, y=16, text="Hosted Craft")
+        shot = await self.assert_ok(sid, "screenshot")
+        self.assertIn("image", [block.type for block in shot.content])
+        await self.assert_ok(sid, "save_file", path="card.figcraft")
+        await self.assert_ok(sid, "export", path="card.png", format="png")
+        await self.assert_escapes_refused(sid, "save_file", "figcraft")
+        await self.assert_blocked(sid, "run_command", command="collab.host", params={"bind": "lan"})
+        await self.assert_blocked(sid, "batch", commands=[{"command": "plugin.run", "params": {}}])
+        await self.assert_saved(sid, {"card.figcraft": "project", "card.png": "image"})
+
+    @needs("soundcraft")
+    async def test_mix_an_uploaded_recording(self):
+        import wave
+
+        recording = self.tmp / "take.wav"
+        with wave.open(str(recording), "wb") as w:
+            w.setnchannels(1); w.setsampwidth(2); w.setframerate(8000); w.writeframes(b"\1\0" * 8000)
+        media_id = self.add(recording)
+        hidden = {"screenshot", "ui_inspect", "ui_set", "menu_invoke", "click", "drag", "key", "parity"}
+        sid = (await self.open_session("soundcraft", hidden, [media_id]))["session_id"]
+        await self.assert_ok(sid, "new_session", name="Demo")
+        await self.assert_ok(sid, "import_audio", path=media_id)
+        await self.assert_ok(sid, "bounce_mix", path="mix.wav", format="wav")
+        await self.assert_ok(sid, "save_session", path="demo.scraft")
+        await self.assert_escapes_refused(sid, "save_session", "scraft")
+        await self.assert_blocked(sid, "execute", command="setup.disk_allocation", params={"path": "/tmp"})
+        result = await self.call("save_craft_files", session_id=sid)
+        saved = {s["path"]: s["kind"] for s in result["saved"]}
+        self.assertEqual(saved.get("mix.wav"), "audio", result)
+        self.assertEqual(saved.get("demo.scraft"), "project", result)

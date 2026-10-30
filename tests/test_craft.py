@@ -27,6 +27,7 @@ class CraftTestCase(StudioTestCase):
             name="fakecraft", title="FakeCraft", version="0.0.1", description="Test app.",
             website="https://example.com", extensions=("txt", "docx", "pdf"),
             hidden_tools=frozenset({"screenshot"}), mcp_args=("--headless",),
+            blocked_commands=("collab.", "net.fetch"),
         )
         missing = CraftApp(
             name="missingcraft", title="MissingCraft", version="1", description="Not installed.",
@@ -142,6 +143,23 @@ class CraftSessionTests(CraftTestCase):
             result = await self.run_tool(session_id, tool)
             self.assertTrue(result.is_error)
             self.assertIn("has no tool", self.text_of(result))
+
+    async def test_blocked_engine_commands_never_reach_the_app(self):
+        session_id = (await self.call("open_craft_session", app="fakecraft"))["session_id"]
+        root = craft_sessions.manager.sessions[session_id].root
+        for arguments in (
+            {"path": "a.txt", "text": "collab.host"},
+            {"path": "a.txt", "steps": [{"command": "rect"}, {"command": "net.fetch", "params": {}}]},
+            {"path": "a.txt", "text": '{"command": "collab\\u002ehost"}'},
+        ):
+            result = await self.run_tool(session_id, "write_file", **arguments)
+            self.assertTrue(result.is_error, arguments)
+            self.assertIn("turned off in Studio", self.text_of(result))
+        self.assertFalse((root / "a.txt").exists(), "a blocked call is refused before the app sees it")
+
+        # Ordinary text that only mentions the words is fine.
+        allowed = await self.run_tool(session_id, "write_file", path="a.txt", text="collab notes; net.fetcher; see collab.")
+        self.assertFalse(allowed.is_error, self.text_of(allowed))
 
     async def test_wrong_file_type_is_refused(self):
         image = self.tmp / "x.png"
