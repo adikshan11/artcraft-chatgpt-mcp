@@ -101,6 +101,26 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIn(ARTCRAFT_PRODUCT_URL.encode(), ARTCRAFT_APP_DESCRIPTION.encode())
         self.assertNotIn(b"Adobe Express", response.data)
+        for path in (b'href="/privacy"', b'href="/terms"', b'href="/support"'):
+            self.assertIn(path, response.data)
+
+    def test_privacy_terms_and_support_pages(self):
+        pages = {
+            "/privacy": [b"Privacy policy", b"deleted automatically after 7 days", b"not operated by Storytold"],
+            "/terms": [b"Terms of use", b"500 MB per file", b"certified or qualified"],
+            "/support": [b"Support", b"/studio", b"/issues"],
+        }
+        for path, expected in pages.items():
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 200)
+                for text in expected:
+                    self.assertIn(text, response.data)
+
+    @patch.dict(os.environ, {"SUPPORT_EMAIL": "help@example.com", "STUDIO_FILE_RETENTION_DAYS": "3"})
+    def test_support_email_and_retention_come_from_the_environment(self):
+        self.assertIn(b"mailto:help@example.com", self.client.get("/support").data)
+        self.assertIn(b"deleted automatically after 3 days", self.client.get("/privacy").data)
 
     def test_mcp_streamable_http_mount_exists(self):
         request_body = {

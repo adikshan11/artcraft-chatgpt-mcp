@@ -1,0 +1,43 @@
+{% extends "page.html" %}
+{% block title %}Support{% endblock %}
+{% block description %}How to connect ArtCraft Studio, get help, and report problems.{% endblock %}
+{% block content %}
+<h2>Connect Studio</h2>
+<ul>
+  <li><strong>Claude:</strong> on claude.ai, open Settings → Connectors → Add custom
+    connector, paste <code>{{ site_url }}/studio</code>, and sign in. It then works in
+    the Claude mobile apps too.</li>
+  <li><strong>ChatGPT:</strong> turn on developer mode (Settings → Apps &amp; Connectors
+    → Advanced), add a connector with the same address, and sign in.</li>
+</ul>
+<p>Then ask your assistant to list your Studio files, or to import one.</p>
+
+<h2>Get help</h2>
+<ul>
+  <li>Questions and bugs:
+    <a href="{{ project_url }}/issues" target="_blank" rel="noopener noreferrer">open an issue on GitHub</a>.
+    Please don't attach private files there.</li>
+  {% if support_email %}
+  <li>Account, privacy and deletion requests:
+    <a href="mailto:{{ support_email }}">{{ support_email }}</a>.</li>
+  {% else %}
+  <li>Account, privacy and deletion requests: open a GitHub issue that says only that
+    you need a private contact, and we'll reply with one.</li>
+  {% endif %}
+</ul>
+
+<h2>Security problems</h2>
+<p>
+  If you find a way to reach another user's files or the server, please report it
+  privately rather than in a public issue.
+  {% if support_email %}Email <a href="mailto:{{ support_email }}">{{ support_email }}</a>.
+  {% else %}Open a GitHub issue asking for a private contact, without details.{% endif %}
+</p>
+
+<h2>Service status</h2>
+<p>
+  <a href="{{ url_for('health') }}">{{ site_url }}/health</a> shows whether the server
+  is up. On the free plan the server sleeps when idle, so the first request can take
+  about a minute.
+</p>
+{% endblock %}
