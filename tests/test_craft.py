@@ -26,7 +26,7 @@ class CraftTestCase(StudioTestCase):
         self.app = CraftApp(
             name="fakecraft", title="FakeCraft", version="0.0.1", description="Test app.",
             website="https://example.com", extensions=("txt", "docx", "pdf"),
-            hidden_tools=frozenset({"screenshot"}),
+            hidden_tools=frozenset({"screenshot"}), mcp_args=("--headless",),
         )
         missing = CraftApp(
             name="missingcraft", title="MissingCraft", version="1", description="Not installed.",
@@ -172,6 +172,33 @@ class CraftSessionTests(CraftTestCase):
         self.assertEqual([s["path"] for s in result["skipped"]], ["tool.exe"])
         self.assertIn("Unsupported file type", result["skipped"][0]["reason"])
 
+    async def test_app_is_started_with_its_manifest_options(self):
+        session_id = (await self.call("open_craft_session", app="fakecraft"))["session_id"]
+        root = str(craft_sessions.manager.sessions[session_id].root)
+        argv = self.text_of(await self.run_tool(session_id, "argv"))
+        self.assertEqual(argv, f'["mcp", "--headless", "--automation-read-root", "{root}", '
+                               f'"--automation-write-root", "{root}"]')
+
+    async def test_small_tool_lists_include_schemas(self):
+        info = await self.call("open_craft_session", app="fakecraft")
+        self.assertTrue(info["schemas_included"])
+        argv = next(t for t in info["tools"] if t["name"] == "argv")
+        self.assertIn("verbose", argv["input_schema"]["properties"])
+
+    async def test_large_tool_lists_are_compact_with_details_on_request(self):
+        with patch("studio_mcp.MAX_INLINE_TOOL_SCHEMAS", 3):
+            info = await self.call("open_craft_session", app="fakecraft")
+        self.assertFalse(info["schemas_included"])
+        argv = next(t for t in info["tools"] if t["name"] == "argv")
+        self.assertIsNone(argv["input_schema"])
+        self.assertLessEqual(len(argv["description"]), 120)
+        details = await self.call("describe_craft_tools", session_id=info["session_id"],
+                                  tools=["argv", "screenshot", "nope"])
+        self.assertEqual([t["name"] for t in details["tools"]], ["argv"])
+        self.assertIn("verbose", details["tools"][0]["input_schema"]["properties"])
+        self.assertGreater(len(details["tools"][0]["description"]), 120)
+        self.assertEqual(details["unknown"], ["screenshot", "nope"], "hidden tools stay hidden")
+
     async def test_images_pass_through_and_long_text_is_truncated(self):
         session_id = (await self.call("open_craft_session", app="fakecraft"))["session_id"]
         image = await self.run_tool(session_id, "image")
@@ -189,6 +216,8 @@ class CraftIsolationAndLimitTests(CraftTestCase):
             result = await self.run_tool(session_id, "cwd")
             self.assertTrue(result.is_error)
             self.assertIn("was not found", self.text_of(result))
+            with self.assertRaisesRegex(ToolError, "was not found"):
+                await self.call("describe_craft_tools", session_id=session_id, tools=["cwd"])
             for tool in ("save_craft_files", "close_craft_session"):
                 with self.assertRaisesRegex(ToolError, "was not found"):
                     await self.call(tool, session_id=session_id)
@@ -247,3 +276,12 @@ class CraftManifestTests(CraftTestCase):
             for digest in app["sha256"].values():
                 self.assertRegex(digest, r"^[0-9a-f]{64}$")
             self.assertTrue(app["confinement_checked"])
+
+    def test_every_manifest_file_type_can_be_stored(self):
+        import json
+
+        from media_storage import new_media_id, validate_media_id
+
+        for app in json.loads(craft_sessions.MANIFEST_PATH.read_text())["apps"]:
+            for ext in app["extensions"]:
+                validate_media_id(new_media_id(ext))  # raises if the type is unknown or too long

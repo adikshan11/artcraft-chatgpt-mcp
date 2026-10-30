@@ -1,5 +1,5 @@
 {
-  "_comment": "Craft app CLIs bundled into the Studio image. Only list an app here after checking by hand that its --automation-read-root/--automation-write-root flags refuse every path outside the root (absolute paths, ../, and symlinks), because Studio runs one copy per signed-in user on a shared server. sha256 values are the release's linux tarballs, copied from its SHA256SUMS.txt.",
+  "_comment": "Craft app CLIs bundled into the Studio image. Only list an app here after checking by hand that its --automation-read-root/--automation-write-root flags refuse every path outside the root (absolute paths, ../, and symlinks), because Studio runs one copy per signed-in user on a shared server. Also hide tools that need the desktop app or reach outside the session (printing, OS keychains, script consoles). sha256 values are the release's linux tarballs, copied from its SHA256SUMS.txt.",
   "apps": [
     {
       "name": "wordcraft",
@@ -14,6 +14,63 @@
         "aarch64": "8fcc2644acef7b43c3e46626e47e92e5542a43288e8e0bebf4b9f79c22a66d0b"
       },
       "confinement_checked": "2026-10-30, 0.12.0 linux-aarch64: 15 of 15 escape attempts refused"
+    },
+    {
+      "name": "deckcraft",
+      "title": "DeckCraft",
+      "version": "0.12.0",
+      "description": "Presentations: build and edit pptx slide decks with layouts, shapes, pictures, tables and charts, and export slides to PDF or images.",
+      "website": "https://getartcraft.com/apps/deckcraft",
+      "extensions": ["pptx", "deckcraft", "pdf", "png", "jpg", "jpeg"],
+      "hidden_tools": ["screenshot", "call_app"],
+      "sha256": {
+        "x86_64": "4a410d3caa423e873d0dcab51c98e06588f55bdfcf03e9c1e91409a86c08de3e",
+        "aarch64": "2312f1c0e0bf131faa525d71d265ba07734227fd2d174afbea00e95bcf93d353"
+      },
+      "confinement_checked": "2026-10-31, 0.12.0 linux-aarch64: 16 of 16 escape attempts refused"
+    },
+    {
+      "name": "pdfcraft",
+      "title": "PdfCraft",
+      "version": "0.15.0",
+      "description": "PDF editor: edit text and pages, combine and split, fill and create forms, redact, comment, OCR, check accessibility, and export to Word, PowerPoint, text or images.",
+      "website": "https://getartcraft.com/apps/pdfcraft",
+      "extensions": ["pdf", "png", "jpg", "jpeg", "tiff", "docx", "pptx", "txt"],
+      "hidden_tools": ["printers", "printer_options", "doc_print", "sign_windows_ids", "sign_keychain_ids", "js_run"],
+      "sha256": {
+        "x86_64": "b167a18c60a7b329f05a5bbf97e32dc678aad3f8d5866d8e4378ff24273f8313",
+        "aarch64": "b380bc7a4c28d05d7ea95eb23085ca322c49ca1a21b8bb79389a8e083ae92b9d"
+      },
+      "confinement_checked": "2026-10-31, 0.15.0 linux-aarch64: 28 of 28 escape attempts refused"
+    },
+    {
+      "name": "photocraft",
+      "title": "PhotoCraft",
+      "version": "0.17.0",
+      "description": "Photo editor: layers, adjustments, filters, selections and text on PNG, JPEG, WebP, TIFF and PSD images, saved as images or lossless .pcraft projects.",
+      "website": "https://getartcraft.com/apps/photocraft",
+      "extensions": ["png", "jpg", "jpeg", "webp", "gif", "bmp", "tiff", "psd", "pcraft", "pdf"],
+      "hidden_tools": ["control_call", "ui_inspect", "ui_menu_invoke", "ui_pointer", "ui_screenshot", "ui_set"],
+      "sha256": {
+        "x86_64": "5259f9c428c8ee3478c35500ece98713561cafc050e4c9eb354a5050f36eb2b8",
+        "aarch64": "a9478dee2b34f270a1f845a7d7f4da501c529d443680ee23c2c8b588867d61b8"
+      },
+      "confinement_checked": "2026-10-31, 0.17.0 linux-aarch64: 16 of 16 escape attempts refused (a save onto a symlink replaces the link and leaves its target untouched)"
+    },
+    {
+      "name": "vectorcraft",
+      "title": "VectorCraft",
+      "version": "0.18.0",
+      "description": "Vector art: draw paths, shapes, text and graphs, apply effects and pathfinder operations, and export to PDF or PNG.",
+      "website": "https://getartcraft.com/apps/vectorcraft",
+      "extensions": ["vectorcraft", "pdf", "ai", "png", "jpg", "jpeg"],
+      "hidden_tools": ["ui_inspect", "ui_screenshot", "inspect_ui", "type_text", "answer_dialog", "open_panel"],
+      "mcp_args": ["--headless"],
+      "sha256": {
+        "x86_64": "76948b50ef78dd482a6ece06f10b7047937bbc0c05f5cf6bc43d88b07f74d826",
+        "aarch64": "191358b946897249f4a51dd8171060eb2867eda07f7d2eaf1b63c5c099c0e87e"
+      },
+      "confinement_checked": "2026-10-31, 0.18.0 linux-aarch64 with --headless: 20 of 20 escape attempts refused. Without --headless it first tries to attach to a desktop app on 127.0.0.1:7979, so --headless is required."
     }
   ]
 }

@@ -25,6 +25,8 @@ TOOLS = [
     {"name": "read_file", "description": "Read a text file.", "inputSchema": {"type": "object"}},
     {"name": "env", "description": "Show the environment.", "inputSchema": {"type": "object"}},
     {"name": "cwd", "description": "Show the working directory.", "inputSchema": {"type": "object"}},
+    {"name": "argv", "description": "Show the command-line arguments. " + "Long description. " * 20,
+     "inputSchema": {"type": "object", "properties": {"verbose": {"type": "boolean"}}}},
     {"name": "image", "description": "Return a PNG.", "inputSchema": {"type": "object"}},
     {"name": "big_text", "description": "Return a lot of text.", "inputSchema": {"type": "object"}},
     {"name": "sleep", "description": "Sleep.", "inputSchema": {"type": "object"}},
@@ -55,6 +57,8 @@ def call(name, a):
             return text(json.dumps(dict(os.environ)))
         if name == "cwd":
             return text(os.getcwd())
+        if name == "argv":
+            return text(json.dumps(sys.argv[1:]))
         if name == "image":
             return {"content": [{"type": "image", "data": PNG_1x1, "mimeType": "image/png"}]}
         if name == "big_text":

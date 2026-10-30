@@ -55,14 +55,14 @@ def install(app: dict, arch: str, target: Path, work: Path) -> None:
         with destination.open("wb") as handle:
             shutil.copyfileobj(source, handle)
         destination.chmod(0o755)
-        # Apache-2.0 requires shipping the license alongside redistributed binaries.
-        for license_name in ("LICENSE-APACHE", "LICENSE-MIT"):
-            path = f"{name}-{version}-linux-{arch}/share/doc/{name}/{license_name}"
-            try:
-                license_file = tar.extractfile(tar.getmember(path))
-            except KeyError:
-                continue
-            (destination.parent / license_name).write_bytes(license_file.read())
+        # Apache-2.0 requires shipping the license alongside redistributed binaries,
+        # and the OFL does the same for the fonts some apps embed.
+        doc_dir = f"{name}-{version}-linux-{arch}/share/doc/{name}/"
+        for member_info in tar.getmembers():
+            license_name = member_info.name.removeprefix(doc_dir)
+            if (member_info.isfile() and member_info.name.startswith(doc_dir) and "/" not in license_name
+                    and (license_name.startswith(("LICENSE-", "OFL-")))):
+                (destination.parent / license_name).write_bytes(tar.extractfile(member_info).read())
     print(f"    installed {destination}", flush=True)
 
 

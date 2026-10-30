@@ -47,7 +47,8 @@ STUDIO_INSTRUCTIONS = (
     "to video, image, or PDF tools. Every edit creates a new file and returns a "
     "download_url; originals are never modified. Only sign PDFs when the user explicitly "
     "asks to sign as themselves. For documents, use the Craft apps: list_craft_apps, then "
-    "open_craft_session with the app and media_ids, call run_craft_tool with the app's own "
+    "open_craft_session with the app and media_ids (describe_craft_tools gives full schemas "
+    "when the session lists only tool names), call run_craft_tool with the app's own "
     "tools (save with the app's save tool, e.g. save_document to a new filename), then "
     "save_craft_files to store the results and close_craft_session when done."
 )
@@ -257,7 +258,7 @@ CREATE = ToolAnnotations(read_only_hint=False, destructive_hint=False, idempoten
 
 
 @studio.tool(title="List my media", annotations=READ, structured_output=True)
-def list_media(kind: Literal["all", "video", "image", "audio", "pdf", "document"] = "all", limit: int = 50) -> MediaList:
+def list_media(kind: Literal["all", "video", "image", "audio", "pdf", "document", "presentation", "project"] = "all", limit: int = 50) -> MediaList:
     """List files in the user's ArtCraft Studio library, newest first."""
     user = current_user()
 
@@ -358,7 +359,7 @@ def inspect_media(media_id: str) -> MediaInfo:
             elif kind == "image":
                 image = engine._open_image(path)
                 details = {"width": image.width, "height": image.height, "mode": image.mode}
-            elif kind == "document":
+            elif kind in ("document", "presentation", "project"):
                 details = {"size_bytes": path.stat().st_size,
                            "hint": "Open it with open_craft_session to read or edit it."}
             else:
@@ -690,6 +691,10 @@ def sign_pdf(
 
 MAX_CRAFT_TEXT_CHARS = 100_000
 MAX_CRAFT_IMAGE_CHARS = 8_000_000  # base64 characters per returned image
+# Up to this many tools, open_craft_session includes full schemas; above it (PdfCraft has
+# ~170), it lists names and short descriptions and describe_craft_tools gives the rest.
+MAX_INLINE_TOOL_SCHEMAS = 40
+SHORT_DESCRIPTION_CHARS = 120
 
 
 class CraftAppInfo(BaseModel):
@@ -708,7 +713,7 @@ class CraftAppList(BaseModel):
 class CraftToolInfo(BaseModel):
     name: str
     description: str
-    input_schema: dict
+    input_schema: dict | None = None
 
 
 class CraftSessionInfo(BaseModel):
@@ -716,7 +721,14 @@ class CraftSessionInfo(BaseModel):
     app: str
     files: list[str] = Field(description="Files in the session folder, by the path to pass to the app's tools.")
     tools: list[CraftToolInfo]
+    schemas_included: bool = Field(
+        description="False when the app has many tools: call describe_craft_tools for the ones you need.")
     idle_minutes: int
+
+
+class CraftToolDetails(BaseModel):
+    tools: list[CraftToolInfo]
+    unknown: list[str]
 
 
 class CraftFiles(BaseModel):
@@ -782,6 +794,14 @@ def _craft_result(raw: dict) -> CallToolResult:
                           isError=bool(raw.get("isError")))
 
 
+def _tool_info(tool: dict, full: bool) -> CraftToolInfo:
+    description = " ".join((tool.get("description") or "").split())
+    if not full and len(description) > SHORT_DESCRIPTION_CHARS:
+        description = description[: SHORT_DESCRIPTION_CHARS - 1].rstrip() + "…"
+    return CraftToolInfo(name=tool["name"], description=description,
+                         input_schema=(tool.get("inputSchema") or {}) if full else None)
+
+
 @studio.tool(title="List Craft apps", annotations=READ, structured_output=True)
 async def list_craft_apps() -> CraftAppList:
     """List the open-source Craft apps (e.g. WordCraft) that Studio can run on your files."""
@@ -806,13 +826,27 @@ async def open_craft_session(app: str, media_ids: list[str] | None = None) -> Cr
     ids = list(media_ids or [])
     session = await _craft_async(craft_sessions.manager.open(
         user, craft_app, lambda root: _copy_into(user, craft_app, ids, root)))
+    full = len(session.tools) <= MAX_INLINE_TOOL_SCHEMAS
     return CraftSessionInfo(
         session_id=session.id,
         app=craft_app.name,
         files=sorted(session.files()),
-        tools=[CraftToolInfo(name=t["name"], description=(t.get("description") or "")[:500],
-                             input_schema=t.get("inputSchema") or {}) for t in session.tools],
+        tools=[_tool_info(t, full) for t in session.tools],
+        schemas_included=full,
         idle_minutes=craft_sessions.IDLE_SECONDS // 60,
+    )
+
+
+@studio.tool(title="Describe Craft tools", annotations=READ, structured_output=True)
+async def describe_craft_tools(session_id: str, tools: list[str]) -> CraftToolDetails:
+    """Full descriptions and input schemas for some of a session's tools (up to 20 at a time)."""
+    user = current_user()
+    session = _craft(lambda: craft_sessions.manager.get(user, session_id))
+    by_name = {t["name"]: t for t in session.tools}
+    wanted = list(dict.fromkeys(tools))[:20]
+    return CraftToolDetails(
+        tools=[_tool_info(by_name[name], True) for name in wanted if name in by_name],
+        unknown=[name for name in wanted if name not in by_name],
     )
 
 

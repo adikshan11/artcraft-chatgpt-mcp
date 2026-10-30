@@ -47,6 +47,7 @@ class CraftApp:
     website: str
     extensions: tuple[str, ...]
     hidden_tools: frozenset[str]
+    mcp_args: tuple[str, ...] = ()
 
     @property
     def cli(self) -> Path:
@@ -73,6 +74,7 @@ def load_apps() -> dict[str, CraftApp]:
             website=entry["website"],
             extensions=tuple(entry["extensions"]),
             hidden_tools=frozenset(entry.get("hidden_tools", ())),
+            mcp_args=tuple(entry.get("mcp_args", ())),
         )
     return apps
 
@@ -128,11 +130,11 @@ class _StdioClient:
         self._stderr_task = asyncio.ensure_future(self._drain_stderr())
 
     @classmethod
-    async def start(cls, cli: Path, root: Path, home: Path) -> "_StdioClient":
+    async def start(cls, cli: Path, root: Path, home: Path, extra_args=()) -> "_StdioClient":
         for sub in ("tmp", "config", "cache", "data"):
             (home / sub).mkdir(parents=True, exist_ok=True)
         process = await asyncio.create_subprocess_exec(
-            str(cli), "mcp",
+            str(cli), "mcp", *extra_args,
             "--automation-read-root", str(root),
             "--automation-write-root", str(root),
             cwd=str(root),  # relative paths resolve inside the root
@@ -286,7 +288,7 @@ class SessionManager:
             session.home.mkdir()
             await asyncio.to_thread(populate, session.root)
             session.take_snapshot()
-            session.client = await _StdioClient.start(app.cli, session.root, session.home)
+            session.client = await _StdioClient.start(app.cli, session.root, session.home, app.mcp_args)
             await asyncio.wait_for(self._initialize(session), START_TIMEOUT_SECONDS)
         except asyncio.TimeoutError:
             await self._close(session)
