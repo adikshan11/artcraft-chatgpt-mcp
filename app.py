@@ -20,7 +20,7 @@ app = Flask(__name__)
 
 ORG_NAME = "storytold"
 ORG_URL = f"https://github.com/{ORG_NAME}"
-PROJECT_URL = "https://github.com/adikshan11/artcraft-chatgpt-mcp"
+PROJECT_URL = "https://github.com/adikshan11/artcraft-plugin"
 ARTCRAFT_SITE_URL = "https://artcraft-storytold-mcp.onrender.com"
 ARTCRAFT_PRODUCT_URL = "https://getartcraft.com"
 ARTCRAFT_ICON_URL = (
