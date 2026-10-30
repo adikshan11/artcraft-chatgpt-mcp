@@ -87,7 +87,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b"OPEN-SOURCE COMMUNITY INTEGRATION", response.data)
         self.assertIn(b"One connection. Useful workflows.", response.data)
         self.assertIn(b"ONE ARTCRAFT APP", response.data)
-        self.assertIn(b"artcraft-chatgpt-mcp", response.data)
+        self.assertIn(b"adikshan11/artcraft-plugin", response.data)
         self.assertIn(b"PdfCraft workflows", response.data)
         self.assertIn(b"PhotoCraft tools", response.data)
         self.assertIn(b"ArtCraft image generation", response.data)
