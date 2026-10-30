@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 from contextlib import asynccontextmanager
@@ -24,7 +25,7 @@ from app import (
     mcp,
     mcp_allowed_hosts,
 )
-from artcraft_api import ArtCraftAPIError
+from artcraft_api import ArtCraftAPIError, get_api_key
 from craft_app_mcp import PhotoCraftBridge, _photocraft_parameters
 from local_artcraft_mcp import ARTCRAFT_ICON_URL, server as local_mcp
 from pdfcraft_mcp import _pdf_path
@@ -604,6 +605,18 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
             )
         self.assertTrue(result.is_error)
         self.assertIn("No ArtCraft API key", result.content[0].text)
+
+    @patch.dict(os.environ, {"ARTCRAFT_API_KEY": ""})
+    @patch("artcraft_api.sys.platform", "darwin")
+    @patch("artcraft_api.subprocess.run")
+    def test_api_key_falls_back_to_legacy_keychain_item(self, run):
+        run.side_effect = [
+            subprocess.CalledProcessError(44, "security"),
+            SimpleNamespace(stdout="legacy-key\n"),
+        ]
+        self.assertEqual(get_api_key(), "legacy-key")
+        services = [call.args[0][call.args[0].index("-s") + 1] for call in run.call_args_list]
+        self.assertEqual(services, ["artcraft-plugin", "artcraft-chatgpt-mcp"])
 
     @patch("artcraft_api.get_api_key", return_value="artcraft_api_test-secret")
     @patch("artcraft_api.request.build_opener")

@@ -9,7 +9,9 @@ from urllib import error, parse, request
 
 
 API_BASE_URL = "https://api.storyteller.ai"
-KEYCHAIN_SERVICE = "artcraft-chatgpt-mcp"
+KEYCHAIN_SERVICE = "artcraft-plugin"
+# Keychain item name used before the rename; still read so existing setups keep working.
+LEGACY_KEYCHAIN_SERVICE = "artcraft-chatgpt-mcp"
 MAX_IMAGE_BATCH_COUNT = 4
 JOB_TOKEN_PATTERN = re.compile(r"jinf_[A-Za-z0-9_-]{1,100}\Z")
 MODEL_PATTERN = re.compile(r"[a-z0-9_]{1,80}\Z")
@@ -41,31 +43,36 @@ def get_api_key() -> str:
             "server on macOS with the key saved in Keychain."
         )
 
-    try:
-        result = subprocess.run(
-            [
-                "/usr/bin/security",
-                "find-generic-password",
-                "-a",
-                getpass.getuser(),
-                "-s",
-                KEYCHAIN_SERVICE,
-                "-w",
-            ],
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-    except FileNotFoundError as exc:
-        raise ArtCraftAPIError("The macOS Keychain utility is unavailable.") from exc
-    except subprocess.CalledProcessError as exc:
+    result = None
+    for service in (KEYCHAIN_SERVICE, LEGACY_KEYCHAIN_SERVICE):
+        try:
+            result = subprocess.run(
+                [
+                    "/usr/bin/security",
+                    "find-generic-password",
+                    "-a",
+                    getpass.getuser(),
+                    "-s",
+                    service,
+                    "-w",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            break
+        except FileNotFoundError as exc:
+            raise ArtCraftAPIError("The macOS Keychain utility is unavailable.") from exc
+        except subprocess.CalledProcessError:
+            continue
+        except subprocess.TimeoutExpired as exc:
+            raise ArtCraftAPIError("Reading the ArtCraft key from Keychain timed out.") from exc
+    if result is None:
         raise ArtCraftAPIError(
             "No ArtCraft API key was found in your macOS Keychain. "
-            "Save it as a password item before generating images."
-        ) from exc
-    except subprocess.TimeoutExpired as exc:
-        raise ArtCraftAPIError("Reading the ArtCraft key from Keychain timed out.") from exc
+            f"Save it as a password item named {KEYCHAIN_SERVICE!r} before generating images."
+        )
 
     api_key = result.stdout.strip()
     if not api_key:
