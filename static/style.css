@@ -328,15 +328,15 @@ h2 em {
 /* ---------------------------------------------------------------- page index */
 
 /* On wide screens the homepage keeps a rail on the right, like the Craft apps'
-   pages: its sections set against a ruler of the page, with the part on screen
-   shaded. site.js places each section at its share of the page's height. */
+   pages: the section names and a ruler of the page, with the part on screen
+   shaded. */
 .rail {
   display: none;
 }
 
 @media (min-width: 1100px) {
   .has-rail {
-    --rail: 184px;
+    --rail: 208px;
   }
 
   .has-rail main,
@@ -366,82 +366,68 @@ h2 em {
   }
 }
 
-.rail-title {
+/* The section names, as on the Craft apps' pages. Passed sections stack small
+   at the top with the one being read large under them; sections still ahead
+   stack small at the bottom. As the next one comes up, its letters leave the
+   bottom list, stand on end beside the ruler at that section's place, then fly
+   up into the large slot. site.js places every letter from the scroll position. */
+.rail-labels {
   position: absolute;
-  top: 76px;
-  right: 60px;
-  font-family: var(--display);
-  font-size: 17px;
-  font-weight: 700;
-  font-stretch: 112%;
-  text-transform: uppercase;
-}
-
-.rail-links,
-.rail-ruler {
-  position: absolute;
-  top: 128px;
+  top: 64px;
+  right: 56px;
   bottom: 36px;
+  left: 12px;
 }
 
-.rail-links {
-  left: 0;
-  right: 60px;
-  list-style: none;
-  padding: 0;
-}
-
-.rail-links a {
-  position: absolute;
-  top: var(--pos);
-  right: 0;
-  transform: translateY(-50%);
+.rail-label {
   color: var(--muted);
   font-family: var(--display);
-  font-size: 14px;
+  font-size: 20px;
   font-weight: 700;
   font-stretch: 112%;
+  line-height: 1;
   text-transform: uppercase;
-  white-space: nowrap;
-  transition: color 0.15s;
 }
 
-/* The names stay hidden until the rail is hovered or tabbed into, then slide
-   in letter by letter; only the one under the pointer lights up. */
-.rail-links a span {
-  display: inline-block;
+.rail-label span {
   white-space: pre;
-  opacity: 0;
-  transform: translateX(0.8em);
-  transition: opacity 0.2s, transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
-  transition-delay: calc(var(--i) * 22ms);
 }
 
-.rail:hover .rail-links a span,
-.rail:focus-within .rail-links a span {
-  opacity: 1;
-  transform: none;
-}
-
-.rail-links a:hover,
-.rail-links a:focus-visible {
+.rail-label.is-current,
+.rail-label:hover {
   color: var(--ink);
 }
 
-/* Without a pointer to hover with, the names just show. */
-@media (hover: none) {
-  .rail-links a span {
-    opacity: 1;
-    transform: none;
-  }
+.rail-label:focus-visible {
+  outline: none;
+  color: var(--accent);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .rail-links a span {
-    transform: none;
-    transition: opacity 0.2s;
-    transition-delay: 0s;
-  }
+/* Before site.js runs, a plain list. */
+.rail:not(.is-live) .rail-labels {
+  display: grid;
+  align-content: start;
+  justify-items: end;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.rail:not(.is-live) .rail-label {
+  font-size: 13px;
+}
+
+.rail.is-live .rail-label span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.rail-ruler {
+  position: absolute;
+  top: 64px;
+  bottom: 36px;
 }
 
 /* A short tick every 1%, a numbered long one every 5%. */
