@@ -24,6 +24,11 @@ from starlette.routing import Mount
 
 app = Flask(__name__)
 
+
+@app.context_processor
+def shared_links():
+    return {"discord_url": DISCORD_URL}
+
 ORG_NAME = "storytold"
 ORG_URL = f"https://github.com/{ORG_NAME}"
 PROJECT_URL = "https://github.com/adikshan11/artcraft-plugin"
@@ -50,6 +55,8 @@ APP_ICONS = {
     for path in (Path(__file__).parent / "static" / "app-icons").iterdir()
     if path.suffix in (".png", ".svg")
 }
+# The ArtCraft community server, where I post as a contributor.
+DISCORD_URL = "https://discord.gg/artcraft"
 LEGAL_LAST_UPDATED = "31 October 2026"
 # When this process started, for the uptime on /status.
 STARTED_AT = time.time()

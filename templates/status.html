@@ -56,6 +56,11 @@
           {{ row.name }}
         </a>
         <span class="status-text">{{ row.text }}</span>
+        {% if row.prs %}
+        <span class="app-prs">
+          {% for pr in row.prs %}<a href="{{ pr.url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ row.name }} pull request {{ pr.number }}">#{{ pr.number }}</a>{% endfor %}
+        </span>
+        {% endif %}
       </li>
       {% endfor %}
     </ul>

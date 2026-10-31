@@ -154,11 +154,14 @@
         <ul class="app-grid app-grid-off">
           {% for app in not_hosted_apps %}
           <li>
-            <a class="app-cell" href="{{ org_url }}/{{ app.name }}" target="_blank" rel="noopener noreferrer" title="{{ app.reason }}">
+            <div class="app-cell" title="{{ app.reason }}">
               <img src="{{ url_for('static', filename=app_icons[app.name]) }}" alt="" width="64" height="64" loading="lazy" />
-              <span class="app-name">{{ app.title }}</span>
+              <a class="app-name" href="{{ org_url }}/{{ app.name }}" target="_blank" rel="noopener noreferrer">{{ app.title }}</a>
               <span class="app-kind">{{ app.short }}</span>
-            </a>
+              <span class="app-prs">
+                {% for pr in app.pr_links %}<a href="{{ pr.url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ app.title }} pull request {{ pr.number }}">#{{ pr.number }}</a>{% endfor %}
+              </span>
+            </div>
           </li>
           {% endfor %}
         </ul>
@@ -173,8 +176,8 @@
           <ul class="plain-list">
             <li>
               <strong>Not every Craft app is here.</strong> EffectCraft, FilmCraft, CADCraft, GridCraft
-              and LightCraft can't yet be locked to one person's folder, so I don't host them. The
-              EffectCraft fix is in review upstream. The <a href="{{ url_for('status_page') }}">status page</a>
+              and LightCraft can't yet be locked to one person's folder, so I don't host them. Fixes
+              for all five are in review upstream, linked under <a href="#apps">the apps</a>. The <a href="{{ url_for('status_page') }}">status page</a>
               shows what's running now.
             </li>
             <li>

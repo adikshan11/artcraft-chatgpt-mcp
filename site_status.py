@@ -15,24 +15,21 @@ import craft_sessions
 import studio_mcp
 from media_storage import S3Storage, StorageError
 
-# The Craft apps ArtCraft lists that Studio does not host yet, and why.
+# The Craft apps ArtCraft lists that Studio does not host yet, why, and the open
+# upstream pull requests that would let me host them.
+_NO_LOCK = "Its command-line build can't be locked to one user's folder yet. The open pull requests below add that lock."
 NOT_HOSTED_APPS = [
-    {"name": "effectcraft", "title": "EffectCraft",
-     "short": "Fix in review upstream",
-     "reason": "A project can still read footage from outside the user's folder. The fix is in review upstream."},
-    {"name": "filmcraft", "title": "FilmCraft",
-     "short": "Can't be locked to one folder yet",
-     "reason": "Its command-line build can't be locked to one user's folder yet."},
-    {"name": "cadcraft", "title": "CADCraft",
-     "short": "Can't be locked to one folder yet",
-     "reason": "Its command-line build can't be locked to one user's folder yet."},
-    {"name": "gridcraft", "title": "GridCraft",
-     "short": "Can't be locked to one folder yet",
-     "reason": "Its command-line build can't be locked to one user's folder yet."},
-    {"name": "lightcraft", "title": "LightCraft",
-     "short": "Can't be locked to one folder yet",
-     "reason": "Its command-line build can't be locked to one user's folder yet."},
+    {"name": "effectcraft", "title": "EffectCraft", "short": "My fix is in review",
+     "reason": "A project can still read footage from outside the user's folder. My fix is in review upstream.",
+     "prs": [2719]},
+    {"name": "filmcraft", "title": "FilmCraft", "short": "Folder lock in review", "reason": _NO_LOCK, "prs": [1657]},
+    {"name": "cadcraft", "title": "CADCraft", "short": "Folder lock in review", "reason": _NO_LOCK, "prs": [1904]},
+    {"name": "gridcraft", "title": "GridCraft", "short": "Folder lock in review", "reason": _NO_LOCK,
+     "prs": [480, 2739, 2857]},
+    {"name": "lightcraft", "title": "LightCraft", "short": "Folder lock in review", "reason": _NO_LOCK, "prs": [2176]},
 ]
+for _app in NOT_HOSTED_APPS:
+    _app["pr_links"] = [{"number": n, "url": f"https://github.com/storytold/{_app['name']}/pull/{n}"} for n in _app["prs"]]
 
 
 def _duration(seconds: float) -> str:
@@ -98,7 +95,8 @@ def apps() -> list[dict]:
             rows.append({**_row(app.title, "off", f"Version {app.version}, not installed on this local copy"),
                          "app": app.name})
     for app in NOT_HOSTED_APPS:
-        rows.append({**_row(app["title"], "off", f"Not hosted. {app['reason']}"), "app": app["name"]})
+        rows.append({**_row(app["title"], "off", f"Not hosted. {app['reason']}"), "app": app["name"],
+                     "prs": app["pr_links"]})
     return rows
 
 

@@ -792,6 +792,31 @@ h2 em {
   filter: grayscale(1);
 }
 
+.app-grid-off .app-name:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.app-prs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.app-prs a {
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.status-rows .app-prs {
+  grid-column: 3;
+  justify-content: start;
+}
+
 .app-grid-off .app-kind {
   font-size: 14px;
   line-height: 1.4;
@@ -1218,7 +1243,7 @@ a.status-name:hover {
     gap: 12px;
   }
 
-  .nav-github {
+  .nav-social {
     display: none;
   }
 
@@ -1251,7 +1276,8 @@ a.status-name:hover {
     grid-template-columns: 10px minmax(0, 1fr);
   }
 
-  .status-text {
+  .status-text,
+  .status-rows .app-prs {
     grid-column: 2;
   }
 

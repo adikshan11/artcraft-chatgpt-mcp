@@ -116,7 +116,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.data.count(b'<li style="--i: '), 13)
         self.assertEqual(response.data.count(b'class="is-off"'), 5)
         self.assertIn(b"<h3 class=\"app-group-title\">Not hosted yet</h3>", response.data)
-        self.assertIn(b"Fix in review upstream", response.data)
+        self.assertIn(b"My fix is in review", response.data)
         self.assertIn(b'href="https://github.com/storytold/lightcraft"', response.data)
         # Privacy is a footer link, not a homepage section; footer links carry no arrows.
         self.assertNotIn(b'id="privacy"', response.data)
@@ -125,6 +125,11 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b'class="icon-button nav-menu"', response.data)
         self.assertIn(b"data-theme-toggle", response.data)
         self.assertIn(b'aria-label="Source code on GitHub"', response.data)
+        self.assertIn(b'href="https://discord.gg/artcraft"', response.data)
+        # Each app I can't host yet links the open upstream pull requests that would fix it.
+        for pr in (b"effectcraft/pull/2719", b"filmcraft/pull/1657", b"cadcraft/pull/1904", b"gridcraft/pull/480",
+                   b"gridcraft/pull/2739", b"gridcraft/pull/2857", b"lightcraft/pull/2176"):
+            self.assertIn(b'href="https://github.com/storytold/' + pr + b'"', response.data)
         self.assertIn(b"/static/site.js", response.data)
         self.assertIn(b'href="/status"', response.data)
         # One example from every hosted app, made by the apps themselves.
@@ -164,6 +169,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         for app in (b"WordCraft", b"SoundCraft", b"EffectCraft", b"LightCraft"):
             self.assertIn(app, response.data)
         self.assertIn(b"Not hosted. A project can still read footage", response.data)
+        self.assertIn(b'href="https://github.com/storytold/cadcraft/pull/1904"', response.data)
         self.assertIn(b'data-theme-toggle', response.data)
 
     @patch.dict(os.environ, {"RENDER": "true", "RENDER_GIT_COMMIT": "abcdef1234567", "OAUTH_ISSUER": "",
