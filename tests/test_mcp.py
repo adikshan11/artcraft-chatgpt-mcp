@@ -95,13 +95,18 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
     def test_homepage_presents_unified_artcraft_integration(self, _list_projects):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b"Creative work,", response.data)
-        self.assertIn(b"OPEN-SOURCE COMMUNITY INTEGRATION", response.data)
-        self.assertIn(b"One connection. Useful workflows.", response.data)
-        self.assertIn(b"CONNECT FROM ANYWHERE", response.data)
+        self.assertIn(b"now a creative studio.", response.data)
+        self.assertIn(b"Just ask.", response.data)
+        self.assertIn(b"Your files stay yours.", response.data)
+        self.assertIn(b"Add it once.", response.data)
+        # The ArtCraft card leads the catalog with ArtCraft's own icon.
+        self.assertIn(b"/static/app-icons/artcraft.svg", response.data)
+        for app in (b"WordCraft", b"DeckCraft", b"PdfCraft", b"PhotoCraft", b"VectorCraft",
+                    b"DesignCraft", b"FigCraft", b"SoundCraft"):
+            self.assertIn(app, response.data)
         self.assertIn(b"https://artcraft-storytold-mcp.onrender.com/studio", response.data)
         self.assertIn(b"adikshan11/artcraft-plugin", response.data)
-        self.assertIn(b"Eight Craft apps, hosted", response.data)
+        self.assertIn(b"Eight Craft apps, hosted.", response.data)
         self.assertIn(b"PDFs and e-signatures", response.data)
         self.assertIn(b"#run-the-local-mcp-server", response.data)
         self.assertNotIn(b"ONE ARTCRAFT APP", response.data)
@@ -182,6 +187,18 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         async with Client(mcp) as client:
             result = await client.call_tool("list_artcraft_projects", {"limit": 5})
         self.assertEqual(result.structured_content["projects"][0]["name"], "artcraft")
+
+    @patch("app.fetch_storytold_repos")
+    async def test_artcraft_leads_the_project_list(self, fetch_repos):
+        fetch_repos.return_value = [
+            {"name": name, "description": "Creative tool", "url": f"https://github.com/storytold/{name}",
+             "language": "Rust", "stars": stars, "topics": [], "updated_at": None}
+            for name, stars in (("photocraft", 900), ("artcraft", 100), ("pdfcraft", 500))
+        ]
+        async with Client(mcp) as client:
+            result = await client.call_tool("list_artcraft_projects", {"limit": 5})
+        names = [project["name"] for project in result.structured_content["projects"]]
+        self.assertEqual(names, ["artcraft", "photocraft", "pdfcraft"])
 
     @patch("app.fetch_storytold_repos")
     async def test_search_scans_past_the_top_thirty_projects(self, fetch_repos):

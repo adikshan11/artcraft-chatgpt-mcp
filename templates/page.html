@@ -4,43 +4,51 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="{% block description %}{% endblock %}" />
+    <meta name="color-scheme" content="light dark" />
     <link rel="canonical" href="{{ site_url }}{{ request.path }}" />
     <link rel="icon" href="{{ url_for('static', filename='bridgecraft.svg') }}" type="image/svg+xml" />
     <title>{% block title %}{% endblock %} · BridgeCraft</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
-    <header class="site-header">
-      <a class="brand" href="{{ url_for('index') }}" aria-label="BridgeCraft home">
-        <img src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="" />
-        <span>BridgeCraft</span>
-      </a>
-      <nav class="main-nav" aria-label="Main navigation">
-        <a href="{{ url_for('privacy') }}">Privacy</a>
-        <a href="{{ url_for('terms') }}">Terms</a>
-        <a href="{{ url_for('support') }}">Support</a>
-      </nav>
-      <a class="header-link" href="{{ project_url }}" target="_blank" rel="noopener noreferrer">
-        View source <span aria-hidden="true">↗</span>
-      </a>
+    <header class="nav">
+      <div class="nav-inner">
+        <a class="brand" href="{{ url_for('index') }}" aria-label="BridgeCraft home">
+          <img src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="" width="28" height="28" />
+          <span>BridgeCraft</span>
+        </a>
+        <nav class="nav-links" aria-label="Main navigation">
+          <a href="{{ url_for('privacy') }}">Privacy</a>
+          <a href="{{ url_for('terms') }}">Terms</a>
+          <a href="{{ url_for('support') }}">Support</a>
+        </nav>
+        <a class="pill pill-small" href="{{ url_for('index') }}#connect">Connect</a>
+      </div>
     </header>
 
-    <main class="legal page-width">
+    <main class="legal">
       <h1>{{ self.title() }}</h1>
       <p class="legal-updated">Last updated {{ last_updated }}</p>
       {% block content %}{% endblock %}
     </main>
 
-    <footer class="site-footer page-width">
-      <a class="brand footer-brand" href="{{ url_for('index') }}">
-        <img src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="" />
-        <span>BridgeCraft</span>
-      </a>
-      <p>© 2026 Adithya Shankaran · Apache-2.0 ·
-        <a href="{{ url_for('privacy') }}">Privacy</a> ·
-        <a href="{{ url_for('terms') }}">Terms</a> ·
-        <a href="{{ url_for('support') }}">Support</a></p>
-      <a href="{{ project_url }}" target="_blank" rel="noopener noreferrer">Source on GitHub ↗</a>
+    <footer class="footer">
+      <div class="footer-inner">
+        <a class="brand" href="{{ url_for('index') }}">
+          <img src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="" width="24" height="24" />
+          <span>BridgeCraft</span>
+        </a>
+        <nav aria-label="Footer">
+          <a href="{{ url_for('privacy') }}">Privacy</a>
+          <a href="{{ url_for('terms') }}">Terms</a>
+          <a href="{{ url_for('support') }}">Support</a>
+          <a href="{{ project_url }}" target="_blank" rel="noopener noreferrer">Source ↗</a>
+        </nav>
+        <p>
+          Independent, community-built software, not an official Storytold or ArtCraft product.
+          © 2026 Adithya Shankaran · Apache-2.0.
+        </p>
+      </div>
     </footer>
   </body>
 </html>

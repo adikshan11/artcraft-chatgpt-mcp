@@ -38,8 +38,17 @@ ARTCRAFT_APP_DESCRIPTION = (
 )
 GITHUB_API = "https://api.github.com"
 MAX_README_CHARS = 12000
-# Each Craft app's own icon (Apache-2.0 / MIT, see NOTICE). ArtCraft's logo is a trademark, so it has none.
-APP_ICONS = {path.stem for path in (Path(__file__).parent / "static" / "app-icons").glob("*.png")}
+# The Craft apps Studio hosts, in the order the site shows them.
+HOSTED_APPS = [
+    {"name": app["name"], "title": app["title"]}
+    for app in json.loads((Path(__file__).parent / "craft_apps.json").read_text())["apps"]
+]
+# Each project's own icon, keyed by repository name (credited in NOTICE).
+APP_ICONS = {
+    path.stem: f"app-icons/{path.name}"
+    for path in (Path(__file__).parent / "static" / "app-icons").iterdir()
+    if path.suffix in (".png", ".svg")
+}
 LEGAL_LAST_UPDATED = "31 October 2026"
 MCP_INSTRUCTIONS = (
     "Use these read-only tools to discover public ArtCraft and Storytold projects. "
@@ -145,7 +154,8 @@ def relevant_repo(repo):
 
 def relevant_projects():
     repos = [repo for repo in fetch_storytold_repos() if relevant_repo(repo)]
-    return sorted(repos, key=lambda repo: (-repo["stars"], repo["name"].lower()))
+    # ArtCraft leads: the Craft apps are part of it.
+    return sorted(repos, key=lambda repo: (repo["name"] != "artcraft", -repo["stars"], repo["name"].lower()))
 
 
 def list_projects(limit=15):
@@ -263,6 +273,8 @@ def support():
 
 @app.get("/")
 def index():
+    from studio_mcp import RETENTION_DAYS
+
     try:
         repos = list_projects(12)
         error_message = None
@@ -278,6 +290,8 @@ def index():
         site_url=ARTCRAFT_SITE_URL,
         repos=repos,
         app_icons=APP_ICONS,
+        hosted_apps=HOSTED_APPS,
+        retention_days=RETENTION_DAYS,
         error_message=error_message,
     )
 

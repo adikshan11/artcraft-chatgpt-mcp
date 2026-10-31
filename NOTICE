@@ -14,6 +14,13 @@ The Craft app icons in static/app-icons/ are resized copies of each app's
 assets/app-icon artwork from github.com/storytold/<app>, used under that
 app's MIT OR Apache-2.0 license.
 
+static/app-icons/artcraft.svg is the ArtCraft logo, unmodified, from
+github.com/storytold/artcraft. It is a trademark of the ArtCraft Team and is
+shown only on the catalog card that links to the ArtCraft repository.
+
+The BridgeCraft logo (static/bridgecraft.svg) was drawn in VectorCraft by
+design/draw_logo.py; design/bridgecraft.vectorcraft is its source document.
+
 The Craft app command-line tools (WordCraft, DeckCraft, PdfCraft, PhotoCraft,
 VectorCraft, DesignCraft, FigCraft and SoundCraft) are not part of this source
 code. The Docker build downloads them from Storytold's GitHub releases, and
