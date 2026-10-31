@@ -62,7 +62,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
 
     def test_wordmark_is_two_tone(self):
         page = self.client.get("/").data.decode()
-        self.assertEqual(page.count('Bridge<span class="craft">Craft</span>'), 2)  # nav and footer
+        self.assertEqual(page.count('Bridge<span class="craft">Craft</span>'), 2)  # hero and footer
 
     def test_static_links_are_versioned_and_cached(self):
         page = self.client.get("/").data.decode()
@@ -123,7 +123,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
     def test_homepage_presents_unified_artcraft_integration(self, _list_projects):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b"<h1>Use Craft apps from AI apps</h1>", response.data)
+        self.assertIn(b'<h1>Use <span class="hl">Craft apps</span> from AI apps</h1>', response.data)
         self.assertIn(b"<span>ChatGPT</span><span>Claude</span><span>Gemini</span>", response.data)
         # Plain headings: no eyebrow labels or accent words on the homepage.
         for heading in (b"<h2>Examples</h2>", b"<h2>The apps</h2>", b"<h2>What doesn't work yet</h2>",

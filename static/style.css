@@ -30,56 +30,40 @@
 }
 
 :root {
-  --paper: #f6f1e7;
-  --paper-2: #efe7d6;
-  --surface: #fffdf8;
-  --ink: #111110;
-  --muted: #5f5a50;
-  --line: #d9cfbc;
+  color-scheme: dark;
+  --paper: #121316;
+  --paper-2: #18191c;
+  --surface: #1c1d21;
+  --ink: #f1f1ef;
+  --muted: #9a9ca3;
+  --line: #2a2c31;
   --accent: #ffc62e;
-  --craft: #a36f00;
-  --link: #0a5cc2;
-  --dark: #111110;
-  --on-dark: #f6f1e7;
+  --craft: var(--accent);
+  --link: #ffd866;
+  --dark: #0c0d0f;
+  --on-dark: #f1f1ef;
   --page: 1280px;
   --gutter: 80px;
+  --rail: 0px;
   --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
   --serif: "Instrument Serif", Georgia, "Times New Roman", serif;
   --body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
-/* Dark follows the system unless the nav switch picked one (site.js keeps it). */
-:root {
+/* Dark like the Craft apps' own pages, with the phoenix's yellow as the one
+   colour. Light is there for anyone who picks it with the nav switch. */
+:root[data-theme="light"] {
   color-scheme: light;
-}
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --paper: #15140f;
-  --paper-2: #1e1c16;
-  --surface: #1e1c16;
-  --ink: #f3ecdc;
-  --muted: #b1a993;
-  --line: #3a3628;
-  --link: #8cc0ff;
-  --dark: #0b0a07;
-  --craft: var(--accent);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --paper: #15140f;
-    --paper-2: #1e1c16;
-    --surface: #1e1c16;
-    --ink: #f3ecdc;
-    --muted: #b1a993;
-    --line: #3a3628;
-    --link: #8cc0ff;
-    --dark: #0b0a07;
-    --craft: var(--accent);
-  }
+  --paper: #f6f6f4;
+  --paper-2: #ececea;
+  --surface: #ffffff;
+  --ink: #121316;
+  --muted: #5c5e66;
+  --line: #d8d8d4;
+  --craft: #a36f00;
+  --link: #0a5cc2;
+  --dark: #121316;
 }
 
 *,
@@ -135,8 +119,9 @@ h1,
 h2,
 h3 {
   font-family: var(--display);
-  font-weight: 620;
-  letter-spacing: -0.035em;
+  font-weight: 700;
+  font-stretch: 110%;
+  letter-spacing: -0.03em;
   line-height: 0.98;
 }
 
@@ -166,6 +151,7 @@ h2 em {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   padding: 15px 22px;
   border: 1px solid var(--ink);
   background: transparent;
@@ -258,9 +244,24 @@ h2 em {
   display: flex;
   align-items: center;
   gap: 40px;
-  max-width: calc(var(--page) + 2 * var(--gutter));
-  margin: 0 auto;
-  padding: 14px var(--gutter);
+  padding: 10px clamp(16px, 3vw, 56px);
+}
+
+.nav .brand {
+  gap: 12px;
+}
+
+.crumb {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.crumb-sub {
+  color: var(--muted);
+  font-weight: 500;
 }
 
 .nav-links {
@@ -268,10 +269,11 @@ h2 em {
   flex: 1;
   justify-content: center;
   gap: 32px;
+  color: var(--muted);
   font-family: var(--mono);
   font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -280,8 +282,7 @@ h2 em {
 }
 
 .nav-links a:hover {
-  text-decoration: underline;
-  text-underline-offset: 5px;
+  color: var(--ink);
 }
 
 .nav-tools {
@@ -310,28 +311,130 @@ h2 em {
   border-color: var(--line);
 }
 
-.icon-sun,
-:root[data-theme="dark"] .icon-moon {
+.icon-moon,
+:root[data-theme="light"] .icon-sun {
   display: none;
 }
 
-:root[data-theme="dark"] .icon-sun {
+:root[data-theme="light"] .icon-moon {
   display: block;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .icon-moon {
-    display: none;
-  }
-
-  :root:not([data-theme="light"]) .icon-sun {
-    display: block;
-  }
 }
 
 .nav-menu,
 .nav-links .menu-only {
   display: none;
+}
+
+/* ---------------------------------------------------------------- page index */
+
+/* On wide screens the homepage keeps a rail on the right, like the Craft apps'
+   pages: its sections set against a ruler of the page, with the part on screen
+   shaded. site.js places each section at its share of the page's height. */
+.rail {
+  display: none;
+}
+
+@media (min-width: 1100px) {
+  .has-rail {
+    --rail: 184px;
+  }
+
+  .has-rail main,
+  .has-rail .footer {
+    margin-right: var(--rail);
+  }
+
+  .rail {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 5;
+    display: block;
+    width: var(--rail);
+    border-left: 1px solid var(--line);
+    background: var(--paper);
+  }
+}
+
+.rail-title {
+  position: absolute;
+  top: 76px;
+  right: 60px;
+  font-family: var(--display);
+  font-size: 17px;
+  font-weight: 700;
+  font-stretch: 112%;
+  text-transform: uppercase;
+}
+
+.rail-links,
+.rail-ruler {
+  position: absolute;
+  top: 128px;
+  bottom: 36px;
+}
+
+.rail-links {
+  left: 0;
+  right: 60px;
+  list-style: none;
+  padding: 0;
+}
+
+.rail-links a {
+  position: absolute;
+  top: var(--pos);
+  right: 0;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 700;
+  font-stretch: 112%;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+
+.rail-links a:hover,
+.rail-links a[aria-current] {
+  color: var(--ink);
+}
+
+/* Short ticks every 2%, numbered long ones every 10%. */
+.rail-ruler {
+  right: 0;
+  width: 48px;
+  background: repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px 2%) right / 10px 100% no-repeat;
+}
+
+.rail-ruler span {
+  position: absolute;
+  top: calc(var(--n) * 1%);
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font: 500 10px/1 var(--mono);
+}
+
+.rail-ruler span::after {
+  content: "";
+  width: 18px;
+  border-top: 1px solid var(--muted);
+}
+
+.rail-view {
+  position: absolute;
+  top: calc(var(--view-top, 0) * 100%);
+  right: 0;
+  width: 100%;
+  height: calc(var(--view-size, 0.1) * 100%);
+  border-bottom: 2px solid var(--ink);
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
 }
 
 /* ---------------------------------------------------------------- hero */
@@ -344,13 +447,46 @@ h2 em {
   gap: clamp(32px, 5vw, 72px);
   max-width: calc(var(--page) + 2 * var(--gutter));
   margin: 0 auto;
-  padding: 80px var(--gutter) 96px;
+  padding: 0 var(--gutter) 96px;
+  border-inline: 1px solid var(--line);
 }
 
 .hero-copy {
   display: grid;
   justify-items: start;
   gap: 26px;
+}
+
+.hero-mark {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.badge {
+  padding: 5px 9px;
+  background: var(--accent);
+  color: #121316;
+  font: 700 12px/1 var(--mono);
+  letter-spacing: 0.12em;
+}
+
+.wordmark {
+  font-family: var(--display);
+  font-size: 30px;
+  font-weight: 700;
+  font-stretch: 112%;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+.wordmark .craft,
+.hl {
+  color: var(--craft);
+}
+
+.hero h1 .hl {
+  white-space: nowrap;
 }
 
 /* Balanced so the lines come out even, and sized to sit in three or four lines beside the plate. */
@@ -406,6 +542,41 @@ h2 em {
   align-items: center;
   gap: 16px 28px;
   margin-top: 4px;
+}
+
+.share {
+  display: flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--line);
+  font: 600 11px/1 var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.share > * {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.share > span {
+  border-left: 0;
+  color: var(--muted);
+  cursor: default;
+}
+
+.share a:hover,
+.share button:hover {
+  background: var(--paper-2);
 }
 
 .link-plain {
@@ -587,13 +758,35 @@ h2 em {
   gap: 56px;
   max-width: calc(var(--page) + 2 * var(--gutter));
   margin: 0 auto;
-  padding: 120px var(--gutter);
-  border-top: 1px solid var(--line);
+  padding: 0 var(--gutter) 120px;
+  border: 1px solid var(--line);
+  border-bottom: 0;
 }
 
-.hero + .section {
-  border-top: 0;
-  padding-top: 40px;
+/* The bar across the top of each part of the page: its number and name on the
+   left, a short note on the right, like the Craft apps' pages. */
+.section-bar {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 24px;
+  margin: 0 calc(-1 * var(--gutter)) 32px;
+  padding: 15px var(--gutter);
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font: 500 11px/1.4 var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.section-bar span:first-child {
+  color: var(--ink);
+}
+
+.section-bar b {
+  color: var(--muted);
+  font-weight: 500;
 }
 
 .section-head {
@@ -617,8 +810,7 @@ h2 em {
 }
 
 /* Full-bleed bands keep their content on the page grid. */
-.section-dark,
-.section-accent {
+.section-dark {
   max-width: none;
   padding-inline: max(var(--gutter), calc((100% - var(--page)) / 2));
   border-top: 0;
@@ -635,12 +827,7 @@ h2 em {
 }
 
 .section-accent {
-  --ink: #111110;
-  --paper: #f6f1e7;
-  --muted: #3d3624;
-  --line: #111110;
-  background: var(--accent);
-  color: var(--ink);
+  background: var(--paper-2);
 }
 
 /* Examples */
@@ -716,6 +903,77 @@ h2 em {
 }
 
 /* Heading on the left, text on the right: limits, privacy and about. */
+
+.cells {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 calc(-1 * var(--gutter));
+  padding: 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+  counter-reset: cell;
+}
+
+.cells li {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 64px 40px 48px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  counter-increment: cell;
+}
+
+.cells li:nth-child(3n) {
+  border-right: 0;
+}
+
+/* Five cells: the last one fills the rest of its row. */
+.cells li:last-child:nth-child(3n + 2) {
+  grid-column: span 2;
+  border-right: 0;
+}
+
+.cells li::before {
+  content: counter(cell, decimal-leading-zero);
+  position: absolute;
+  top: 24px;
+  right: 28px;
+  color: var(--muted);
+  font: 500 11px/1 var(--mono);
+  letter-spacing: 0.1em;
+}
+
+.cells h3 {
+  font-size: 22px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.cells p {
+  color: var(--muted);
+  font-size: 16px;
+}
+
+.cells a {
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 960px) {
+  .cells {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cells li,
+  .cells li:last-child:nth-child(3n + 2) {
+    grid-column: auto;
+    padding: 48px var(--gutter) 36px;
+    border-right: 0;
+  }
+}
 
 .two-col {
   display: grid;
@@ -872,8 +1130,8 @@ h2 em {
   display: flex;
   justify-self: start;
   max-width: 100%;
-  border: 1px solid #111110;
-  background: #f6f1e7;
+  border: 1px solid var(--line);
+  background: var(--surface);
 }
 
 .url-box code {
@@ -1310,6 +1568,10 @@ a.status-name:hover {
 }
 
 @media (max-width: 640px) {
+  .crumb-sub {
+    display: none;
+  }
+
   :root {
     --gutter: 16px;
   }
@@ -1332,7 +1594,7 @@ a.status-name:hover {
 
   .hero {
     gap: 40px;
-    padding-block: 40px 64px;
+    padding-block: 0 64px;
   }
 
   .plate figcaption {
@@ -1366,7 +1628,7 @@ a.status-name:hover {
 
   .section {
     gap: 40px;
-    padding-block: 80px;
+    padding-block: 0 80px;
   }
 
   .app-cell {

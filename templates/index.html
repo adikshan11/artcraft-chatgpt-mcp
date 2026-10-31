@@ -18,8 +18,8 @@
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#f6f1e7" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#121316" />
     <link rel="canonical" href="{{ site_url }}" />
     <link rel="icon" href="{{ url_for('static', filename='bridgecraft.svg') }}" type="image/svg+xml" />
     <link rel="icon" href="{{ url_for('static', filename='bridgecraft-32.png') }}" type="image/png" sizes="32x32" />
@@ -30,13 +30,27 @@
 {% include "_theme.html" %}
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
-  <body>
+  <body class="has-rail">
 {% include "_nav.html" %}
+    <nav class="rail" aria-label="On this page">
+      <a class="rail-title" href="#top">BridgeCraft</a>
+      <ol class="rail-links">
+        {% for id, name in [("examples", "Examples"), ("apps", "Apps"), ("limits", "Limits"), ("about", "About"), ("setup", "Set it up")] %}
+        <li><a href="#{{ id }}" style="--pos: {{ 12 + loop.index0 * 20 }}%">{{ name }}</a></li>
+        {% endfor %}
+      </ol>
+      <div class="rail-ruler" aria-hidden="true">
+        {% for n in range(0, 101, 10) %}<span style="--n: {{ n }}">{{ n }}</span>{% endfor %}
+        <i class="rail-view"></i>
+      </div>
+    </nav>
 
     <main id="top">
       <section class="hero">
+        <div class="section-bar"><span><b>01</b> / BridgeCraft</span><span>MCP connector · Apache-2.0</span></div>
         <div class="hero-copy">
-          <h1>Use Craft apps from AI apps</h1>
+          <p class="hero-mark"><span class="badge">MCP</span><span class="wordmark">Bridge<span class="craft">Craft</span></span></p>
+          <h1>Use <span class="hl">Craft apps</span> from AI apps</h1>
           <p class="ai-apps" aria-label="Works with ChatGPT, Claude, Gemini, Cursor and more">
             <span>ChatGPT</span><span>Claude</span><span>Gemini</span><span>Cursor</span><span>and more</span>
           </p>
@@ -46,8 +60,30 @@
             There's nothing to install.
           </p>
           <div class="actions">
-            <a class="button button-dark" href="#setup">Set it up</a>
-            <a class="link-plain" href="#examples">See what it makes</a>
+            <a class="button button-dark" href="#setup">
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" d="M2 8h11M9 4l4 4-4 4"/></svg>
+              Set it up
+            </a>
+            <a class="button" href="#examples">
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" d="M8 2v11M4 9l4 4 4-4"/></svg>
+              See what it makes
+            </a>
+            <a class="button" href="{{ project_url }}" target="_blank" rel="noopener noreferrer">
+              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.81.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+              View on GitHub
+            </a>
+          </div>
+          {% set share_text = "BridgeCraft: use Craft apps from AI apps" %}
+          <div class="share" role="group" aria-label="Share BridgeCraft">
+            <span>Share</span>
+            <button type="button" data-copy-text="{{ site_url }}">
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5" y="5" width="9" height="9"/><path d="M11 2H2v9"/></g></svg>
+              Copy link
+            </button>
+            <a href="https://x.com/intent/post?text={{ share_text|urlencode }}&amp;url={{ site_url|urlencode }}" target="_blank" rel="noopener noreferrer">X</a>
+            <a href="https://www.reddit.com/submit?url={{ site_url|urlencode }}&amp;title={{ share_text|urlencode }}" target="_blank" rel="noopener noreferrer">Reddit</a>
+            <a href="https://bsky.app/intent/compose?text={{ (share_text ~ ' ' ~ site_url)|urlencode }}" target="_blank" rel="noopener noreferrer">Bluesky</a>
+            <a href="https://www.linkedin.com/sharing/share-offsite/?url={{ site_url|urlencode }}" target="_blank" rel="noopener noreferrer">LinkedIn</a>
           </div>
         </div>
 
@@ -79,6 +115,7 @@
       </section>
 
       <section class="section" id="examples">
+        <div class="section-bar"><span><b>02</b> / Examples</span><span>Made by the hosted apps</span></div>
         <header class="section-head">
           <h2>Examples</h2>
           <p>
@@ -122,6 +159,7 @@
       </section>
 
       <section class="section" id="apps">
+        <div class="section-bar"><span><b>03</b> / The apps</span><span>{{ hosted_apps|length }} hosted · {{ not_hosted_apps|length }} not yet</span></div>
         <header class="section-head">
           <h2>The apps</h2>
           <p>
@@ -170,40 +208,49 @@
       </section>
 
       <section class="section" id="limits">
-        <div class="two-col">
-          <header class="section-head">
-            <h2>What doesn't work yet</h2>
-            <p>Worth knowing before you set it up.</p>
-          </header>
-          <ul class="plain-list">
-            <li>
-              <strong>Not every Craft app is here.</strong> EffectCraft, FilmCraft, CADCraft, GridCraft
-              and LightCraft can't yet be locked to one person's folder, so I didn't host them. Fixes
-              for all five are in review upstream, linked under <a href="#apps">the apps</a>. The <a href="{{ url_for('status_page') }}">status page</a>
+        <div class="section-bar"><span><b>04</b> / Limits</span><span>Before you set it up</span></div>
+        <header class="section-head">
+          <h2>What doesn't work yet</h2>
+          <p>Worth knowing before you set it up.</p>
+        </header>
+        <ol class="cells">
+          <li>
+            <h3>Not every Craft app is here</h3>
+            <p>
+              EffectCraft, FilmCraft, CADCraft, GridCraft and LightCraft can't yet be locked to one
+              person's folder, so I didn't host them. Fixes for all five are in review upstream,
+              linked under <a href="#apps">the apps</a>. The <a href="{{ url_for('status_page') }}">status page</a>
               shows what's running now.
-            </li>
-            <li>
-              <strong>No AI image or video generation currently on the hosted server.</strong> ArtCraft's
-              generation needs your own ArtCraft account, so it only works with the
+            </p>
+          </li>
+          <li>
+            <h3>No AI image or video generation on the hosted server</h3>
+            <p>
+              ArtCraft's generation needs your own ArtCraft account, so it only works with the
               <a href="{{ project_url }}#run-the-local-mcp-server" target="_blank" rel="noopener noreferrer">local server</a>,
               which runs on Windows, macOS and Linux.
-            </li>
-            <li>
-              <strong>The apps run without their windows.</strong> Anything that needs the desktop
-              app, such as printing, isn't available.
-            </li>
-            <li>
-              <strong>Files are capped.</strong> Up to 500 MB each and 5 GB per account.
-            </li>
-            <li>
-              <strong>It's one server run by one person.</strong> If something breaks,
+            </p>
+          </li>
+          <li>
+            <h3>The apps run without their windows</h3>
+            <p>Anything that needs the desktop app, such as printing, isn't available.</p>
+          </li>
+          <li>
+            <h3>Files are capped</h3>
+            <p>Up to 500 MB each and 5 GB per account.</p>
+          </li>
+          <li>
+            <h3>One server, run by one person</h3>
+            <p>
+              If something breaks,
               <a href="{{ project_url }}/issues" target="_blank" rel="noopener noreferrer">open an issue</a>.
-            </li>
-          </ul>
-        </div>
+            </p>
+          </li>
+        </ol>
       </section>
 
       <section class="section" id="about">
+        <div class="section-bar"><span><b>05</b> / About</span><span>Independent · not official</span></div>
         <div class="two-col">
           <header class="section-head">
             <h2>Who runs this</h2>
@@ -228,6 +275,7 @@
       </section>
 
       <section class="section section-accent" id="setup">
+        <div class="section-bar"><span><b>06</b> / Set it up</span><span>Claude · ChatGPT · Cursor · VS Code</span></div>
         <header class="section-head">
           <h2>Set it up</h2>
           <p>
