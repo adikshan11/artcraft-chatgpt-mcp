@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: artcraft-storytold-mcp
+    name: bridgecraft
     runtime: docker
     # Video processing and hosted Craft sessions need more than the free plan's
     # 512 MB; move to a paid instance (about 2 GB) before promoting them publicly.
@@ -9,7 +9,7 @@ services:
     healthCheckPath: /health
     envVars:
       - key: PUBLIC_BASE_URL
-        value: https://artcraft-storytold-mcp.onrender.com
+        value: https://bridgecraft.onrender.com
       # OAuth (Auth0 or Clerk). See README "ArtCraft Studio".
       - key: OAUTH_ISSUER
         sync: false

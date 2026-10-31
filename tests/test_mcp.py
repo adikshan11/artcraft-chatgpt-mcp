@@ -20,6 +20,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from starlette.testclient import TestClient as AsgiTestClient
 
 from app import (
+    create_asgi_app,
     ARTCRAFT_APP_DESCRIPTION,
     BRAND_ICON_URL,
     BRAND_PNG_URL,
@@ -50,6 +51,18 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         app.config.update(TESTING=True)
         self.client = app.test_client()
+
+    def test_moved_to_forwards_everything_but_health(self):
+        with patch.dict(os.environ, {"MOVED_TO": "https://new.example/"}):
+            moved = create_asgi_app()
+        client = AsgiTestClient(moved)
+        page = client.get("/support?x=1", follow_redirects=False)
+        self.assertEqual(page.status_code, 308)
+        self.assertEqual(page.headers["location"], "https://new.example/support?x=1")
+        post = client.post("/studio", json={}, follow_redirects=False)
+        self.assertEqual(post.status_code, 308)
+        self.assertEqual(post.headers["location"], "https://new.example/studio")
+        self.assertEqual(client.get("/health").status_code, 200)
 
     def test_root_icon_paths_serve_the_logo(self):
         # Safari asks for these fixed paths rather than reading the <link> tags.
@@ -173,7 +186,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b"Built and run by Adithya Shankaran. Not an official Storytold or ArtCraft product.", footer)
         self.assertNotIn(b"Built and run by", hero)
         self.assertIn(b"https://github.com/storytold/craft-contrib/pull/23", response.data)
-        self.assertIn(b"https://artcraft-storytold-mcp.onrender.com/studio", response.data)
+        self.assertIn(b"https://bridgecraft.onrender.com/studio", response.data)
         self.assertIn(b"adikshan11/bridgecraft", response.data)
         self.assertIn(b"PDFs and e-signatures", response.data)
         self.assertIn(b"#run-the-local-mcp-server", response.data)

@@ -40,7 +40,7 @@ from media_storage import (
 )
 
 STUDIO_PATH = "/studio"
-SITE_URL = os.environ.get("PUBLIC_BASE_URL", "https://artcraft-storytold-mcp.onrender.com").rstrip("/")
+SITE_URL = os.environ.get("PUBLIC_BASE_URL", "https://bridgecraft.onrender.com").rstrip("/")
 MAX_FILE_BYTES = int(os.environ.get("STUDIO_MAX_FILE_MB", "500")) * 1_000_000
 USER_QUOTA_BYTES = int(os.environ.get("STUDIO_USER_QUOTA_MB", "5000")) * 1_000_000
 # The privacy policy promises this, so the server enforces it instead of relying on

@@ -4,7 +4,7 @@
   "title": "BridgeCraft",
   "description": "Use ArtCraft and Storytold's open-source Craft apps from any MCP client. Community-built.",
   "version": "1.0.0",
-  "websiteUrl": "https://artcraft-storytold-mcp.onrender.com",
+  "websiteUrl": "https://bridgecraft.onrender.com",
   "repository": {
     "url": "https://github.com/adikshan11/bridgecraft",
     "source": "github"
@@ -12,7 +12,7 @@
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://artcraft-storytold-mcp.onrender.com/studio"
+      "url": "https://bridgecraft.onrender.com/studio"
     }
   ]
 }

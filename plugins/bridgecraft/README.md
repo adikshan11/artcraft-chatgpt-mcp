@@ -15,7 +15,7 @@ Storytold or ArtCraft product.
 The plugin adds one remote MCP server and nothing else: no skills, hooks,
 commands or local programs.
 
-- **Where it connects:** `https://artcraft-storytold-mcp.onrender.com/studio`,
+- **Where it connects:** `https://bridgecraft.onrender.com/studio`,
   over HTTPS.
 - **Sign-in:** the first time it is used, Claude asks you to sign in through
   your browser (OAuth). The plugin never reads credentials from your computer.
@@ -24,10 +24,10 @@ commands or local programs.
 - **How long files are kept:** files are deleted automatically after 7 days.
   Download links stop working after an hour.
 
-Privacy policy: https://artcraft-storytold-mcp.onrender.com/privacy
-Terms: https://artcraft-storytold-mcp.onrender.com/terms
-Support: https://artcraft-storytold-mcp.onrender.com/support
-Live status: https://artcraft-storytold-mcp.onrender.com/status
+Privacy policy: https://bridgecraft.onrender.com/privacy
+Terms: https://bridgecraft.onrender.com/terms
+Support: https://bridgecraft.onrender.com/support
+Live status: https://bridgecraft.onrender.com/status
 
 ## License
 

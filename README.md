@@ -5,7 +5,7 @@ Storytold's Craft apps. It works with any
 MCP-capable AI assistant, including ChatGPT, Claude, Gemini CLI, Grok (via the
 xAI API), and Kimi:
 
-- **Website**: [artcraft-storytold-mcp.onrender.com](https://artcraft-storytold-mcp.onrender.com)
+- **Website**: [bridgecraft.onrender.com](https://bridgecraft.onrender.com)
   is the public introduction and read-only Storytold project catalog.
 - **Official ArtCraft website**: [getartcraft.com](https://getartcraft.com).
 - **Branding**: BridgeCraft uses its own name and logo (`static/bridgecraft.svg`, a phoenix
@@ -486,13 +486,18 @@ key in a chat prompt or commit them to source control.
 
 ## Public website and project catalog
 
-The public website is [https://artcraft-storytold-mcp.onrender.com](https://artcraft-storytold-mcp.onrender.com).
+The public website is [https://bridgecraft.onrender.com](https://bridgecraft.onrender.com).
 It introduces the unified integration and displays public Storytold repositories.
 For local development, run the catalog at `http://127.0.0.1:5001/`; the health
 check is `http://127.0.0.1:5001/health`.
 
+The site used to live at `artcraft-storytold-mcp.onrender.com`. That deployment
+now has `MOVED_TO=https://bridgecraft.onrender.com`, which answers every request
+except `/health` with a 308 redirect to the same path here, so old links and
+connectors that follow redirects keep working.
+
 The legacy read-only MCP catalog is available at
-`https://artcraft-storytold-mcp.onrender.com/mcp/` for existing clients. Do not
+`https://bridgecraft.onrender.com/mcp/` for existing clients. Do not
 add it as another ChatGPT app; its repository tools are already included in the
 unified ArtCraft connection. Render supplies HTTPS and
 `RENDER_EXTERNAL_HOSTNAME`, which the service uses for the MCP Host allowlist.
@@ -620,7 +625,7 @@ options (`mcp_args`) to the manifest.
 ### Deploy
 
 1. **OAuth (Auth0 shown; Clerk works the same way).** Create an API with
-   identifier `https://artcraft-storytold-mcp.onrender.com/studio` and RS256
+   identifier `https://bridgecraft.onrender.com/studio` and RS256
    signing. Enable *Dynamic Client Registration* and the *Resource Parameter
    Compatibility Profile* so ChatGPT and Claude can register themselves, and
    promote a login connection (e.g. Google, email) to a domain-level connection.
@@ -645,7 +650,7 @@ options (`mcp_args`) to the manifest.
    variables in the dashboard. Long videos need more than the free plan's
    512 MB of memory.
 4. **Connect.** In ChatGPT developer mode or Claude's custom connectors, add
-   `https://artcraft-storytold-mcp.onrender.com/studio` and sign in.
+   `https://bridgecraft.onrender.com/studio` and sign in.
 
 Locally, without OAuth, set `STUDIO_DEV_USER=yourname` to act as one user; files
 go to `.studio-storage/`. This bypass is disabled on Render.
@@ -653,7 +658,7 @@ go to `.studio-storage/`. This bypass is disabled on Render.
 ### Install it in other apps
 
 Every app below connects to the same hosted address,
-`https://artcraft-storytold-mcp.onrender.com/studio`, and asks you to sign in
+`https://bridgecraft.onrender.com/studio`, and asks you to sign in
 the first time.
 
 - **Claude Code**, from this repository's plugin marketplace
@@ -669,12 +674,12 @@ the first time.
   `claude plugin marketplace add adikshan11/bridgecraft`, then
   `claude plugin install bridgecraft@bridgecraft`.
 - **Cursor:** the "Add to Cursor" link on the website's setup section, or add
-  `{"url": "https://artcraft-storytold-mcp.onrender.com/studio"}` under
+  `{"url": "https://bridgecraft.onrender.com/studio"}` under
   `mcpServers.bridgecraft` in `~/.cursor/mcp.json`.
 - **VS Code:**
 
   ```bash
-  code --add-mcp '{"name":"bridgecraft","type":"http","url":"https://artcraft-storytold-mcp.onrender.com/studio"}'
+  code --add-mcp '{"name":"bridgecraft","type":"http","url":"https://bridgecraft.onrender.com/studio"}'
   ```
 
 - **Claude and ChatGPT (web, desktop and phone):** add a custom connector with

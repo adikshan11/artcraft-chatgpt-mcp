@@ -73,7 +73,7 @@ def shared_links():
 ORG_NAME = "storytold"
 ORG_URL = f"https://github.com/{ORG_NAME}"
 PROJECT_URL = "https://github.com/adikshan11/bridgecraft"
-ARTCRAFT_SITE_URL = "https://artcraft-storytold-mcp.onrender.com"
+ARTCRAFT_SITE_URL = "https://bridgecraft.onrender.com"
 ARTCRAFT_PRODUCT_URL = "https://getartcraft.com"
 # Our own mark. The ArtCraft name and logos are the ArtCraft Team's trademarks.
 BRAND_ICON_URL = f"{ARTCRAFT_SITE_URL}/static/bridgecraft.svg"
@@ -421,8 +421,20 @@ def create_asgi_app():
     # root, so it is dispatched by path instead of being mounted under a prefix.
     studio_prefixes = (STUDIO_PATH, "/.well-known/oauth-protected-resource")
 
+    # MOVED_TO turns a retired deployment into a forwarder: every request except
+    # the health check gets a permanent redirect to the same path on the new
+    # site. 308 keeps the method and body, so MCP clients' POSTs follow it too.
+    moved_to = os.environ.get("MOVED_TO", "").rstrip("/")
+
     async def dispatch(scope, receive, send):
         path = scope.get("path", "")
+        if moved_to and scope["type"] == "http" and path != "/health":
+            query = scope.get("query_string", b"").decode("latin-1")
+            location = moved_to + path + (f"?{query}" if query else "")
+            await send({"type": "http.response.start", "status": 308,
+                        "headers": [(b"location", location.encode("latin-1")), (b"content-length", b"0")]})
+            await send({"type": "http.response.body", "body": b""})
+            return
         if scope["type"] in ("http", "websocket") and path.startswith(studio_prefixes):
             await studio_app(scope, receive, send)
         else:
