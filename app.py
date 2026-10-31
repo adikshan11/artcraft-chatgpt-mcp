@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 Adithya Shankaran
 
+import asyncio
 import base64
 import json
 import os
@@ -229,7 +230,7 @@ def health():
 
 
 def legal_page(template):
-    from studio_mcp import MAX_FILE_BYTES, USER_QUOTA_BYTES
+    from studio_mcp import MAX_FILE_BYTES, RETENTION_DAYS, USER_QUOTA_BYTES
 
     return render_template(
         template,
@@ -237,8 +238,8 @@ def legal_page(template):
         project_url=PROJECT_URL,
         icon_url=ARTCRAFT_ICON_URL,
         last_updated=LEGAL_LAST_UPDATED,
-        # Must match the expiry rule on the storage bucket (see README "Deploy").
-        retention_days=int(os.environ.get("STUDIO_FILE_RETENTION_DAYS", "7")),
+        # Studio deletes files older than this itself (studio_mcp.sweep_expired_files_forever).
+        retention_days=RETENTION_DAYS,
         max_file_mb=MAX_FILE_BYTES // 1_000_000,
         quota_mb=USER_QUOTA_BYTES // 1_000_000,
         support_email=os.environ.get("SUPPORT_EMAIL", "").strip(),
@@ -297,16 +298,18 @@ def create_asgi_app():
     )
 
     import craft_sessions
-    from studio_mcp import STUDIO_PATH, create_studio_app, studio
+    from studio_mcp import STUDIO_PATH, create_studio_app, studio, sweep_expired_files_forever
 
     studio_app = create_studio_app(mcp_allowed_hosts())
 
     @asynccontextmanager
     async def lifespan(_app):
         async with mcp.session_manager.run(), studio.session_manager.run():
+            sweeper = asyncio.create_task(sweep_expired_files_forever())
             try:
                 yield
             finally:
+                sweeper.cancel()
                 await craft_sessions.manager.close_all()
 
     site = Starlette(

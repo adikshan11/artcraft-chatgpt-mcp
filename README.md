@@ -393,7 +393,9 @@ options (`mcp_args`) to the manifest.
      `R2_SECRET_ACCESS_KEY`, and `R2_BUCKET`.
 
    Allow `GET` and `PUT` from any origin in the bucket's CORS rules (presigned
-   URLs carry their own authorization) and expire objects after, e.g., 7 days.
+   URLs carry their own authorization). Studio deletes files older than
+   `STUDIO_FILE_RETENTION_DAYS` (default 7) itself, at startup and every hour;
+   a bucket lifecycle rule with the same age is a good backstop.
 3. **Render.** The service builds from `Dockerfile` (includes FFmpeg). Set
    `OAUTH_ISSUER` (e.g. `https://<tenant>.us.auth0.com/` — exact, including the
    trailing slash), `OAUTH_AUDIENCE` (the API identifier above), and the storage
