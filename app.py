@@ -27,7 +27,12 @@ app = Flask(__name__)
 
 @app.context_processor
 def shared_links():
-    return {"discord_url": DISCORD_URL}
+    # Cursor's install link carries the server's mcp.json entry as base64 JSON.
+    studio_config = base64.b64encode(json.dumps({"url": f"{ARTCRAFT_SITE_URL}/studio"}).encode()).decode()
+    return {
+        "discord_url": DISCORD_URL,
+        "cursor_install_url": f"cursor://anysphere.cursor-deeplink/mcp/install?name=bridgecraft&config={studio_config}",
+    }
 
 ORG_NAME = "storytold"
 ORG_URL = f"https://github.com/{ORG_NAME}"

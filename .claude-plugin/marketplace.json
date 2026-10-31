@@ -1,0 +1,15 @@
+{
+  "name": "bridgecraft",
+  "description": "BridgeCraft: ArtCraft and Storytold's Craft apps in Claude Code. Community-built, not an official Storytold or ArtCraft product.",
+  "owner": {
+    "name": "Adithya Shankaran",
+    "url": "https://github.com/adikshan11"
+  },
+  "plugins": [
+    {
+      "name": "bridgecraft",
+      "source": "./plugins/bridgecraft",
+      "description": "Connects Claude Code to BridgeCraft Studio, which runs Storytold's Craft apps on your files."
+    }
+  ]
+}

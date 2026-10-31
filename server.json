@@ -1,0 +1,18 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.adikshan11/bridgecraft",
+  "title": "BridgeCraft",
+  "description": "Use ArtCraft and Storytold's open-source Craft apps from any MCP client. Community-built.",
+  "version": "1.0.0",
+  "websiteUrl": "https://artcraft-storytold-mcp.onrender.com",
+  "repository": {
+    "url": "https://github.com/adikshan11/artcraft-plugin",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://artcraft-storytold-mcp.onrender.com/studio"
+    }
+  ]
+}

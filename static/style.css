@@ -844,6 +844,41 @@ h2 em {
   border-width: 0 0 0 1px;
 }
 
+.install-list {
+  display: grid;
+  gap: 14px;
+  list-style: none;
+  padding: 0;
+  font-size: 15px;
+}
+
+.install-list li {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 6px 16px;
+  align-items: baseline;
+}
+
+.install-list code {
+  grid-column: 2;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.install-list strong + code,
+.install-list strong + a {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.install-list a {
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
 .connect-links {
   display: flex;
   flex-wrap: wrap;
@@ -1301,6 +1336,17 @@ a.status-name:hover {
 
   .url-box {
     justify-self: stretch;
+  }
+
+  .install-list li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .install-list code,
+  .install-list strong + code,
+  .install-list strong + a {
+    grid-column: 1;
+    grid-row: auto;
   }
 
   .url-box code {

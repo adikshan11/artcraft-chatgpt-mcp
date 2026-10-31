@@ -632,7 +632,7 @@ options (`mcp_args`) to the manifest.
    `STUDIO_FILE_RETENTION_DAYS` (default 7) itself, at startup and every hour;
    a bucket lifecycle rule with the same age is a good backstop.
 3. **Render.** The service builds from `Dockerfile` (includes FFmpeg). Set
-   `OAUTH_ISSUER` (e.g. `https://<tenant>.us.auth0.com/` — exact, including the
+   `OAUTH_ISSUER` (e.g. `https://<tenant>.us.auth0.com/`; it must match exactly, including the
    trailing slash), `OAUTH_AUDIENCE` (the API identifier above), and the storage
    variables in the dashboard. Long videos need more than the free plan's
    512 MB of memory.
@@ -642,14 +642,65 @@ options (`mcp_args`) to the manifest.
 Locally, without OAuth, set `STUDIO_DEV_USER=yourname` to act as one user; files
 go to `.studio-storage/`. This bypass is disabled on Render.
 
+### Install it in other apps
+
+Every app below connects to the same hosted address,
+`https://artcraft-storytold-mcp.onrender.com/studio`, and asks you to sign in
+the first time.
+
+- **Claude Code**, from this repository's plugin marketplace
+  ([`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json)), in
+  one command:
+
+  ```bash
+  claude plugin install bridgecraft --marketplace adikshan11/artcraft-plugin
+  ```
+
+  Inside a session, `/plugin install bridgecraft --marketplace adikshan11/artcraft-plugin`
+  does the same. Older Claude Code versions need two steps:
+  `claude plugin marketplace add adikshan11/artcraft-plugin`, then
+  `claude plugin install bridgecraft@bridgecraft`.
+- **Cursor:** the "Add to Cursor" link on the website's setup section, or add
+  `{"url": "https://artcraft-storytold-mcp.onrender.com/studio"}` under
+  `mcpServers.bridgecraft` in `~/.cursor/mcp.json`.
+- **VS Code:**
+
+  ```bash
+  code --add-mcp '{"name":"bridgecraft","type":"http","url":"https://artcraft-storytold-mcp.onrender.com/studio"}'
+  ```
+
+- **Claude and ChatGPT (web, desktop and phone):** add a custom connector with
+  the address, as on the website. Once the directory submissions below are
+  approved, people can search for BridgeCraft there instead.
+
 ### Publishing publicly
 
-The ChatGPT listing's **Website**, icon, and "Developer mode" label come from
-the app submission, not from this server. Submit the `/studio` URL through the
-OpenAI Platform's app submission flow with a verified developer identity,
-privacy policy, terms, support contact, icon, and test credentials; it is
-public only after review approval. Claude's connector directory has its own
-submission form.
+Each listing is submitted from the publisher's own account.
+
+1. **Official MCP Registry** (read by VS Code, GitHub, and other clients that
+   browse servers). [`server.json`](server.json) describes the hosted server as
+   `io.github.adikshan11/bridgecraft`. Install
+   [`mcp-publisher`](https://github.com/modelcontextprotocol/registry), then from
+   this folder run `mcp-publisher login github` and `mcp-publisher publish`.
+   GitHub sign-in proves ownership of the `io.github.adikshan11/` name. Raise
+   `version` in `server.json` before each later publish.
+2. **Anthropic's directory** ([claude.ai/directory](https://claude.ai/directory)):
+   submit the `plugins/bridgecraft` plugin and the `/studio` server as a
+   connector from the developer portal at
+   [claude.ai/directory/manage](https://claude.ai/directory/manage). It needs a
+   paid claude.ai plan, the privacy policy, terms, support page, icon and a test
+   account. Once approved, people find it by searching on claude.ai, in the
+   desktop app and in Cowork, and Claude Code loads it for them as
+   `bridgecraft@synced`.
+3. **ChatGPT apps directory:** the listing's **Website**, icon, and "Developer
+   mode" label come from the app submission, not from this server. Submit the
+   `/studio` URL through the OpenAI Platform's app submission flow with a
+   verified developer identity, privacy policy, terms, support contact, icon,
+   and test credentials. It is public only after review approval.
+
+The directories list it as BridgeCraft, a community project. If Storytold
+adopts it ([RFC-0016](https://github.com/storytold/craft-contrib/pull/23)), it
+can be listed under ArtCraft's name with ArtCraft sign-in instead.
 
 ## License and credit
 

@@ -237,6 +237,20 @@
           <code id="studio-url">{{ site_url }}/studio</code>
           <button class="button button-dark" type="button" data-copy="studio-url">Copy</button>
         </div>
+        <ul class="install-list">
+          <li>
+            <strong>Claude Code</strong>
+            <code>claude plugin install bridgecraft --marketplace adikshan11/artcraft-plugin</code>
+          </li>
+          <li>
+            <strong>Cursor</strong>
+            <a href="{{ cursor_install_url }}">Add to Cursor</a>
+          </li>
+          <li>
+            <strong>VS Code</strong>
+            <code>code --add-mcp '{"name":"bridgecraft","type":"http","url":"{{ site_url }}/studio"}'</code>
+          </li>
+        </ul>
         <p class="connect-links">
           <a href="{{ url_for('support') }}">Step-by-step setup</a>
         </p>

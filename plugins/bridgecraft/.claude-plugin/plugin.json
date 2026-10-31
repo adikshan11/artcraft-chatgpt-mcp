@@ -1,0 +1,22 @@
+{
+  "name": "bridgecraft",
+  "displayName": "BridgeCraft",
+  "description": "Connects Claude Code to BridgeCraft Studio, which runs Storytold's Craft apps on your files. Community-built, not an official Storytold or ArtCraft product.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Adithya Shankaran",
+    "url": "https://github.com/adikshan11"
+  },
+  "homepage": "https://artcraft-storytold-mcp.onrender.com",
+  "repository": "https://github.com/adikshan11/artcraft-plugin",
+  "license": "Apache-2.0",
+  "keywords": [
+    "artcraft",
+    "craft-apps",
+    "documents",
+    "images",
+    "pdf",
+    "audio",
+    "design"
+  ]
+}

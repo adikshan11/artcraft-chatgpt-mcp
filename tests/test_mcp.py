@@ -162,6 +162,33 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         for path in (b'href="/privacy"', b'href="/terms"', b'href="/support"'):
             self.assertIn(path, response.data)
 
+    def test_listing_files_point_at_the_hosted_studio(self):
+        root = Path(__file__).resolve().parent.parent
+        studio_url = f"{ARTCRAFT_SITE_URL}/studio"
+        server = json.loads((root / "server.json").read_text())
+        self.assertEqual(server["name"], "io.github.adikshan11/bridgecraft")
+        self.assertEqual(server["remotes"], [{"type": "streamable-http", "url": studio_url}])
+        marketplace = json.loads((root / ".claude-plugin" / "marketplace.json").read_text())
+        entry = marketplace["plugins"][0]
+        plugin_dir = root / entry["source"]
+        manifest = json.loads((plugin_dir / ".claude-plugin" / "plugin.json").read_text())
+        self.assertEqual(entry["name"], manifest["name"])
+        self.assertEqual(manifest["version"], server["version"])
+        servers = json.loads((plugin_dir / ".mcp.json").read_text())["mcpServers"]
+        self.assertEqual(servers, {"bridgecraft": {"type": "http", "url": studio_url}})
+        # Anthropic's directory needs a README of 40 words or more and a license in the plugin folder.
+        self.assertGreaterEqual(len((plugin_dir / "README.md").read_text().split()), 40)
+        self.assertEqual(manifest["license"], "Apache-2.0")
+
+    def test_homepage_offers_installs_for_other_apps(self):
+        page = self.client.get("/").get_data(as_text=True)
+        self.assertIn("claude plugin install bridgecraft --marketplace adikshan11/artcraft-plugin", page)
+        link = page.split('href="cursor://anysphere.cursor-deeplink/mcp/install?', 1)[1].split('"', 1)[0]
+        name, config = (part.split("=", 1)[1] for part in link.split("&amp;"))
+        self.assertEqual(name, "bridgecraft")
+        self.assertEqual(json.loads(base64.b64decode(config)), {"url": f"{ARTCRAFT_SITE_URL}/studio"})
+        self.assertIn(f"""code --add-mcp '{{"name":"bridgecraft","type":"http","url":"{ARTCRAFT_SITE_URL}/studio"}}'""", page)
+
     def test_status_page_lists_services_and_every_app(self):
         response = self.client.get("/status")
         self.assertEqual(response.status_code, 200)
