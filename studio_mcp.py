@@ -124,7 +124,10 @@ studio = MCPServer(
     title="BridgeCraft Studio",
     description="Edit video, images, and PDFs (including e-signatures) in your own BridgeCraft workspace.",
     website_url=SITE_URL,
-    icons=[Icon(src=f"{SITE_URL}/static/bridgecraft.svg", mimeType="image/svg+xml")],
+    icons=[
+        Icon(src=f"{SITE_URL}/static/bridgecraft-512.png", mimeType="image/png", sizes=["512x512"]),
+        Icon(src=f"{SITE_URL}/static/bridgecraft.svg", mimeType="image/svg+xml"),
+    ],
     version="1.0.0",
     instructions=STUDIO_INSTRUCTIONS,
     token_verifier=_verifier,

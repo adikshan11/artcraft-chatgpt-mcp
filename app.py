@@ -41,6 +41,7 @@ ARTCRAFT_SITE_URL = "https://artcraft-storytold-mcp.onrender.com"
 ARTCRAFT_PRODUCT_URL = "https://getartcraft.com"
 # Our own mark. The ArtCraft name and logos are the ArtCraft Team's trademarks.
 BRAND_ICON_URL = f"{ARTCRAFT_SITE_URL}/static/bridgecraft.svg"
+BRAND_PNG_URL = f"{ARTCRAFT_SITE_URL}/static/bridgecraft-512.png"
 ARTCRAFT_APP_DESCRIPTION = (
     "BridgeCraft, a community-built MCP plugin for ArtCraft image and video generation, public "
     "Storytold projects, local PDF workflows, and PhotoCraft tools. Paid generations "
@@ -75,7 +76,10 @@ mcp = MCPServer(
     title="BridgeCraft Project Catalog",
     description="Browse public Storytold creative apps and open-source project information.",
     website_url=ARTCRAFT_SITE_URL,
-    icons=[Icon(src=BRAND_ICON_URL, mimeType="image/svg+xml")],
+    icons=[
+        Icon(src=BRAND_PNG_URL, mimeType="image/png", sizes=["512x512"]),
+        Icon(src=BRAND_ICON_URL, mimeType="image/svg+xml"),
+    ],
     version="0.1.0",
     instructions=MCP_INSTRUCTIONS,
 )

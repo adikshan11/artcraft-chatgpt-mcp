@@ -13,7 +13,8 @@ VectorCraft's Image Trace, so the logo is vector paths.
 Run inside the Craft sandbox with VectorCraft's CLI in the image, this folder at
 /design and an output folder at /out:
     python3 -I design/draw_logo.py
-It writes bridgecraft.svg, bridgecraft.vectorcraft and preview.png to /out.
+It writes bridgecraft.svg, bridgecraft-{32,180,512}.png, apple-touch-icon.png,
+bridgecraft.vectorcraft and preview.png to /out.
 """
 
 import base64
@@ -82,3 +83,15 @@ m.close()
 # One decimal place is plenty at this size and keeps the SVG a quarter smaller.
 subprocess.run([CLI, "convert", f"{OUT}/bridgecraft.vectorcraft", f"{OUT}/bridgecraft.svg", "--decimals", "1"],
                check=True, stdout=subprocess.DEVNULL)
+# PNG copies for browsers and apps that don't take an SVG icon: the favicon, the
+# Apple touch icon and the MCP connector icon.
+for size in (32, 180, 512):
+    subprocess.run([CLI, "convert", f"{OUT}/bridgecraft.vectorcraft", f"{OUT}/bridgecraft-{size}.png", "--scale", str(size / 512)],
+                   check=True, stdout=subprocess.DEVNULL)
+# iOS rounds the touch icon itself and fills see-through corners with black, so that one gets square yellow corners.
+from PIL import Image  # noqa: E402
+
+touch = Image.open(f"{OUT}/bridgecraft-180.png").convert("RGBA")
+square = Image.new("RGBA", touch.size, FIELD)
+square.alpha_composite(touch)
+square.convert("RGB").save(f"{OUT}/apple-touch-icon.png")

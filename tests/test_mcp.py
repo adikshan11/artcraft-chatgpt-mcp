@@ -21,6 +21,7 @@ from starlette.testclient import TestClient as AsgiTestClient
 from app import (
     ARTCRAFT_APP_DESCRIPTION,
     BRAND_ICON_URL,
+    BRAND_PNG_URL,
     ARTCRAFT_PRODUCT_URL,
     ARTCRAFT_SITE_URL,
     GitHubRequestError,
@@ -149,6 +150,9 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b"which runs on Windows, macOS and Linux", response.data)
         self.assertNotIn(b"local server on a Mac", response.data)
         self.assertIn(b"/static/bridgecraft.svg", response.data)
+        self.assertIn(b"/static/bridgecraft-32.png", response.data)
+        self.assertIn(b"/static/apple-touch-icon.png", response.data)
+        self.assertIn(b"<title>BridgeCraft \xc2\xb7 Craft apps in your AI assistant</title>", response.data)
         self.assertIn(b"/static/og.jpg", response.data)
         self.assertNotIn(b"See how it works", response.data)
         self.assertNotIn(b"ticker", response.data)
@@ -416,12 +420,15 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
             },
         )
 
-    async def test_unified_local_server_uses_official_artcraft_icon(self):
+    async def test_unified_local_server_uses_bridgecraft_icons(self):
         async with Client(local_mcp) as client:
-            icon = client.server_info.icons[0]
+            png, svg = client.server_info.icons
             server_info = client.server_info
-        self.assertEqual(icon.src, BRAND_ICON_URL)
-        self.assertEqual(icon.mime_type, "image/svg+xml")
+        self.assertEqual(png.src, BRAND_PNG_URL)
+        self.assertEqual(png.mime_type, "image/png")
+        self.assertEqual(png.sizes, ["512x512"])
+        self.assertEqual(svg.src, BRAND_ICON_URL)
+        self.assertEqual(svg.mime_type, "image/svg+xml")
         self.assertEqual(server_info.title, "BridgeCraft")
         self.assertEqual(server_info.description, ARTCRAFT_APP_DESCRIPTION)
         self.assertEqual(server_info.website_url, ARTCRAFT_SITE_URL)
