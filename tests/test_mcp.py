@@ -146,6 +146,8 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b"adikshan11/artcraft-plugin", response.data)
         self.assertIn(b"PDFs and e-signatures", response.data)
         self.assertIn(b"#run-the-local-mcp-server", response.data)
+        self.assertIn(b"which runs on Windows, macOS and Linux", response.data)
+        self.assertNotIn(b"local server on a Mac", response.data)
         self.assertIn(b"/static/bridgecraft.svg", response.data)
         self.assertIn(b"/static/og.jpg", response.data)
         self.assertNotIn(b"See how it works", response.data)
@@ -754,8 +756,9 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
 
     @patch.dict(os.environ, {"ARTCRAFT_API_KEY": ""})
     @patch("artcraft_api.sys.platform", "darwin")
+    @patch("artcraft_api._keyring_password", return_value=None)
     @patch("artcraft_api.subprocess.run")
-    def test_api_key_falls_back_to_legacy_keychain_item(self, run):
+    def test_api_key_falls_back_to_legacy_keychain_item(self, run, _keyring_password):
         run.side_effect = [
             subprocess.CalledProcessError(44, "security"),
             SimpleNamespace(stdout="legacy-key\n"),

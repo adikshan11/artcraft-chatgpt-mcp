@@ -43,50 +43,91 @@ class _NoRedirectHandler(request.HTTPRedirectHandler):
 
 
 def get_api_key() -> str:
+    """Read the ArtCraft API key from the environment or the OS credential store.
+
+    The credential store is the macOS Keychain, Windows Credential Manager, or the
+    Secret Service (GNOME Keyring, KWallet) on Linux, reached through keyring.
+    """
     if api_key := os.environ.get("ARTCRAFT_API_KEY", "").strip():
         return api_key
 
-    if sys.platform != "darwin":
-        raise ArtCraftAPIError(
-            "No ArtCraft API key is configured. Set ARTCRAFT_API_KEY or run this "
-            "server on macOS with the key saved in Keychain."
-        )
+    account = getpass.getuser()
+    store_failed = False
+    for service in (KEYCHAIN_SERVICE, LEGACY_KEYCHAIN_SERVICE):
+        try:
+            stored = _keyring_password(service, account)
+        except ArtCraftAPIError:
+            store_failed = True
+            break
+        if stored is not None:
+            return _non_empty(stored)
 
-    result = None
+    # Items made by hand in Keychain Access predate keyring support, and keyring may
+    # not be installed, so macOS keeps reading them with the system security tool.
+    if sys.platform == "darwin":
+        if (stored := _macos_keychain_password(account)) is not None:
+            return _non_empty(stored)
+
+    if store_failed:
+        raise ArtCraftAPIError(
+            "Your system has no credential store this server can use. Set "
+            "ARTCRAFT_API_KEY in the environment that starts the server instead."
+        )
+    raise ArtCraftAPIError(
+        f"No ArtCraft API key was found in your {_store_name()}. Save it under the "
+        f"service name {KEYCHAIN_SERVICE!r} for your user name, {account!r}, as the "
+        "README describes, before generating."
+    )
+
+
+def _store_name() -> str:
+    if sys.platform == "darwin":
+        return "macOS Keychain"
+    if sys.platform == "win32":
+        return "Windows Credential Manager"
+    return "system keyring"
+
+
+def _non_empty(api_key: str) -> str:
+    if not (api_key := api_key.strip()):
+        raise ArtCraftAPIError(f"The ArtCraft API key in your {_store_name()} is empty.")
+    return api_key
+
+
+def _keyring_password(service: str, account: str) -> str | None:
+    """The stored password, None if there is none, or ArtCraftAPIError if no store works."""
+    try:
+        import keyring
+        from keyring.errors import KeyringError, NoKeyringError
+    except ImportError:
+        return None
+    try:
+        return keyring.get_password(service, account)
+    except NoKeyringError as exc:
+        raise ArtCraftAPIError("No credential store is available.") from exc
+    except KeyringError:
+        # A locked or refused store: treat it like a missing item so other sources are tried.
+        return None
+
+
+def _macos_keychain_password(account: str) -> str | None:
     for service in (KEYCHAIN_SERVICE, LEGACY_KEYCHAIN_SERVICE):
         try:
             result = subprocess.run(
-                [
-                    "/usr/bin/security",
-                    "find-generic-password",
-                    "-a",
-                    getpass.getuser(),
-                    "-s",
-                    service,
-                    "-w",
-                ],
+                ["/usr/bin/security", "find-generic-password", "-a", account, "-s", service, "-w"],
                 check=True,
                 capture_output=True,
                 text=True,
                 timeout=10,
             )
-            break
         except FileNotFoundError as exc:
             raise ArtCraftAPIError("The macOS Keychain utility is unavailable.") from exc
         except subprocess.CalledProcessError:
             continue
         except subprocess.TimeoutExpired as exc:
             raise ArtCraftAPIError("Reading the ArtCraft key from Keychain timed out.") from exc
-    if result is None:
-        raise ArtCraftAPIError(
-            "No ArtCraft API key was found in your macOS Keychain. "
-            f"Save it as a password item named {KEYCHAIN_SERVICE!r} before generating images."
-        )
-
-    api_key = result.stdout.strip()
-    if not api_key:
-        raise ArtCraftAPIError("The ArtCraft API key in Keychain is empty.")
-    return api_key
+        return result.stdout
+    return None
 
 
 def _http_error_message(exc: error.HTTPError) -> str:

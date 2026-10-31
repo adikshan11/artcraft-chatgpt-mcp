@@ -16,12 +16,16 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import CallToolResult, ListToolsResult, ToolAnnotations
 from pydantic import BaseModel
 
+from craft_sessions import load_apps
+from local_paths import craft_cli_path, documents_dir
 
-PHOTOCRAFT_ROOT = Path.home() / "Documents" / "ArtCraft"
-PHOTOCRAFT_CLI_PATH = (
-    Path.home() / ".local" / "share" / "artcraft-cli" / "photocraft" / "0.5.0"
-    / "photocraft-cli"
-)
+
+# Matches the PhotoCraft release pinned for the hosted Studio in craft_apps.json.
+PHOTOCRAFT_VERSION = "0.17.0"
+PHOTOCRAFT_ROOT = documents_dir() / "ArtCraft"
+PHOTOCRAFT_CLI_PATH = craft_cli_path("photocraft", PHOTOCRAFT_VERSION)
+# Tools that drive the desktop app or reach outside the workspace, hidden as in Studio.
+PHOTOCRAFT_HIDDEN_TOOLS = load_apps()["photocraft"].hidden_tools
 
 
 class PhotoCraftToolList(BaseModel):
@@ -152,7 +156,11 @@ class PhotoCraftBridge:
                 request.result.set_exception(ToolError(message))
 
     async def list_tools(self) -> ListToolsResult:
-        return await self.run(lambda session: session.list_tools())
+        result = await self.run(lambda session: session.list_tools())
+        result.tools = [
+            tool for tool in result.tools if tool.name not in PHOTOCRAFT_HIDDEN_TOOLS
+        ]
+        return result
 
     async def call_tool(
         self,

@@ -13,11 +13,13 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from pydantic import BaseModel
 
+from local_paths import craft_cli_path, documents_dir
 
-PDFCRAFT_ROOT = Path.home() / "Documents"
-PDFCRAFT_CLI_PATH = (
-    Path.home() / ".local" / "share" / "pdfcraft-cli" / "0.4.0" / "pdfcraft-cli"
-)
+
+# Matches the PdfCraft release pinned for the hosted Studio in craft_apps.json.
+PDFCRAFT_VERSION = "0.15.0"
+PDFCRAFT_ROOT = documents_dir()
+PDFCRAFT_CLI_PATH = craft_cli_path("pdfcraft", PDFCRAFT_VERSION)
 
 
 class PdfCraftResult(BaseModel):
@@ -56,23 +58,38 @@ def _pdf_path(path: str, *, output: bool = False) -> Path:
     return resolved
 
 
-async def _run_pdfcraft(
-    workflow: Callable[
-        [ClientSession],
-        Awaitable[tuple[Any | None, str | None]],
-    ],
-) -> Any:
-    cli_path = Path(os.environ.get("PDFCRAFT_CLI_PATH", PDFCRAFT_CLI_PATH))
+def _pdfcraft_parameters() -> StdioServerParameters:
+    cli_path = Path(
+        os.environ.get("PDFCRAFT_CLI_PATH", str(PDFCRAFT_CLI_PATH))
+    ).expanduser()
     if not cli_path.is_file() or not os.access(cli_path, os.X_OK):
         raise ToolError(
             f"PdfCraft CLI not found or not executable at {cli_path}. "
             "Install the matching PdfCraft CLI or set PDFCRAFT_CLI_PATH."
         )
 
-    parameters = StdioServerParameters(
+    root = str(PDFCRAFT_ROOT.resolve())
+    return StdioServerParameters(
         command=str(cli_path),
-        args=["mcp", "--root", str(PDFCRAFT_ROOT.resolve())],
+        args=[
+            "mcp",
+            "--root",
+            root,
+            "--automation-read-root",
+            root,
+            "--automation-write-root",
+            root,
+        ],
     )
+
+
+async def _run_pdfcraft(
+    workflow: Callable[
+        [ClientSession],
+        Awaitable[tuple[Any | None, str | None]],
+    ],
+) -> Any:
+    parameters = _pdfcraft_parameters()
     value: Any | None = None
     failure: str | None = None
 
