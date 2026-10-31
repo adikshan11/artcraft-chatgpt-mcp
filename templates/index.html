@@ -40,8 +40,9 @@
         {% endfor %}
       </ol>
       <div class="rail-ruler" aria-hidden="true">
-        {% for n in range(0, 101, 10) %}<span style="--n: {{ n }}">{{ n }}</span>{% endfor %}
+        {% for n in range(0, 101, 5) %}<span style="--n: {{ n }}">{{ n }}</span>{% endfor %}
         <i class="rail-view"></i>
+        <i class="rail-mark"><b>000%</b></i>
       </div>
     </nav>
 
@@ -279,28 +280,65 @@
         <header class="section-head">
           <h2>Set it up</h2>
           <p>
-            In Claude or ChatGPT, add a custom connector with this address, then sign in when it
-            asks. After that it works in the web app and on your phone.
+            Pick where you use AI. In Claude or ChatGPT it's one address and a sign-in; in the
+            coding tools it's one command.
           </p>
         </header>
-        <div class="url-box">
-          <code id="studio-url">{{ site_url }}/studio</code>
-          <button class="button button-dark" type="button" data-copy="studio-url">Copy</button>
+        {# Tabs once site.js runs; without it every panel shows, one under the other. #}
+        <div class="setup">
+          <div class="setup-tabs" role="tablist" aria-label="Where you use AI">
+            <button type="button" role="tab" id="tab-chat" aria-controls="panel-chat" aria-selected="true">Claude · ChatGPT</button>
+            <button type="button" role="tab" id="tab-claude-code" aria-controls="panel-claude-code" aria-selected="false" tabindex="-1">Claude Code</button>
+            <button type="button" role="tab" id="tab-cursor" aria-controls="panel-cursor" aria-selected="false" tabindex="-1">Cursor</button>
+            <button type="button" role="tab" id="tab-vscode" aria-controls="panel-vscode" aria-selected="false" tabindex="-1">VS Code</button>
+          </div>
+
+          <div class="setup-panel" role="tabpanel" id="panel-chat" aria-labelledby="tab-chat">
+            <div class="term">
+              <div class="term-bar"><span>Connector address</span><button type="button" data-copy="studio-url">Copy</button></div>
+              <pre class="term-body"><code id="studio-url">{{ site_url }}/studio</code></pre>
+            </div>
+            <ol class="setup-steps">
+              <li>In Claude or ChatGPT, open Settings and add a custom connector.</li>
+              <li>Paste the address above and save.</li>
+              <li>Sign in when it asks. It then works on the web, the desktop app and your phone.</li>
+            </ol>
+          </div>
+
+          <div class="setup-panel" role="tabpanel" id="panel-claude-code" aria-labelledby="tab-claude-code">
+            <div class="term">
+              <div class="term-bar"><span>Terminal</span><button type="button" data-copy="cmd-plugin">Copy</button></div>
+              <pre class="term-body"><code class="cmd" id="cmd-plugin">claude plugin install bridgecraft --marketplace adikshan11/artcraft-plugin</code></pre>
+            </div>
+            <div class="term">
+              <div class="term-bar"><span>Or without the plugin</span><button type="button" data-copy="cmd-mcp">Copy</button></div>
+              <pre class="term-body"><code class="cmd" id="cmd-mcp">claude mcp add --transport http bridgecraft {{ site_url }}/studio</code></pre>
+            </div>
+            <div class="term term-prompt">
+              <div class="term-bar"><span>Or ask Claude Code</span><button type="button" data-copy="prompt-claude-code">Copy</button></div>
+              <pre class="term-body"><code id="prompt-claude-code">Add the BridgeCraft MCP server at {{ site_url }}/studio over HTTP, then open /mcp so I can sign in.</code></pre>
+            </div>
+          </div>
+
+          <div class="setup-panel" role="tabpanel" id="panel-cursor" aria-labelledby="tab-cursor">
+            <p><a class="button button-dark" href="{{ cursor_install_url }}">Add to Cursor</a></p>
+            <div class="term">
+              <div class="term-bar"><span>Or in ~/.cursor/mcp.json</span><button type="button" data-copy="cursor-json">Copy</button></div>
+              <pre class="term-body"><code id="cursor-json">{
+  "mcpServers": {
+    "bridgecraft": { "url": "{{ site_url }}/studio" }
+  }
+}</code></pre>
+            </div>
+          </div>
+
+          <div class="setup-panel" role="tabpanel" id="panel-vscode" aria-labelledby="tab-vscode">
+            <div class="term">
+              <div class="term-bar"><span>Terminal</span><button type="button" data-copy="cmd-vscode">Copy</button></div>
+              <pre class="term-body"><code class="cmd" id="cmd-vscode">code --add-mcp '{"name":"bridgecraft","type":"http","url":"{{ site_url }}/studio"}'</code></pre>
+            </div>
+          </div>
         </div>
-        <ul class="install-list">
-          <li>
-            <strong>Claude Code</strong>
-            <code>claude plugin install bridgecraft --marketplace adikshan11/artcraft-plugin</code>
-          </li>
-          <li>
-            <strong>Cursor</strong>
-            <a href="{{ cursor_install_url }}">Add to Cursor</a>
-          </li>
-          <li>
-            <strong>VS Code</strong>
-            <code>code --add-mcp '{"name":"bridgecraft","type":"http","url":"{{ site_url }}/studio"}'</code>
-          </li>
-        </ul>
         <p class="connect-links">
           <a href="{{ url_for('support') }}">Step-by-step setup</a>
         </p>

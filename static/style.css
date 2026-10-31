@@ -402,11 +402,11 @@ h2 em {
   color: var(--ink);
 }
 
-/* Short ticks every 2%, numbered long ones every 10%. */
+/* A short tick every 1%, a numbered long one every 5%. */
 .rail-ruler {
   right: 0;
   width: 48px;
-  background: repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px 2%) right / 10px 100% no-repeat;
+  background: repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px 1%) right / 8px 100% no-repeat;
 }
 
 .rail-ruler span {
@@ -423,8 +423,26 @@ h2 em {
 
 .rail-ruler span::after {
   content: "";
-  width: 18px;
+  width: 16px;
   border-top: 1px solid var(--muted);
+}
+
+/* How far down the page you are, as a yellow line and a percentage. */
+.rail-mark {
+  position: absolute;
+  top: calc(var(--progress, 0) * 100%);
+  right: 0;
+  width: 100%;
+  border-top: 2px solid var(--accent);
+}
+
+.rail-mark b {
+  position: absolute;
+  right: 2px;
+  bottom: 3px;
+  color: var(--accent);
+  font: 600 10px/1 var(--mono);
+  letter-spacing: 0.04em;
 }
 
 .rail-view {
@@ -765,6 +783,11 @@ h2 em {
 
 /* The bar across the top of each part of the page: its number and name on the
    left, a short note on the right, like the Craft apps' pages. */
+/* Links to a part of the page stop below the sticky nav. */
+section[id] {
+  scroll-margin-top: 56px;
+}
+
 .section-bar {
   grid-column: 1 / -1;
   display: flex;
@@ -1126,59 +1149,124 @@ h2 em {
 
 /* Connect */
 
-.url-box {
+/* Set it up: a tab for each place people use AI, each with a terminal-style
+   block to copy from. */
+.setup {
+  display: grid;
+  gap: 28px;
+  min-width: 0;
+}
+
+.setup-tabs {
   display: flex;
+  flex-wrap: wrap;
   justify-self: start;
-  max-width: 100%;
   border: 1px solid var(--line);
-  background: var(--surface);
 }
 
-.url-box code {
-  overflow-x: auto;
-  padding: 18px 22px;
-  font-family: var(--mono);
-  font-size: 17px;
-  white-space: nowrap;
+.setup-tabs button {
+  padding: 14px 20px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: none;
+  color: var(--muted);
+  font: 600 12px/1 var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
 }
 
-.url-box .button {
-  border-width: 0 0 0 1px;
+.setup-tabs button:first-child {
+  border-left: 0;
 }
 
-.install-list {
+.setup-tabs button:hover {
+  color: var(--ink);
+}
+
+.setup-tabs button[aria-selected="true"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.setup-panel {
   display: grid;
-  gap: 14px;
-  list-style: none;
-  padding: 0;
-  font-size: 15px;
+  gap: 20px;
+  max-width: 920px;
+  min-width: 0;
 }
 
-.install-list li {
+.setup-panel[hidden] {
+  display: none;
+}
+
+.term {
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: var(--dark);
+  color: var(--on-dark);
+}
+
+.term-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 0 0 18px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font: 500 11px/1 var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.term-bar button {
+  padding: 12px 18px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: none;
+  color: var(--on-dark);
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.term-bar button:hover {
+  background: var(--accent);
+  color: #121316;
+}
+
+/* Long commands wrap inside the block; a command's wrapped lines indent past its "$ ". */
+.term-body {
+  margin: 0;
+  padding: 20px 22px;
+  font: 400 15px/1.6 var(--mono);
+}
+
+.term-body code {
+  display: block;
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.term-body .cmd {
+  padding-left: 2ch;
+  text-indent: -2ch;
+}
+
+.term-body .cmd::before {
+  content: "$ ";
+  color: var(--accent);
+}
+
+.setup-steps {
   display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
-  gap: 6px 16px;
-  align-items: baseline;
-}
-
-.install-list code {
-  grid-column: 2;
-  overflow-x: auto;
-  font-family: var(--mono);
-  font-size: 13px;
-  white-space: nowrap;
-}
-
-.install-list strong + code,
-.install-list strong + a {
-  grid-column: 2;
-  grid-row: 1;
-}
-
-.install-list a {
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 4px;
+  gap: 8px;
+  padding-left: 1.4em;
+  color: var(--muted);
 }
 
 .connect-links {

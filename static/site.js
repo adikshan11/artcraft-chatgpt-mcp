@@ -1,4 +1,5 @@
-// Light/dark switch, the narrow-screen menu, the page index, the logo's flip and the copy button.
+// Light/dark switch, the narrow-screen menu, the page index, the setup tabs, the logo's flip
+// and the copy buttons.
 
 const root = document.documentElement;
 const themeButton = document.querySelector("[data-theme-toggle]");
@@ -47,11 +48,15 @@ if (rail) {
   const links = [...rail.querySelectorAll(".rail-links a")];
   const sections = links.map((link) => document.querySelector(link.hash));
   const view = rail.querySelector(".rail-view");
+  const mark = rail.querySelector(".rail-mark");
 
   function markView() {
     const height = root.scrollHeight;
     view.style.setProperty("--view-top", scrollY / height);
     view.style.setProperty("--view-size", innerHeight / height);
+    const progress = Math.min(1, scrollY / Math.max(1, height - innerHeight));
+    mark.style.setProperty("--progress", progress);
+    mark.firstChild.textContent = `${String(Math.round(progress * 100)).padStart(3, "0")}%`;
     let current = -1;
     sections.forEach((section, i) => {
       if (section.getBoundingClientRect().top < innerHeight * 0.4) current = i;
@@ -76,6 +81,30 @@ if (rail) {
   addEventListener("scroll", markView, { passive: true });
   new ResizeObserver(placeLinks).observe(document.body);
 }
+
+// Set it up: one panel at a time, picked by its tab; arrow keys move between tabs.
+const tabs = [...document.querySelectorAll(".setup-tabs [role=tab]")];
+
+function selectTab(tab) {
+  for (const other of tabs) {
+    const selected = other === tab;
+    other.setAttribute("aria-selected", String(selected));
+    other.tabIndex = selected ? 0 : -1;
+    document.getElementById(other.getAttribute("aria-controls")).hidden = !selected;
+  }
+}
+
+tabs.forEach((tab, i) => {
+  tab.addEventListener("click", () => selectTab(tab));
+  tab.addEventListener("keydown", (event) => {
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+    if (!step) return;
+    const next = tabs[(i + step + tabs.length) % tabs.length];
+    selectTab(next);
+    next.focus();
+  });
+});
+if (tabs.length) selectTab(tabs[0]);
 
 const flip = document.querySelector(".flip");
 flip?.addEventListener("click", () => {
