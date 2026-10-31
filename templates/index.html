@@ -36,10 +36,10 @@
       <a class="rail-title" href="#top">BridgeCraft</a>
       <ol class="rail-links">
         {% for id, name in [("examples", "Examples"), ("apps", "Apps"), ("limits", "Limits"), ("about", "About"), ("setup", "Set it up")] %}
-        <li><a href="#{{ id }}" style="--pos: {{ 12 + loop.index0 * 20 }}%">{{ name }}</a></li>
+        <li><a href="#{{ id }}" style="--pos: {{ 12 + loop.index0 * 20 }}%" aria-label="{{ name }}">{% for letter in name %}<span style="--i: {{ loop.index0 }}" aria-hidden="true">{{ letter }}</span>{% endfor %}</a></li>
         {% endfor %}
       </ol>
-      <div class="rail-ruler" aria-hidden="true">
+      <div class="rail-ruler" aria-hidden="true" title="Drag to scroll">
         {% for n in range(0, 101, 5) %}<span style="--n: {{ n }}">{{ n }}</span>{% endfor %}
         <i class="rail-view"></i>
         <i class="rail-mark"><b>000%</b></i>

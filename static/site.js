@@ -78,6 +78,21 @@ if (rail) {
     markView();
   }
 
+  // With the browser's scrollbar hidden, the ruler scrolls the page: click or drag on it.
+  const ruler = rail.querySelector(".rail-ruler");
+  function scrollToPointer(event) {
+    const box = ruler.getBoundingClientRect();
+    const share = Math.min(1, Math.max(0, (event.clientY - box.top) / box.height));
+    scrollTo({ top: share * (root.scrollHeight - innerHeight), behavior: "instant" });
+  }
+  ruler.addEventListener("pointerdown", (event) => {
+    ruler.setPointerCapture(event.pointerId);
+    scrollToPointer(event);
+  });
+  ruler.addEventListener("pointermove", (event) => {
+    if (ruler.hasPointerCapture(event.pointerId)) scrollToPointer(event);
+  });
+
   addEventListener("scroll", markView, { passive: true });
   new ResizeObserver(placeLinks).observe(document.body);
 }

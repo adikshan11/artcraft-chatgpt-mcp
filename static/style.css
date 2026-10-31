@@ -344,6 +344,15 @@ h2 em {
     margin-right: var(--rail);
   }
 
+  /* The ruler stands in for the scrollbar, so the browser's own is hidden. */
+  html:has(.has-rail) {
+    scrollbar-width: none;
+  }
+
+  html:has(.has-rail)::-webkit-scrollbar {
+    display: none;
+  }
+
   .rail {
     position: fixed;
     top: 0;
@@ -397,15 +406,50 @@ h2 em {
   transition: color 0.15s;
 }
 
+/* The names stay hidden until the rail is hovered or tabbed into, then slide
+   in letter by letter; only the one under the pointer lights up. */
+.rail-links a span {
+  display: inline-block;
+  white-space: pre;
+  opacity: 0;
+  transform: translateX(0.8em);
+  transition: opacity 0.2s, transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: calc(var(--i) * 22ms);
+}
+
+.rail:hover .rail-links a span,
+.rail:focus-within .rail-links a span {
+  opacity: 1;
+  transform: none;
+}
+
 .rail-links a:hover,
-.rail-links a[aria-current] {
+.rail-links a:focus-visible {
   color: var(--ink);
+}
+
+/* Without a pointer to hover with, the names just show. */
+@media (hover: none) {
+  .rail-links a span {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-links a span {
+    transform: none;
+    transition: opacity 0.2s;
+    transition-delay: 0s;
+  }
 }
 
 /* A short tick every 1%, a numbered long one every 5%. */
 .rail-ruler {
   right: 0;
   width: 48px;
+  cursor: ns-resize;
+  touch-action: none;
   background: repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px 1%) right / 8px 100% no-repeat;
 }
 
