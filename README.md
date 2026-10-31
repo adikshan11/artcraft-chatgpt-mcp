@@ -324,13 +324,16 @@ Eight apps are included:
 The other Craft apps are left out until their folder lock can be trusted on a
 shared server:
 
-- **CADCraft, FilmCraft, GridCraft and LightCraft** don't enforce
-  `--automation-read-root`/`--automation-write-root` in their current releases.
-  Support is in progress upstream. At least one earlier build accepted the flags
-  silently without enforcing them, so a listed flag is never taken on trust.
-- **EffectCraft 0.18.0** has the flags, but testing found commands that skip
-  them: one reads files outside the folder through relative paths and symlinks,
-  and another writes outside it.
+- **CADCraft 0.15.1, FilmCraft 0.15.0, GridCraft 0.14.2 and LightCraft 0.16.0**
+  don't have `--automation-read-root`/`--automation-write-root` in their
+  releases. Support is in progress upstream. At least one earlier build accepted
+  the flags silently without enforcing them, so a listed flag is never taken on
+  trust.
+- **EffectCraft 0.19.0** refuses every path outside the folder that it's given,
+  but a project inside the folder can still name footage outside it, and
+  rendering shows that footage. The fix is storytold/effectcraft#2719.
+- A shared folder lock and escape tests for every app are proposed in
+  [storytold/craft-contrib#22](https://github.com/storytold/craft-contrib/pull/22).
 - **AniCraft** has no command-line or MCP server yet.
 
 SVG and HTML exports are not stored in the library, because a download link that
