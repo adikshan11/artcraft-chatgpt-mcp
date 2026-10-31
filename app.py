@@ -31,9 +31,9 @@ ARTCRAFT_ICON_URL = (
     "frontend/apps/artcraft/app/public/artcraft-icon.svg"
 )
 ARTCRAFT_APP_DESCRIPTION = (
-    "A community-built MCP plugin for ArtCraft image generation, public "
-    "Storytold projects, local PDF workflows, and PhotoCraft tools. Image generation "
-    "may use credits; some other Craft app controls are not yet available. Project "
+    "A community-built MCP plugin for ArtCraft image and video generation, public "
+    "Storytold projects, local PDF workflows, and PhotoCraft tools. Paid generations "
+    "start only after you agree to the price; some other Craft app controls are not yet available. Project "
     f"website: {ARTCRAFT_SITE_URL}. Official ArtCraft: {ARTCRAFT_PRODUCT_URL}"
 )
 GITHUB_API = "https://api.github.com"
