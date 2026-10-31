@@ -445,13 +445,12 @@ h2 em {
 }
 
 /* The tern turns over to say what BridgeCraft is built for. */
+/* Sized by its four edges rather than width and aspect-ratio, which Safari
+   sized wrongly on this button and squeezed the tern. On the square plate the
+   edges make a square half the plate wide, standing on the waterline. */
 .flip {
   position: absolute;
-  left: 50%;
-  bottom: 13%;
-  width: 50%;
-  aspect-ratio: 1;
-  translate: -50% 0;
+  inset: 37% 25% 13% 25%;
   padding: 0;
   border: 0;
   background: none;
@@ -492,6 +491,7 @@ h2 em {
   inset: 0;
   width: 100%;
   height: 100%;
+  object-fit: contain;
   border-radius: 22%;
   box-shadow: 0 12px 28px -14px rgba(17, 17, 16, 0.45);
   backface-visibility: hidden;
