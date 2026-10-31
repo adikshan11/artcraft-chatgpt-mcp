@@ -179,7 +179,9 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b"#run-the-local-mcp-server", response.data)
         self.assertIn(b"which runs on Windows, macOS and Linux", response.data)
         self.assertNotIn(b"local server on a Mac", response.data)
-        self.assertIn(b"/static/bridgecraft.svg", response.data)
+        # PNG only: the traced SVG is 700KB and Safari skips it for the tab icon.
+        self.assertNotIn(b'rel="icon" href="/static/bridgecraft.svg', response.data)
+        self.assertIn(b"/static/bridgecraft-512.png", response.data)
         self.assertIn(b"/static/bridgecraft-32.png", response.data)
         self.assertIn(b"/static/apple-touch-icon.png", response.data)
         self.assertIn(b"<title>BridgeCraft \xc2\xb7 Craft apps in your AI assistant</title>", response.data)
