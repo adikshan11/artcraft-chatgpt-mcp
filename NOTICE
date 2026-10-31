@@ -7,7 +7,7 @@ This product includes software developed by Adithya Shankaran
 BridgeCraft is an unofficial community project. It is not affiliated with
 or endorsed by Storytold or the ArtCraft team. The ArtCraft name, wordmark
 and logos are trademarks of the ArtCraft Team; BridgeCraft does not use the
-logos and uses the name only to say what it works with. The names of the
+logos as its own branding and uses the name only to say what it works with. The names of the
 Craft apps belong to their owners.
 
 The Craft app icons in static/app-icons/ are resized copies of each app's
@@ -20,6 +20,11 @@ shown only on the catalog card that links to the ArtCraft repository.
 
 The BridgeCraft logo (static/bridgecraft.svg) was drawn in VectorCraft by
 design/draw_logo.py; design/bridgecraft.vectorcraft is its source document.
+The share image (static/og.jpg) was made in Canva for this project.
+
+The website fonts in static/fonts/ (Archivo, Inter, Geist Mono and Instrument
+Serif) are licensed under the SIL Open Font License 1.1; static/fonts/OFL.txt
+has their copyright notices and the license text.
 
 The Craft app command-line tools (WordCraft, DeckCraft, PdfCraft, PhotoCraft,
 VectorCraft, DesignCraft, FigCraft and SoundCraft) are not part of this source

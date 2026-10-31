@@ -95,9 +95,9 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
     def test_homepage_presents_unified_artcraft_integration(self, _list_projects):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b"now a creative studio.", response.data)
-        self.assertIn(b"Just ask.", response.data)
-        self.assertIn(b"Your files stay yours.", response.data)
+        self.assertIn(b"now a creative <em>studio.</em>", response.data)
+        self.assertIn(b"Just <em>ask.</em>", response.data)
+        self.assertIn(b"Your files stay <em>yours.</em>", response.data)
         self.assertIn(b"Add it once.", response.data)
         # The ArtCraft card leads the catalog with ArtCraft's own icon.
         self.assertIn(b"/static/app-icons/artcraft.svg", response.data)
@@ -106,11 +106,12 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn(app, response.data)
         self.assertIn(b"https://artcraft-storytold-mcp.onrender.com/studio", response.data)
         self.assertIn(b"adikshan11/artcraft-plugin", response.data)
-        self.assertIn(b"Eight Craft apps, hosted.", response.data)
+        self.assertIn(b"Eight Craft apps. One <em>bridge.</em>", response.data)
         self.assertIn(b"PDFs and e-signatures", response.data)
         self.assertIn(b"#run-the-local-mcp-server", response.data)
         self.assertNotIn(b"ONE ARTCRAFT APP", response.data)
         self.assertIn(b"/static/bridgecraft.svg", response.data)
+        self.assertIn(b"/static/og.jpg", response.data)
         self.assertNotIn(b"artcraft-icon.svg", response.data)
         self.assertIn(
             f'href="{ARTCRAFT_PRODUCT_URL}"'.encode(),

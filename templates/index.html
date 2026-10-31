@@ -13,9 +13,16 @@
       content="A community-built MCP plugin for ArtCraft and Storytold's Craft apps."
     />
     <meta property="og:type" content="website" />
-    <meta name="color-scheme" content="light dark" />
+    <meta property="og:url" content="{{ site_url }}" />
+    <meta property="og:image" content="{{ site_url }}{{ url_for('static', filename='og.jpg') }}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#f6f1e7" />
     <link rel="canonical" href="{{ site_url }}" />
     <link rel="icon" href="{{ url_for('static', filename='bridgecraft.svg') }}" type="image/svg+xml" />
+    <link rel="preload" href="{{ url_for('static', filename='fonts/archivo.woff2') }}" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="{{ url_for('static', filename='fonts/inter.woff2') }}" as="font" type="font/woff2" crossorigin />
     <title>BridgeCraft — your assistant, now a creative studio</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
@@ -23,7 +30,7 @@
     <header class="nav">
       <div class="nav-inner">
         <a class="brand" href="#top" aria-label="BridgeCraft home">
-          <img src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="" width="28" height="28" />
+          <img src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="" width="30" height="30" />
           <span>BridgeCraft</span>
         </a>
         <nav class="nav-links" aria-label="Main navigation">
@@ -32,72 +39,59 @@
           <a href="#privacy">Privacy</a>
           <a href="#open-source">Open source</a>
         </nav>
-        <a class="pill pill-small" href="#connect">Connect</a>
+        <a class="button button-dark button-small" href="#connect">Connect</a>
       </div>
     </header>
 
     <main id="top">
       <section class="hero">
-        <img class="hero-logo" src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="BridgeCraft logo: an Arctic tern whose wings arch over the water" width="132" height="132" />
-        <h1>Your assistant,<br />now a creative studio.</h1>
-        <p class="lede">
-          BridgeCraft connects ChatGPT, Claude and other AI assistants to ArtCraft
-          and Storytold's open-source Craft apps. Ask for a document, a deck, a photo
-          edit or a mix, and it gets made. Nothing to install.
-        </p>
-        <div class="actions">
-          <a class="pill" href="#connect">Connect your assistant</a>
-          <a class="link-arrow" href="#how">See how it works <span aria-hidden="true">›</span></a>
-        </div>
-
-        <ul class="bridge" aria-label="The Craft apps BridgeCraft hosts">
-          {% for app in hosted_apps %}
-          <li style="--i: {{ loop.index0 }}; --n: {{ hosted_apps|length }}">
-            <img src="{{ url_for('static', filename=app_icons[app.name]) }}" alt="" width="76" height="76" />
-            <span>{{ app.title }}</span>
-          </li>
-          {% endfor %}
-        </ul>
-        <p class="works-with">Works with ChatGPT, Claude, Gemini and any MCP client, on the web and on your phone.</p>
-      </section>
-
-      <section class="section" id="how">
-        <div class="split">
-          <div class="split-text">
-            <h2>Just ask.</h2>
-            <p>
-              Your assistant picks the right tool, runs it on your file and hands back
-              the result. Every edit makes a new file, so your original is never touched.
-            </p>
-            <ul class="checks">
-              <li>Video, image and PDF edits, including e-signatures</li>
-              <li>Eight Craft apps for documents, decks, design and sound</li>
-              <li>One private library for each account</li>
-            </ul>
+        <div class="hero-copy">
+          <p class="label label-muted">Community MCP plugin · for ArtCraft &amp; the Craft apps</p>
+          <h1>Your assistant, now a creative <em>studio.</em></h1>
+          <p class="lede">
+            BridgeCraft connects ChatGPT, Claude and any MCP assistant to Storytold's
+            open-source Craft apps. Ask for a document, a deck, a photo edit or a mix, and
+            it gets made. Nothing to install.
+          </p>
+          <div class="actions">
+            <a class="button button-dark" href="#connect">Connect your assistant</a>
+            <a class="button" href="#how">See how it works</a>
           </div>
-          <figure class="chat" aria-label="Example conversation">
-            <figcaption>Example</figcaption>
-            <p class="bubble bubble-user">Cut interview.mp4 to the first two minutes and put “Episode 12” on it as a title.</p>
-            <div class="tool-row" aria-hidden="true">
-              <span>trim_video</span><span>add_text_to_video</span><span>get_download_link</span>
-            </div>
-            <p class="bubble bubble-bot">
-              Done. <strong>interview-trimmed-titled.mp4</strong> is in your library: two
-              minutes long with the title at the bottom. Here's a download link; it works
-              for an hour.
-            </p>
-            <span class="file-chip" aria-hidden="true">
-              <span class="file-icon">▶</span> interview-trimmed-titled.mp4
-            </span>
-          </figure>
+          <p class="works-with">Works with ChatGPT · Claude · Gemini · any MCP client</p>
         </div>
+
+        <figure class="plate">
+          <ul class="arch" aria-label="The Craft apps BridgeCraft hosts">
+            {% for app in hosted_apps %}
+            <li style="--i: {{ loop.index0 }}; --n: {{ hosted_apps|length }}">
+              <img src="{{ url_for('static', filename=app_icons[app.name]) }}" alt="{{ app.title }}" title="{{ app.title }}" width="60" height="60" />
+            </li>
+            {% endfor %}
+          </ul>
+          <img class="plate-logo" src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="BridgeCraft logo: an Arctic tern whose wings arch over the water" width="300" height="300" />
+          <figcaption>Fig. 1 — Arctic tern, bridging the gap</figcaption>
+        </figure>
       </section>
+
+      <div class="ticker" aria-hidden="true">
+        <div class="ticker-track">
+          {% for _ in range(2) %}
+          <ul>
+            {% for task in ["Trim a video", "Sign a PDF", "Write a report", "Build a deck", "Edit a photo", "Draw a badge", "Lay out a flyer", "Mix a voice-over", "Mock up a screen"] %}
+            <li>{{ task }}</li>
+            {% endfor %}
+          </ul>
+          {% endfor %}
+        </div>
+      </div>
 
       <section class="section" id="apps">
-        <div class="section-head">
-          <h2>Eight Craft apps, hosted.</h2>
-          <p>Each runs on our server, locked to a private folder holding only your files.</p>
-        </div>
+        <header class="section-head">
+          <p class="label">01 / Hosted Craft apps</p>
+          {% set count_words = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve"] %}
+          <h2>{{ count_words[hosted_apps|length] if hosted_apps|length < 13 else hosted_apps|length }} Craft apps. One <em>bridge.</em></h2>
+          <p>Each one runs on our server, locked to a private folder that holds only your files.</p>
+        </header>
         <div class="app-grid">
           {% set asks = {
             "wordcraft": "Turn my notes into a two-page report with headings.",
@@ -110,73 +104,107 @@
             "soundcraft": "Mix this voice-over over the music bed.",
           } %}
           {% for app in hosted_apps %}
-          <article class="app-card">
-            <img src="{{ url_for('static', filename=app_icons[app.name]) }}" alt="" width="56" height="56" loading="lazy" />
-            <h3>{{ app.title }}</h3>
+          <article class="app-cell">
+            <img src="{{ url_for('static', filename=app_icons[app.name]) }}" alt="" width="64" height="64" loading="lazy" />
+            <h3><span class="num">{{ "%02d"|format(loop.index) }}</span>{{ app.title }}</h3>
             <p>“{{ asks.get(app.name, "") }}”</p>
           </article>
           {% endfor %}
         </div>
       </section>
 
-      <section class="section">
-        <div class="section-head">
-          <h2>And the everyday edits.</h2>
-          <p>Built-in tools for the jobs that come up every day.</p>
+      <section class="section" id="how">
+        <div class="split">
+          <div class="split-copy">
+            <p class="label">02 / How it works</p>
+            <h2>Just <em>ask.</em></h2>
+            <p class="section-lede">
+              Your assistant picks the right tool, runs it on your file and hands back the
+              result. Every edit makes a new file, so your original is never touched.
+            </p>
+            <ul class="checks">
+              <li>Video, image and PDF edits, with e-signatures</li>
+              <li>{{ hosted_apps|length }} Craft apps for documents, decks, design and sound</li>
+              <li>One private library for each account</li>
+            </ul>
+          </div>
+          <figure class="chat" aria-label="Example conversation">
+            <figcaption class="label label-muted">Example · Claude</figcaption>
+            <p class="bubble bubble-user">Cut interview.mp4 to the first two minutes and put “Episode 12” on it as a title.</p>
+            <div class="tool-row" aria-hidden="true">
+              <span>trim_video</span><span>add_text_to_video</span><span>get_download_link</span>
+            </div>
+            <p class="bubble">
+              Done. <strong>interview-trimmed-titled.mp4</strong> is in your library: two
+              minutes long with the title at the bottom. Here's a download link; it works
+              for an hour.
+            </p>
+            <span class="file-chip" aria-hidden="true"><span>▶</span> interview-trimmed-titled.mp4</span>
+          </figure>
         </div>
-        <div class="trio">
+      </section>
+
+      <section class="section">
+        <header class="section-head">
+          <p class="label">03 / Built-in tools</p>
+          <h2>And the <em>everyday</em> edits.</h2>
+          <p>Built-in tools for the jobs that come up every day.</p>
+        </header>
+        <div class="columns">
           <div>
+            <p class="label label-muted">01</p>
             <h3>Video and audio</h3>
             <p>Trim, join, resize, caption and convert videos, add or extract audio, and grab still frames.</p>
           </div>
           <div>
+            <p class="label label-muted">02</p>
             <h3>Images</h3>
             <p>Crop, resize, adjust colour, add text and borders, and layer one image over another.</p>
           </div>
           <div>
+            <p class="label label-muted">03</p>
             <h3>PDFs and e-signatures</h3>
             <p>Read, reorder, merge, fill in, watermark and sign PDFs. A signature comes with an audit page.</p>
           </div>
         </div>
       </section>
 
-      <section class="band" id="privacy">
-        <div class="band-inner">
-          <h2>Your files stay yours.</h2>
-          <p class="band-lede">You sign in once, and the tools only ever see your own files.</p>
-          <div class="facts">
-            <div><strong>1</strong><span>private library for each account, invisible to everyone else</span></div>
-            <div><strong>{{ retention_days }}</strong><span>days, then your files are deleted automatically</span></div>
-            <div><strong>1 h</strong><span>is how long a download link works</span></div>
-          </div>
-          <a class="link-arrow link-light" href="{{ url_for('privacy') }}">Read the privacy policy <span aria-hidden="true">›</span></a>
+      <section class="section section-dark" id="privacy">
+        <header class="section-head">
+          <p class="label">04 / Privacy</p>
+          <h2>Your files stay <em>yours.</em></h2>
+          <p>You sign in once, and the tools only ever see your own files.</p>
+        </header>
+        <div class="columns facts">
+          <div><strong>1</strong><span>private library for each account, invisible to everyone else</span></div>
+          <div><strong>{{ retention_days }}</strong><span>days, then your files are deleted automatically</span></div>
+          <div><strong>1 h</strong><span>is how long a download link works</span></div>
         </div>
+        <a class="link-arrow" href="{{ url_for('privacy') }}">Read the privacy policy <span aria-hidden="true">→</span></a>
       </section>
 
       <section class="section" id="open-source">
-        <div class="section-head section-head-row">
+        <header class="section-head section-head-row">
           <div>
-            <h2>Built on open source.</h2>
+            <p class="label">05 / Open source</p>
+            <h2>Built on <em>open source.</em></h2>
             <p>ArtCraft and the Craft apps are Storytold's public projects. BridgeCraft is open source too.</p>
           </div>
           <a class="link-arrow" href="{{ org_url }}" target="_blank" rel="noopener noreferrer">Storytold on GitHub <span aria-hidden="true">↗</span></a>
-        </div>
+        </header>
 
         {% if error_message %}
         <p class="notice" role="status">{{ error_message }}</p>
         {% elif repos %}
         <div class="repo-grid">
           {% for repo in repos %}
-          <a class="repo" href="{{ repo.url }}" target="_blank" rel="noopener noreferrer">
+          <a class="repo" href="{{ repo.url }}" target="_blank" rel="noopener noreferrer" title="{{ repo.description }}">
             {% if repo.name in app_icons %}
-            <img class="repo-icon{% if repo.name == 'artcraft' %} repo-icon-plain{% endif %}" src="{{ url_for('static', filename=app_icons[repo.name]) }}" alt="" width="44" height="44" loading="lazy" />
+            <img class="repo-icon{% if repo.name == 'artcraft' %} repo-icon-plain{% endif %}" src="{{ url_for('static', filename=app_icons[repo.name]) }}" alt="" width="64" height="64" loading="lazy" />
             {% else %}
             <span class="repo-icon repo-letter" aria-hidden="true">{{ repo.name[:1]|upper }}</span>
             {% endif %}
-            <span class="repo-text">
-              <span class="repo-name">{{ repo.name }}</span>
-              <span class="repo-desc">{{ repo.description }}</span>
-            </span>
+            <span class="repo-name">{{ repo.name }}</span>
             <span class="repo-stars" aria-label="{{ repo.stars }} GitHub stars">★ {{ "{:,}".format(repo.stars) }}</span>
           </a>
           {% endfor %}
@@ -186,20 +214,23 @@
         {% endif %}
       </section>
 
-      <section class="section connect" id="connect">
-        <h2>Add it once.<br />Use it everywhere.</h2>
-        <ol class="steps">
-          <li><span>1</span>In Claude or ChatGPT, add a custom connector.</li>
-          <li><span>2</span>Paste this address and sign in.</li>
-          <li><span>3</span>It works in the web app and on your phone.</li>
+      <section class="section section-accent" id="connect">
+        <header class="section-head">
+          <p class="label">06 / Connect</p>
+          <h2>Add it once. Use it <em>everywhere.</em></h2>
+        </header>
+        <ol class="columns steps">
+          <li><span class="label">Step 1</span>In Claude or ChatGPT, add a custom connector.</li>
+          <li><span class="label">Step 2</span>Paste this address and sign in.</li>
+          <li><span class="label">Step 3</span>It works in the web app and on your phone.</li>
         </ol>
         <div class="url-box">
           <code id="studio-url">{{ site_url }}/studio</code>
-          <button class="copy" type="button" data-copy="studio-url">Copy</button>
+          <button class="button button-dark" type="button" data-copy="studio-url">Copy</button>
         </div>
         <p class="connect-links">
-          <a class="link-arrow" href="{{ url_for('support') }}">Step-by-step setup <span aria-hidden="true">›</span></a>
-          <span class="muted">On a Mac and want ArtCraft image and video generation? Use the
+          <a class="link-arrow" href="{{ url_for('support') }}">Step-by-step setup <span aria-hidden="true">→</span></a>
+          <span>On a Mac and want ArtCraft image and video generation? Use the
             <a href="{{ project_url }}#run-the-local-mcp-server" target="_blank" rel="noopener noreferrer">local server</a>.</span>
         </p>
       </section>
@@ -207,17 +238,19 @@
 
     <footer class="footer">
       <div class="footer-inner">
-        <a class="brand" href="#top">
-          <img src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="" width="24" height="24" />
-          <span>BridgeCraft</span>
-        </a>
-        <nav aria-label="Footer">
-          <a href="{{ url_for('privacy') }}">Privacy</a>
-          <a href="{{ url_for('terms') }}">Terms</a>
-          <a href="{{ url_for('support') }}">Support</a>
-          <a href="{{ project_url }}" target="_blank" rel="noopener noreferrer">Source ↗</a>
-          <a href="{{ product_url }}" target="_blank" rel="noopener noreferrer">Official ArtCraft ↗</a>
-        </nav>
+        <div class="footer-row">
+          <a class="brand" href="#top">
+            <img src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="" width="28" height="28" />
+            <span>BridgeCraft</span>
+          </a>
+          <nav aria-label="Footer">
+            <a href="{{ url_for('privacy') }}">Privacy</a>
+            <a href="{{ url_for('terms') }}">Terms</a>
+            <a href="{{ url_for('support') }}">Support</a>
+            <a href="{{ project_url }}" target="_blank" rel="noopener noreferrer">Source ↗</a>
+            <a href="{{ product_url }}" target="_blank" rel="noopener noreferrer">Official ArtCraft ↗</a>
+          </nav>
+        </div>
         <p>
           Independent, community-built software, not an official Storytold or ArtCraft product.
           ArtCraft and its logo are trademarks of the ArtCraft Team. © 2026 Adithya Shankaran · Apache-2.0.
