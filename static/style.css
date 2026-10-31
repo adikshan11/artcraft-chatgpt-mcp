@@ -370,7 +370,7 @@ h2 em {
   text-underline-offset: 4px;
 }
 
-/* The plate: the tern on a yellow field, every Craft app arched over it. */
+/* The plate: the phoenix on a yellow field, every Craft app arched over it. */
 /* Sized to the window's height as well, so the whole plate shows beside the words. */
 .plate {
   position: relative;
@@ -381,7 +381,7 @@ h2 em {
   overflow: hidden;
 }
 
-/* The waterline the tern skims. */
+/* The ground line under the logo. */
 .plate::after {
   content: "";
   position: absolute;
@@ -444,9 +444,9 @@ h2 em {
   box-shadow: none;
 }
 
-/* The tern turns over to say what BridgeCraft is built for. */
+/* The phoenix turns over to say what BridgeCraft is built for. */
 /* Sized by its four edges rather than width and aspect-ratio, which Safari
-   sized wrongly on this button and squeezed the tern. On the square plate the
+   sized wrongly on this button and squeezed the logo. On the square plate the
    edges make a square half the plate wide, standing on the waterline. */
 .flip {
   position: absolute;

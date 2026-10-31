@@ -96,14 +96,14 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
     def test_homepage_presents_unified_artcraft_integration(self, _list_projects):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b"<h1>Use the Craft apps from ChatGPT and Claude</h1>", response.data)
+        self.assertIn(b"<h1>Use the Craft apps from ChatGPT, Claude and other AI assistants</h1>", response.data)
         # Plain headings: no eyebrow labels or accent words on the homepage.
         for heading in (b"<h2>Examples</h2>", b"<h2>The apps</h2>", b"<h2>What doesn't work yet</h2>",
                         b"<h2>Who runs this</h2>", b"<h2>Set it up</h2>"):
             self.assertIn(heading, response.data)
         self.assertNotIn(b"<em>", response.data)
         self.assertNotIn(b'class="label', response.data)
-        # The back of the tern carries ArtCraft's own icon.
+        # The back of the phoenix carries ArtCraft's own icon.
         self.assertIn(b'class="flip-mark" src="/static/app-icons/artcraft.svg"', response.data)
         self.assertIn(b'class="flip"', response.data)
         for app in (b"WordCraft", b"DeckCraft", b"PdfCraft", b"PhotoCraft", b"VectorCraft",

@@ -20,8 +20,10 @@ shown on the catalog card that links to the ArtCraft repository and on the
 back of the homepage logo, labelled "Built for ArtCraft", with "Not an official
 Storytold or ArtCraft product" stated directly below it.
 
-The BridgeCraft logo (static/bridgecraft.svg) was drawn in VectorCraft by
-design/draw_logo.py; design/bridgecraft.vectorcraft is its source document.
+The BridgeCraft logo (static/bridgecraft.svg) began as an engraving generated in
+Canva for this project (design/phoenix-source.jpg). design/prep_phoenix.py
+flattens it and design/draw_logo.py traces it into vector paths in VectorCraft;
+design/bridgecraft.vectorcraft is the resulting source document.
 The share image (static/og.jpg) was made in Canva for this project.
 
 The website fonts in static/fonts/ (Archivo, Inter, Geist Mono and Instrument

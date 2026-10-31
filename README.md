@@ -8,12 +8,12 @@ xAI API), and Kimi:
 - **Website**: [artcraft-storytold-mcp.onrender.com](https://artcraft-storytold-mcp.onrender.com)
   is the public introduction and read-only Storytold project catalog.
 - **Official ArtCraft website**: [getartcraft.com](https://getartcraft.com).
-- **Branding**: BridgeCraft uses its own name and logo (`static/bridgecraft.svg`, an Arctic
-  tern whose wings arch into a bridge, drawn in VectorCraft by `design/draw_logo.py`). The
+- **Branding**: BridgeCraft uses its own name and logo (`static/bridgecraft.svg`, a phoenix
+  rising with its wings raised, traced in VectorCraft by `design/draw_logo.py`). The
   ArtCraft name, wordmark and logos are trademarks of the ArtCraft Team and are not open
   source. BridgeCraft never uses them as its own branding: the name appears in plain text
   to say what BridgeCraft works with. The unmodified ArtCraft logo appears on the catalog
-  card that links to ArtCraft's repository and on the back of the homepage tern, labelled
+  card that links to ArtCraft's repository and on the back of the homepage phoenix, labelled
   "Built for ArtCraft", with "Not an official Storytold or ArtCraft product" just below the
   headline. The other cards show each Craft app's
   own icon, which is licensed like its code.

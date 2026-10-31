@@ -1,4 +1,4 @@
-// Light/dark switch, the narrow-screen menu, the tern's flip and the copy button.
+// Light/dark switch, the narrow-screen menu, the logo's flip and the copy button.
 
 const root = document.documentElement;
 const themeButton = document.querySelector("[data-theme-toggle]");
