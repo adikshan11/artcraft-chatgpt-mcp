@@ -12,8 +12,9 @@ xAI API), and Kimi:
   tern whose wings arch into a bridge, drawn in VectorCraft by `design/draw_logo.py`). The
   ArtCraft name, wordmark and logos are trademarks of the ArtCraft Team and are not open
   source. BridgeCraft never uses them as its own branding: the name appears in plain text
-  to say what BridgeCraft works with, and the unmodified ArtCraft logo appears only on the
-  catalog card that links to ArtCraft's repository. The other cards show each Craft app's
+  to say what BridgeCraft works with. The unmodified ArtCraft logo appears on the catalog
+  card that links to ArtCraft's repository and on the back of the homepage tern, beside
+  "Built for ArtCraft · community-built · not affiliated". The other cards show each Craft app's
   own icon, which is licensed like its code.
 - **ArtCraft apps and projects**: list, search, and read public Storytold
   repositories, including the Craft creative-app projects.
@@ -33,6 +34,17 @@ PdfCraft writes new output files only and refuses to overwrite existing files.
 PhotoCraft's generic native-tool proxy is treated as write-capable. VectorCraft
 and the remaining video, audio, and 3D app operations are not exposed until
 their official MCP interfaces provide a verified workspace boundary.
+
+## What BridgeCraft is
+
+BridgeCraft extends Storytold's open-source Craft apps, the ones ArtCraft brings
+together, into ChatGPT, Claude and other AI assistants. They are the same apps,
+run as they are: you ask in a chat, and your assistant uses them for you.
+
+**Status:** community-built and run by Adithya Shankaran. It is not an official
+Storytold or ArtCraft product. We have proposed that Storytold adopt it in
+[RFC-0016](https://github.com/storytold/craft-contrib/pull/23); until they do,
+it must not be presented as part of ArtCraft.
 
 ## Image-generation prerequisites
 
