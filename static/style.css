@@ -338,10 +338,12 @@ h2 em {
   gap: 26px;
 }
 
+/* Balanced so the lines come out even, and sized to sit in three or four lines beside the plate. */
 .hero h1 {
-  max-width: 13ch;
-  font-size: clamp(44px, 5.6vw, 78px);
+  max-width: 20ch;
+  font-size: clamp(38px, 4.5vw, 66px);
   line-height: 0.98;
+  text-wrap: balance;
 }
 
 .lede {
