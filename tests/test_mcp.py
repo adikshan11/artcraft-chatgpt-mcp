@@ -33,6 +33,15 @@ from craft_app_mcp import PhotoCraftBridge, _photocraft_parameters
 from local_artcraft_mcp import ARTCRAFT_ICON_URL, server as local_mcp
 from pdfcraft_mcp import _pdf_path
 
+FREE_ESTIMATE = (
+    b'{"success":true,"cost_in_credits":null,"cost_in_usd_cents":null,"is_free":true,'
+    b'"is_unlimited":true,"is_rate_limited":false,"has_watermark":false}'
+)
+PAID_ESTIMATE = (
+    b'{"success":true,"cost_in_credits":6,"cost_in_usd_cents":6,"is_free":false,'
+    b'"is_unlimited":false,"is_rate_limited":false,"has_watermark":false}'
+)
+
 
 class McpServerTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -252,6 +261,10 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
             {tool.name for tool in result.tools},
             {
                 "generate_artcraft_image",
+                "generate_artcraft_video",
+                "list_artcraft_models",
+                "estimate_artcraft_cost",
+                "get_artcraft_job",
                 "get_artcraft_image_job",
                 "list_artcraft_projects",
                 "search_artcraft_projects",
@@ -600,6 +613,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
             "job_token": "jinf_test123",
             "model": "flux_1_schnell",
             "status": "pending",
+            "credits": 0,
             "message": "Accepted.",
         },
     )
@@ -615,7 +629,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(result.is_error)
         self.assertEqual(result.structured_content["job_token"], "jinf_test123")
         submit_image.assert_called_once_with(
-            "A watercolor fox in a garden", "flux_1_schnell", 1
+            "A watercolor fox in a garden", "flux_1_schnell", 1, None, None
         )
 
     @patch(
@@ -650,18 +664,29 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
     ):
         from artcraft_api import submit_image_generation
 
-        build_opener.return_value.open.return_value.__enter__.return_value.read.return_value = (
-            b'{"success":true,"inference_job_token":"jinf_test123"}'
-        )
+        build_opener.return_value.open.return_value.__enter__.return_value.read.side_effect = [
+            FREE_ESTIMATE,
+            b'{"success":true,"inference_job_token":"jinf_test123"}',
+        ]
         result = submit_image_generation(
             " A watercolor fox ", "flux_1_schnell", image_batch_count=2
         )
-        api_request = build_opener.return_value.open.call_args.args[0]
+        estimate_request, api_request = [
+            call.args[0] for call in build_opener.return_value.open.call_args_list
+        ]
+        self.assertEqual(
+            estimate_request.full_url, "https://api.storyteller.ai/v1/generate/cost_estimate/image"
+        )
+        self.assertEqual(
+            json.loads(estimate_request.data)["generation_mode"], {"type": "text_to_image"}
+        )
         payload = json.loads(api_request.data)
         self.assertEqual(
             api_request.get_header("Authorization"),
             "Bearer artcraft_api_test-secret",
         )
+        # Cloudflare in front of the API refuses Python's default user agent.
+        self.assertTrue(api_request.get_header("User-agent").startswith("ArtCraft-Plugin/"))
         self.assertEqual(api_request.full_url, "https://api.storyteller.ai/v1/omni_api/generate/image")
         self.assertEqual(payload["prompt"], "A watercolor fox")
         self.assertEqual(payload["model"], "flux_1_schnell")
@@ -686,6 +711,98 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
             build_opener.return_value.open.call_args.args[0].full_url,
             "https://api.storyteller.ai/v1/omni_api/job_status/job/jinf_test123",
         )
+
+    @patch("artcraft_api.get_api_key", return_value="artcraft_api_test-secret")
+    @patch("artcraft_api.request.build_opener")
+    def test_paid_generation_waits_for_the_users_agreed_credits(self, build_opener, _get_api_key):
+        from artcraft_api import submit_image_generation
+
+        read = build_opener.return_value.open.return_value.__enter__.return_value.read
+        read.side_effect = [PAID_ESTIMATE]
+        with self.assertRaisesRegex(ArtCraftAPIError, "cost 6 ArtCraft credits.*max_credits=6"):
+            submit_image_generation("A fox", "flux_pro_1p1_ultra")
+        read.side_effect = [PAID_ESTIMATE]
+        with self.assertRaisesRegex(ArtCraftAPIError, "max_credits=6"):
+            submit_image_generation("A fox", "flux_pro_1p1_ultra", max_credits=5)
+        # Only the two estimates went out; nothing was generated.
+        urls = [call.args[0].full_url for call in build_opener.return_value.open.call_args_list]
+        self.assertTrue(all("cost_estimate" in url for url in urls))
+
+        read.side_effect = [PAID_ESTIMATE, b'{"success":true,"inference_job_token":"jinf_paid"}']
+        result = submit_image_generation("A fox", "flux_pro_1p1_ultra", max_credits=6)
+        self.assertEqual((result["job_token"], result["credits"]), ("jinf_paid", 6))
+
+    @patch("artcraft_api.get_api_key", return_value="artcraft_api_test-secret")
+    @patch("artcraft_api.request.build_opener")
+    def test_video_request_estimates_then_submits_the_options(self, build_opener, _get_api_key):
+        from artcraft_api import submit_video_generation
+
+        build_opener.return_value.open.return_value.__enter__.return_value.read.side_effect = [
+            PAID_ESTIMATE,
+            b'{"success":true,"inference_job_token":"jinf_video1"}',
+        ]
+        result = submit_video_generation(
+            "A paper boat on a river", "wan_3p0", aspect_ratio="wide_sixteen_by_nine",
+            duration_seconds=5, start_frame_image_url="https://cdn.example/boat.png", max_credits=10,
+        )
+        estimate_request, video_request = [
+            call.args[0] for call in build_opener.return_value.open.call_args_list
+        ]
+        self.assertEqual(
+            json.loads(estimate_request.data)["generation_mode"], {"type": "start_frame_to_video"}
+        )
+        self.assertIsNone(estimate_request.get_header("Authorization"))
+        self.assertEqual(video_request.full_url, "https://api.storyteller.ai/v1/omni_api/generate/video")
+        payload = json.loads(video_request.data)
+        self.assertEqual(payload["duration_seconds"], 5)
+        self.assertEqual(payload["start_frame_image_url"], "https://cdn.example/boat.png")
+        self.assertNotIn("resolution", payload)
+        self.assertEqual(result["job_token"], "jinf_video1")
+
+    def test_video_request_validates_before_spending(self):
+        from artcraft_api import submit_video_generation
+
+        with self.assertRaisesRegex(ArtCraftAPIError, "https://"):
+            submit_video_generation("A boat", "wan_3p0", start_frame_image_url="file:///etc/passwd")
+        with self.assertRaisesRegex(ArtCraftAPIError, "duration_seconds"):
+            submit_video_generation("A boat", "wan_3p0", duration_seconds=600)
+        with self.assertRaisesRegex(ArtCraftAPIError, "option names"):
+            submit_video_generation("A boat", "wan_3p0", aspect_ratio="16:9")
+
+    @patch("artcraft_api.request.build_opener")
+    def test_model_list_marks_models_usable_with_an_api_key(self, build_opener):
+        from artcraft_api import list_models
+
+        build_opener.return_value.open.return_value.__enter__.return_value.read.return_value = (
+            b'{"success":true,"models":[{"model":"wan_3p0","full_name":"Wan 3.0",'
+            b'"aspect_ratio_options":["square"],"duration_seconds_max":10},'
+            b'{"model":"sora_2","full_name":"Sora 2"}],'
+            b'"providers":[{"provider":"artcraft","models":[{"model":"wan_3p0"}]}]}'
+        )
+        result = list_models("video")
+        self.assertEqual(
+            [(m["model"], m["available_with_api_key"]) for m in result["models"]],
+            [("wan_3p0", True), ("sora_2", False)],
+        )
+        self.assertEqual(result["models"][0]["max_seconds"], 10)
+        request_sent = build_opener.return_value.open.call_args.args[0]
+        self.assertEqual(request_sent.full_url, "https://api.storyteller.ai/v1/omni_gen/models/video")
+        self.assertIsNone(request_sent.get_header("Authorization"))
+        with self.assertRaisesRegex(ArtCraftAPIError, "kind must be"):
+            list_models("mesh")
+
+    async def test_local_server_exposes_cost_estimates(self):
+        with patch("local_artcraft_mcp.estimate_cost", return_value={
+            "model": "flux_pro_1p1_ultra", "is_free": False, "credits": 6, "usd_cents": 6,
+            "is_rate_limited": False, "has_watermark": False,
+        }) as estimate:
+            async with Client(local_mcp) as client:
+                result = await client.call_tool(
+                    "estimate_artcraft_cost", {"kind": "image", "model": "flux_pro_1p1_ultra"}
+                )
+        self.assertFalse(result.is_error)
+        self.assertEqual(result.structured_content["credits"], 6)
+        self.assertEqual(estimate.call_args.args, ("image", "flux_pro_1p1_ultra"))
 
     def test_generation_rejects_batch_above_limit_before_request(self):
         from artcraft_api import submit_image_generation

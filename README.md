@@ -11,8 +11,8 @@ xAI API), and Kimi:
   [open-source ArtCraft icon from the Storytold repository](https://github.com/storytold/artcraft/blob/main/frontend/apps/artcraft/app/public/artcraft-icon.svg).
 - **ArtCraft apps and projects**: list, search, and read public Storytold
   repositories, including the Craft creative-app projects.
-- **ArtCraft image generation**: submit image-generation jobs and check their
-  status. Connect the local server with OpenAI's Secure MCP Tunnel so the
+- **ArtCraft image and video generation**: list models, see the price first,
+  submit jobs and check their status. Connect the local server with OpenAI's Secure MCP Tunnel so the
   ArtCraft API key stays on your Mac.
 - **PdfCraft PDF workflows**: inspect and search PDFs, extract text or selected
   pages, combine PDFs, and rotate pages into a new PDF. PDF access is confined
@@ -213,20 +213,32 @@ use that tunnel in the ChatGPT workspace.
    MCP server**, choose **Tunnel** for the connection, select this tunnel, and
    create the app. The connection itself needs no separate MCP authentication.
 
-The local MCP server exposes image generation, the read-only project catalog,
+The local MCP server exposes image and video generation, the read-only project catalog,
 and the supported PdfCraft and PhotoCraft workflows as one ChatGPT app. Connect
 that unified server only; do not add the public catalog's `/mcp/` endpoint as a
 second ChatGPT app, because it duplicates the project-discovery tools. The
 public Render website remains available separately and does not receive or use
 the ArtCraft API key.
 
-## Use the image tools
+## Use the generation tools
 
-- `generate_artcraft_image`: submits a prompt and model, returning a job token.
-  An example ArtCraft model ID is `flux_1_schnell`; use a model available to
-  your account. Generation may use credits.
-- `get_artcraft_image_job`: checks a job token and returns progress or the
-  completed image URL. Pending jobs can be checked again shortly.
+- `list_artcraft_models`: ArtCraft's image or video models with the aspect
+  ratios, resolutions, durations and batch sizes each accepts.
+  `available_with_api_key` marks the ones this server can generate; the others
+  run through other services' accounts inside the desktop app.
+- `estimate_artcraft_cost`: ArtCraft's own price for a generation, in credits
+  and US cents. It spends nothing.
+- `generate_artcraft_image` and `generate_artcraft_video`: submit a job and
+  return a job token. Free models start straight away. A paid one starts only
+  when `max_credits` covers ArtCraft's estimate; otherwise the tool returns the
+  price so the assistant can ask you first. `generate_artcraft_video` can also
+  animate an image from an `https` URL (`start_frame_image_url`).
+- `get_artcraft_job`: checks a job token and returns progress or the finished
+  image or video URL. Pending jobs can be checked again shortly.
+  (`get_artcraft_image_job` still works for images.)
+
+Your media library, saved 3D Stage scenes and job history aren't available:
+ArtCraft accepts only the desktop app's sign-in for those, not API keys.
 - `inspect_pdf_document`, `search_pdf_text`, and `extract_pdf_text`: read PDFs.
 - `combine_pdf_documents`, `extract_pdf_pages`, and `rotate_pdf_pages`: create
   new PDF files without replacing their source or an existing output.

@@ -12,12 +12,18 @@ from urllib import error, parse, request
 
 
 API_BASE_URL = "https://api.storyteller.ai"
+# ArtCraft sits behind Cloudflare, which refuses requests carrying Python's default
+# user agent (error 1010), so every request names this plugin.
+USER_AGENT = "ArtCraft-Plugin/1.0 (+https://github.com/adikshan11/artcraft-plugin)"
 KEYCHAIN_SERVICE = "artcraft-plugin"
 # Keychain item name used before the rename; still read so existing setups keep working.
 LEGACY_KEYCHAIN_SERVICE = "artcraft-chatgpt-mcp"
 MAX_IMAGE_BATCH_COUNT = 4
 JOB_TOKEN_PATTERN = re.compile(r"jinf_[A-Za-z0-9_-]{1,100}\Z")
 MODEL_PATTERN = re.compile(r"[a-z0-9_]{1,80}\Z")
+OPTION_PATTERN = re.compile(r"[a-z0-9_]{1,40}\Z")
+MODEL_KINDS = ("image", "video")
+MAX_VIDEO_SECONDS = 60
 PENDING_JOB_STATES = {"pending", "started", "attempt_failed"}
 FAILED_JOB_STATES = {
     "complete_failure",
@@ -87,7 +93,7 @@ def _http_error_message(exc: error.HTTPError) -> str:
     if exc.code == 401:
         return "ArtCraft rejected the API key. Check that it is valid and enabled."
     if exc.code == 402:
-        return "ArtCraft reported insufficient credits or balance; no image was returned."
+        return "ArtCraft reported insufficient credits or balance; nothing was generated."
     if exc.code == 403:
         return "ArtCraft API access is not enabled for this account or key."
     if exc.code == 429:
@@ -107,9 +113,11 @@ def _http_error_message(exc: error.HTTPError) -> str:
     return f"ArtCraft API request failed with HTTP {exc.code}."
 
 
-def _request_json(path: str, method: str, payload: dict | None = None) -> dict:
+def _request_json(path: str, method: str, payload: dict | None = None, auth: bool = True) -> dict:
     data = json.dumps(payload).encode("utf-8") if payload is not None else None
-    headers = {"Authorization": f"Bearer {get_api_key()}", "Accept": "application/json"}
+    headers = {"Accept": "application/json", "User-Agent": USER_AGENT}
+    if auth:
+        headers["Authorization"] = f"Bearer {get_api_key()}"
     if data is not None:
         headers["Content-Type"] = "application/json"
     req = request.Request(
@@ -131,48 +139,231 @@ def _request_json(path: str, method: str, payload: dict | None = None) -> dict:
     return result
 
 
-def submit_image_generation(prompt: str, model: str, image_batch_count: int = 1) -> dict:
-    prompt = prompt.strip()
+def _check_kind(kind: str) -> str:
+    if kind not in MODEL_KINDS:
+        raise ArtCraftAPIError(f"kind must be one of: {', '.join(MODEL_KINDS)}.")
+    return kind
+
+
+def _check_model(model: str, kind: str) -> str:
     model = model.strip()
-    if not prompt:
-        raise ArtCraftAPIError("Provide a non-empty image prompt.")
     if not MODEL_PATTERN.fullmatch(model):
-        raise ArtCraftAPIError("Provide a valid ArtCraft image model identifier.")
-    if not 1 <= image_batch_count <= MAX_IMAGE_BATCH_COUNT:
+        raise ArtCraftAPIError(f"Provide a valid ArtCraft {kind} model identifier.")
+    return model
+
+
+def _check_option(name: str, value: str | None) -> str | None:
+    if value is not None and not OPTION_PATTERN.fullmatch(value):
+        raise ArtCraftAPIError(f"{name} must be one of the option names from list_artcraft_models.")
+    return value
+
+
+def list_models(kind: str) -> dict:
+    """ArtCraft's public model catalogue for one kind of generation (no key needed)."""
+    result = _request_json(f"/v1/omni_gen/models/{_check_kind(kind)}", "GET", auth=False)
+    models, providers = result.get("models"), result.get("providers")
+    if result.get("success") is not True or not isinstance(models, list):
+        raise ArtCraftAPIError("ArtCraft did not return a valid model list.")
+    # Only models ArtCraft itself provides can be generated with an API key; the
+    # rest go through other services' accounts inside the desktop app.
+    via_api = {
+        entry.get("model")
+        for provider in (providers if isinstance(providers, list) else [])
+        if isinstance(provider, dict) and provider.get("provider") == "artcraft"
+        for entry in provider.get("models") or []
+        if isinstance(entry, dict)
+    }
+    listed = []
+    for item in models:
+        if not isinstance(item, dict) or not isinstance(item.get("model"), str):
+            continue
+        listed.append({
+            "model": item["model"],
+            "name": item.get("full_name") or item["model"],
+            "creator": item.get("model_creator"),
+            "available_with_api_key": item["model"] in via_api,
+            "aspect_ratios": item.get("aspect_ratio_options") or [],
+            "default_aspect_ratio": item.get("aspect_ratio_default"),
+            "resolutions": item.get("resolution_options") or [],
+            "default_resolution": item.get("resolution_default"),
+            "min_seconds": item.get("duration_seconds_min"),
+            "max_seconds": item.get("duration_seconds_max"),
+            "max_batch": item.get("batch_size_max"),
+            "start_frame_supported": item.get("starting_keyframe_supported"),
+            "sound_supported": item.get("show_generate_with_sound_toggle"),
+        })
+    return {"kind": kind, "models": listed}
+
+
+def estimate_cost(
+    kind: str,
+    model: str,
+    *,
+    aspect_ratio: str | None = None,
+    resolution: str | None = None,
+    duration_seconds: int | None = None,
+    batch_count: int = 1,
+    generate_audio: bool | None = None,
+    with_start_frame: bool = False,
+) -> dict:
+    """What a generation would cost, from ArtCraft's own estimate. Spends nothing."""
+    _check_kind(kind)
+    payload = {
+        "model": _check_model(model, kind),
+        "provider": "artcraft",
+        "aspect_ratio": _check_option("aspect_ratio", aspect_ratio),
+        "resolution": _check_option("resolution", resolution),
+    }
+    if kind == "image":
+        payload["generation_mode"] = {"type": "text_to_image"}
+        payload["image_batch_count"] = batch_count
+    else:
+        payload["generation_mode"] = {"type": "start_frame_to_video" if with_start_frame else "text_to_video"}
+        payload["duration_seconds"] = duration_seconds
+        payload["video_batch_count"] = batch_count
+        payload["generate_audio"] = generate_audio
+    result = _request_json(
+        f"/v1/generate/cost_estimate/{kind}",
+        "POST",
+        {key: value for key, value in payload.items() if value is not None},
+        auth=False,
+    )
+    if result.get("success") is not True:
+        detail = result.get("error_message")
         raise ArtCraftAPIError(
-            f"image_batch_count must be between 1 and {MAX_IMAGE_BATCH_COUNT}."
+            f"ArtCraft could not estimate the cost: {detail[:300]}" if isinstance(detail, str)
+            else "ArtCraft could not estimate the cost."
+        )
+    credits, cents = result.get("cost_in_credits"), result.get("cost_in_usd_cents")
+    return {
+        "model": payload["model"],
+        "is_free": result.get("is_free") is True,
+        "credits": credits if type(credits) is int else None,
+        "usd_cents": cents if type(cents) is int else None,
+        "is_rate_limited": result.get("is_rate_limited") is True,
+        "has_watermark": result.get("has_watermark") is True,
+    }
+
+
+def check_spend(estimate: dict, max_credits: int | None) -> None:
+    """Refuse a paid generation unless the user agreed to at least its cost."""
+    if estimate["is_free"]:
+        return
+    credits = estimate["credits"]
+    if credits is None:
+        raise ArtCraftAPIError(
+            "ArtCraft didn't say what this would cost, so it wasn't started. "
+            "Try another model or option."
+        )
+    price = f" (about ${estimate['usd_cents'] / 100:.2f})" if estimate["usd_cents"] is not None else ""
+    if max_credits is None or credits > max_credits:
+        raise ArtCraftAPIError(
+            f"This would cost {credits} ArtCraft credits{price}, so it wasn't started. "
+            f"Ask the user to confirm, then call again with max_credits={credits}."
         )
 
-    result = _request_json(
-        "/v1/omni_api/generate/image",
-        "POST",
-        {
-            "idempotency_token": str(uuid.uuid4()),
-            "model": model,
-            "prompt": prompt,
-            "image_batch_count": image_batch_count,
-        },
-    )
+
+def _submitted(result: dict, kind: str, model: str, estimate: dict) -> dict:
     job_token = result.get("inference_job_token")
     if result.get("success") is not True or not isinstance(job_token, str):
-        raise ArtCraftAPIError("ArtCraft did not confirm that the image job was accepted.")
+        raise ArtCraftAPIError(f"ArtCraft did not confirm that the {kind} job was accepted.")
     if not JOB_TOKEN_PATTERN.fullmatch(job_token):
-        raise ArtCraftAPIError("ArtCraft returned an invalid image job token.")
-
+        raise ArtCraftAPIError(f"ArtCraft returned an invalid {kind} job token.")
     return {
         "job_token": job_token,
         "model": model,
         "status": "pending",
+        "credits": 0 if estimate["is_free"] else estimate["credits"],
         "message": (
-            "ArtCraft accepted the image request. Use get_artcraft_image_job with this "
-            "job token to check progress and retrieve the image URL."
+            f"ArtCraft accepted the {kind} request. Use get_artcraft_job with this job "
+            f"token to check progress and retrieve the {kind} URL."
         ),
     }
 
 
-def get_image_job(job_token: str) -> dict:
+def submit_image_generation(
+    prompt: str,
+    model: str,
+    image_batch_count: int = 1,
+    aspect_ratio: str | None = None,
+    max_credits: int | None = None,
+) -> dict:
+    prompt = prompt.strip()
+    model = _check_model(model, "image")
+    if not prompt:
+        raise ArtCraftAPIError("Provide a non-empty image prompt.")
+    if not 1 <= image_batch_count <= MAX_IMAGE_BATCH_COUNT:
+        raise ArtCraftAPIError(
+            f"image_batch_count must be between 1 and {MAX_IMAGE_BATCH_COUNT}."
+        )
+    estimate = estimate_cost(
+        "image", model, aspect_ratio=aspect_ratio, batch_count=image_batch_count
+    )
+    check_spend(estimate, max_credits)
+
+    payload = {
+        "idempotency_token": str(uuid.uuid4()),
+        "model": model,
+        "prompt": prompt,
+        "image_batch_count": image_batch_count,
+    }
+    if aspect_ratio:
+        payload["aspect_ratio"] = aspect_ratio
+    result = _request_json("/v1/omni_api/generate/image", "POST", payload)
+    return _submitted(result, "image", model, estimate)
+
+
+def submit_video_generation(
+    prompt: str,
+    model: str,
+    aspect_ratio: str | None = None,
+    resolution: str | None = None,
+    duration_seconds: int | None = None,
+    generate_audio: bool | None = None,
+    start_frame_image_url: str | None = None,
+    max_credits: int | None = None,
+) -> dict:
+    prompt = prompt.strip()
+    model = _check_model(model, "video")
+    if not prompt:
+        raise ArtCraftAPIError("Provide a non-empty video prompt.")
+    if duration_seconds is not None and not 1 <= duration_seconds <= MAX_VIDEO_SECONDS:
+        raise ArtCraftAPIError(f"duration_seconds must be between 1 and {MAX_VIDEO_SECONDS}.")
+    if start_frame_image_url is not None and not start_frame_image_url.startswith("https://"):
+        raise ArtCraftAPIError("start_frame_image_url must be an https:// URL.")
+    estimate = estimate_cost(
+        "video",
+        model,
+        aspect_ratio=aspect_ratio,
+        resolution=resolution,
+        duration_seconds=duration_seconds,
+        generate_audio=generate_audio,
+        with_start_frame=start_frame_image_url is not None,
+    )
+    check_spend(estimate, max_credits)
+
+    payload = {
+        "idempotency_token": str(uuid.uuid4()),
+        "model": model,
+        "prompt": prompt,
+        "aspect_ratio": aspect_ratio,
+        "resolution": resolution,
+        "duration_seconds": duration_seconds,
+        "generate_audio": generate_audio,
+        "start_frame_image_url": start_frame_image_url,
+        "video_batch_count": 1,
+    }
+    result = _request_json(
+        "/v1/omni_api/generate/video",
+        "POST",
+        {key: value for key, value in payload.items() if value is not None},
+    )
+    return _submitted(result, "video", model, estimate)
+
+
+def get_job(job_token: str) -> dict:
     if not JOB_TOKEN_PATTERN.fullmatch(job_token):
-        raise ArtCraftAPIError("Provide a valid ArtCraft image job token beginning with jinf_.")
+        raise ArtCraftAPIError("Provide a valid ArtCraft job token beginning with jinf_.")
 
     result = _request_json(
         f"/v1/omni_api/job_status/job/{parse.quote(job_token, safe='')}",
@@ -180,11 +371,11 @@ def get_image_job(job_token: str) -> dict:
     )
     state = result.get("state")
     if result.get("success") is not True or not isinstance(state, dict):
-        raise ArtCraftAPIError("ArtCraft did not return a valid image job status.")
+        raise ArtCraftAPIError("ArtCraft did not return a valid job status.")
 
     status_data = state.get("status")
     if not isinstance(status_data, dict) or not isinstance(status_data.get("status"), str):
-        raise ArtCraftAPIError("ArtCraft returned an unexpected image job status.")
+        raise ArtCraftAPIError("ArtCraft returned an unexpected job status.")
     status = status_data["status"]
     progress = status_data.get("progress_percentage")
     if progress is not None and (
@@ -199,7 +390,7 @@ def get_image_job(job_token: str) -> dict:
         "job_token": job_token,
         "status": status,
         "progress_percentage": progress,
-        "image_url": None,
+        "media_url": None,
         "failure_category": failure_category,
         "message": None,
     }
@@ -210,18 +401,25 @@ def get_image_job(job_token: str) -> dict:
             if isinstance(media_result, dict)
             else None
         )
-        image_url = media_links.get("cdn_url") if isinstance(media_links, dict) else None
-        if not isinstance(image_url, str) or not image_url.startswith("https://"):
+        media_url = media_links.get("cdn_url") if isinstance(media_links, dict) else None
+        if not isinstance(media_url, str) or not media_url.startswith("https://"):
             raise ArtCraftAPIError(
-                "ArtCraft marked the job complete but returned no valid HTTPS image URL."
+                "ArtCraft marked the job complete but returned no valid HTTPS media URL."
             )
-        response["image_url"] = image_url
-        response["message"] = "Image generation completed."
+        response["media_url"] = media_url
+        response["message"] = "Generation completed."
     elif status in FAILED_JOB_STATES:
-        response["message"] = f"Image generation ended without an image ({status})."
+        response["message"] = f"Generation ended without a result ({status})."
     elif status in PENDING_JOB_STATES:
-        response["message"] = "Image generation is still in progress. Check this job again shortly."
+        response["message"] = "Generation is still in progress. Check this job again shortly."
     else:
-        raise ArtCraftAPIError(f"ArtCraft returned an unrecognized image job state: {status}.")
+        raise ArtCraftAPIError(f"ArtCraft returned an unrecognized job state: {status}.")
 
+    return response
+
+
+def get_image_job(job_token: str) -> dict:
+    """get_job, with the result under image_url for the older image-only tool."""
+    response = get_job(job_token)
+    response["image_url"] = response.pop("media_url")
     return response
