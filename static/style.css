@@ -385,15 +385,18 @@ h2 em {
     z-index: 5;
     display: block;
     pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
-  /* Frosted corners behind the names, so they read over whatever scrolls under them. */
+  /* Frosted corners just behind the name lists, so the names read over whatever
+     scrolls under them without fogging the hero plate. */
   .rail::before,
   .rail::after {
     content: "";
     position: absolute;
     right: 0;
-    width: 440px;
+    width: 340px;
     background: color-mix(in srgb, var(--paper) 80%, transparent);
     backdrop-filter: blur(9px);
     -webkit-backdrop-filter: blur(9px);
@@ -401,13 +404,13 @@ h2 em {
 
   .rail::before {
     top: 0;
-    height: 300px;
+    height: 200px;
     mask-image: radial-gradient(100% 100% at 100% 0%, #000 38%, #000000d1 56%, #0000007a 72%, #00000033 86%, #0000000d 94%, transparent 97%);
   }
 
   .rail::after {
     bottom: 0;
-    height: 220px;
+    height: 170px;
     mask-image: radial-gradient(100% 100% at 100% 100%, #000 38%, #000000d1 56%, #0000007a 72%, #00000033 86%, #0000000d 94%, transparent 97%);
   }
 }
@@ -679,10 +682,14 @@ h2 em {
   margin-top: 4px;
 }
 
+/* Cells split by 1px of the line colour showing through the gaps. Every cell
+   grows to fill its row, so a bar that wraps still reads as a full table. */
 .share {
   display: flex;
   flex-wrap: wrap;
+  gap: 1px;
   border: 1px solid var(--line);
+  background: var(--line);
   font: 600 11px/1 var(--mono);
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -690,12 +697,13 @@ h2 em {
 
 .share > * {
   display: inline-flex;
+  flex: 1 1 auto;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   padding: 12px 16px;
   border: 0;
-  border-left: 1px solid var(--line);
-  background: none;
+  background: var(--paper);
   color: var(--ink);
   font: inherit;
   letter-spacing: inherit;
@@ -704,7 +712,6 @@ h2 em {
 }
 
 .share > span {
-  border-left: 0;
   color: var(--muted);
   cursor: default;
 }

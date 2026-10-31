@@ -66,6 +66,7 @@ if (rail) {
   const SMALL = 16 / BASE;
   const ON_END = 16 / BASE;
   const LINE = 20; // one row of the small lists
+  const STAGGER = 0.15; // how much later the last letter leaves than the first
   let widths = []; // each letter's width at BASE
   let layout = null;
 
@@ -160,18 +161,21 @@ if (rail) {
       const next = i + 1 < labels.length ? t[i + 1] : 0;
 
       letters[i].forEach((span, j) => {
-        // Letters set off one after another, the first leaving first. Each one
-        // reaches the ruler in the first third of its trip, waits there while
-        // the name stands complete, and rises to the large slot in the last third.
-        const lag = n > 1 ? (0.3 * j) / (n - 1) : 0;
-        const tj = clamp(t[i] * 1.3 - lag);
+        // Letters leave the bottom list one after another, the first leaving
+        // first, and reach the ruler in the first third of the trip. They wait
+        // there until the whole name stands, then rise to the large slot together
+        // in the last third, timed by the last letter.
+        const lag = n > 1 ? (STAGGER * j) / (n - 1) : 0;
+        const tj = clamp(t[i] * (1 + STAGGER) - lag);
+        const rise = clamp(t[i] * (1 + STAGGER) - STAGGER);
         let at;
-        if (tj < 1) {
+        if (t[i] < 1) {
           if (tj < 0.35) at = mix(ahead[j], standing[j], ease(tj / 0.35));
-          else if (tj < 0.65) at = standing[j];
-          else at = mix(standing[j], big[j], ease((tj - 0.65) / 0.35));
+          else if (rise < 0.65) at = standing[j];
+          else at = mix(standing[j], big[j], ease((rise - 0.65) / 0.35));
         } else {
-          at = mix(big[j], passed[j], ease(clamp((next * 1.3 - lag - 0.65) / 0.35)));
+          // Shrinks into the list above as a whole word, so its letters never bunch up.
+          at = mix(big[j], passed[j], ease(clamp((next * (1 + STAGGER) - STAGGER - 0.65) / 0.35)));
         }
         span.style.transform = `translate(${at.x}px, ${at.y}px) rotate(${at.r}deg) scale(${at.s})`;
       });
@@ -202,6 +206,7 @@ if (rail) {
   let dragY = 0;
   ruler.addEventListener("pointerdown", (event) => {
     if (!layout) return;
+    event.preventDefault(); // a drag on the ruler shouldn't select text
     ruler.setPointerCapture(event.pointerId);
     dragY = event.clientY;
     const share = clamp((pointerY(event) + scrollY) / layout.length);
