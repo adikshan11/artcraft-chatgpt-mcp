@@ -174,7 +174,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(b"Built and run by", hero)
         self.assertIn(b"https://github.com/storytold/craft-contrib/pull/23", response.data)
         self.assertIn(b"https://artcraft-storytold-mcp.onrender.com/studio", response.data)
-        self.assertIn(b"adikshan11/artcraft-plugin", response.data)
+        self.assertIn(b"adikshan11/bridgecraft", response.data)
         self.assertIn(b"PDFs and e-signatures", response.data)
         self.assertIn(b"#run-the-local-mcp-server", response.data)
         self.assertIn(b"which runs on Windows, macOS and Linux", response.data)
@@ -219,7 +219,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
 
     def test_homepage_offers_installs_for_other_apps(self):
         page = self.client.get("/").get_data(as_text=True)
-        self.assertIn("claude plugin install bridgecraft --marketplace adikshan11/artcraft-plugin", page)
+        self.assertIn("claude plugin install bridgecraft --marketplace adikshan11/bridgecraft", page)
         link = page.split('href="cursor://anysphere.cursor-deeplink/mcp/install?', 1)[1].split('"', 1)[0]
         name, config = (part.split("=", 1)[1] for part in link.split("&amp;"))
         self.assertEqual(name, "bridgecraft")

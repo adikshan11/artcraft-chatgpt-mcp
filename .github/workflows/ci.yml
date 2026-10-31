@@ -49,11 +49,11 @@ jobs:
 
       # Render deploys from this Dockerfile, so make sure it still builds.
       - name: Build image
-        run: docker build -t artcraft-plugin .
+        run: docker build -t bridgecraft .
 
       # The Craft apps are only installed inside the image, so run the
       # real-app checks there.
       - name: Test real Craft apps in the image
         run: |
-          docker run --rm -v "$PWD/tests:/app/tests:ro" artcraft-plugin \
+          docker run --rm -v "$PWD/tests:/app/tests:ro" bridgecraft \
             python -m unittest tests.test_craft_real -v

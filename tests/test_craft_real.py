@@ -6,7 +6,7 @@
 Each test is skipped unless its app is installed under CRAFT_APPS_DIR, which is
 the case inside the Docker image:
 
-    docker run --rm -v "$PWD/tests:/app/tests:ro" artcraft-plugin \
+    docker run --rm -v "$PWD/tests:/app/tests:ro" bridgecraft \
         python -m unittest tests.test_craft_real -v
 """
 

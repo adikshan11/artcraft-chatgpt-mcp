@@ -72,7 +72,7 @@ def shared_links():
 
 ORG_NAME = "storytold"
 ORG_URL = f"https://github.com/{ORG_NAME}"
-PROJECT_URL = "https://github.com/adikshan11/artcraft-plugin"
+PROJECT_URL = "https://github.com/adikshan11/bridgecraft"
 ARTCRAFT_SITE_URL = "https://artcraft-storytold-mcp.onrender.com"
 ARTCRAFT_PRODUCT_URL = "https://getartcraft.com"
 # Our own mark. The ArtCraft name and logos are the ArtCraft Team's trademarks.

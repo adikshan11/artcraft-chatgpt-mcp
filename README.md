@@ -294,8 +294,8 @@ stdio, with no tunnel. Point them at the virtual environment's Python and
 {
   "mcpServers": {
     "artcraft": {
-      "command": "/Users/YOU/artcraft-plugin/.venv/bin/python",
-      "args": ["/Users/YOU/artcraft-plugin/local_artcraft_mcp.py"]
+      "command": "/Users/YOU/bridgecraft/.venv/bin/python",
+      "args": ["/Users/YOU/bridgecraft/local_artcraft_mcp.py"]
     }
   }
 }
@@ -307,8 +307,8 @@ On Windows, the Python is under `Scripts`, and backslashes are doubled in JSON:
 {
   "mcpServers": {
     "artcraft": {
-      "command": "C:\\Users\\YOU\\artcraft-plugin\\.venv\\Scripts\\python.exe",
-      "args": ["C:\\Users\\YOU\\artcraft-plugin\\local_artcraft_mcp.py"]
+      "command": "C:\\Users\\YOU\\bridgecraft\\.venv\\Scripts\\python.exe",
+      "args": ["C:\\Users\\YOU\\bridgecraft\\local_artcraft_mcp.py"]
     }
   }
 }
@@ -431,7 +431,7 @@ use that tunnel in the ChatGPT workspace.
      --sample sample_mcp_stdio_local \
      --profile artcraft-local \
      --tunnel-id tunnel_REPLACE_WITH_YOUR_ID \
-     --mcp-command "/Users/YOU/artcraft-plugin/.venv/bin/python /Users/YOU/artcraft-plugin/local_artcraft_mcp.py"
+     --mcp-command "/Users/YOU/bridgecraft/.venv/bin/python /Users/YOU/bridgecraft/local_artcraft_mcp.py"
 
    tunnel-client doctor --profile artcraft-local --explain
    tunnel-client run --profile artcraft-local
@@ -508,8 +508,8 @@ python -m unittest discover -s tests -v
 The real-app checks run inside the Docker image, where the Craft CLIs are installed:
 
 ```sh
-docker build -t artcraft-plugin .
-docker run --rm -v "$PWD/tests:/app/tests:ro" artcraft-plugin \
+docker build -t bridgecraft .
+docker run --rm -v "$PWD/tests:/app/tests:ro" bridgecraft \
   python -m unittest tests.test_craft_real -v
 ```
 
@@ -661,12 +661,12 @@ the first time.
   one command:
 
   ```bash
-  claude plugin install bridgecraft --marketplace adikshan11/artcraft-plugin
+  claude plugin install bridgecraft --marketplace adikshan11/bridgecraft
   ```
 
-  Inside a session, `/plugin install bridgecraft --marketplace adikshan11/artcraft-plugin`
+  Inside a session, `/plugin install bridgecraft --marketplace adikshan11/bridgecraft`
   does the same. Older Claude Code versions need two steps:
-  `claude plugin marketplace add adikshan11/artcraft-plugin`, then
+  `claude plugin marketplace add adikshan11/bridgecraft`, then
   `claude plugin install bridgecraft@bridgecraft`.
 - **Cursor:** the "Add to Cursor" link on the website's setup section, or add
   `{"url": "https://artcraft-storytold-mcp.onrender.com/studio"}` under

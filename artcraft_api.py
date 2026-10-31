@@ -14,7 +14,7 @@ from urllib import error, parse, request
 API_BASE_URL = "https://api.storyteller.ai"
 # ArtCraft sits behind Cloudflare, which refuses requests carrying Python's default
 # user agent (error 1010), so every request names this plugin.
-USER_AGENT = "ArtCraft-Plugin/1.0 (+https://github.com/adikshan11/artcraft-plugin)"
+USER_AGENT = "ArtCraft-Plugin/1.0 (+https://github.com/adikshan11/bridgecraft)"
 KEYCHAIN_SERVICE = "artcraft-plugin"
 # Keychain item name used before the rename; still read so existing setups keep working.
 LEGACY_KEYCHAIN_SERVICE = "artcraft-chatgpt-mcp"
