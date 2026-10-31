@@ -14,7 +14,7 @@ from pathlib import Path
 from urllib import error, request
 
 from a2wsgi import WSGIMiddleware
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, send_from_directory
 from flask import request as http_request
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
@@ -288,6 +288,16 @@ def get_artcraft_project(name: str) -> ProjectDetails:
         raise ToolError(str(exc)) from exc
     except GitHubRequestError as exc:
         raise ToolError(str(exc)) from exc
+
+
+@app.get("/favicon.ico")
+@app.get("/apple-touch-icon.png")
+@app.get("/apple-touch-icon-precomposed.png")
+def root_icons():
+    # Safari, and apps that fetch a page's icon, ask for these fixed paths and skip
+    # the <link> tags; without them Safari shows a letter for the domain instead.
+    name = "favicon.ico" if http_request.path == "/favicon.ico" else "apple-touch-icon.png"
+    return send_from_directory(app.static_folder, name, max_age=24 * 3600)
 
 
 @app.get("/health")

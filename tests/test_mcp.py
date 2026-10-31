@@ -51,6 +51,15 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         app.config.update(TESTING=True)
         self.client = app.test_client()
 
+    def test_root_icon_paths_serve_the_logo(self):
+        # Safari asks for these fixed paths rather than reading the <link> tags.
+        for path, kind in (("/favicon.ico", b"\x00\x00\x01\x00"), ("/apple-touch-icon.png", b"\x89PNG"),
+                           ("/apple-touch-icon-precomposed.png", b"\x89PNG")):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 200, path)
+            self.assertTrue(response.data.startswith(kind), path)
+            response.close()
+
     def test_static_links_are_versioned_and_cached(self):
         page = self.client.get("/").data.decode()
         match = re.search(r'src="/static/bridgecraft.svg\?v=([0-9a-f]{10})"', page)

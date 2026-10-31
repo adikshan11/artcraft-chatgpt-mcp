@@ -13,7 +13,7 @@ VectorCraft's Image Trace, so the logo is vector paths.
 Run inside the Craft sandbox with VectorCraft's CLI in the image, this folder at
 /design and an output folder at /out:
     python3 -I design/draw_logo.py
-It writes bridgecraft.svg, bridgecraft-{32,180,512}.png, apple-touch-icon.png,
+It writes bridgecraft.svg, bridgecraft-{32,180,512}.png, apple-touch-icon.png, favicon.ico,
 bridgecraft.vectorcraft and preview.png to /out.
 """
 
@@ -95,3 +95,5 @@ touch = Image.open(f"{OUT}/bridgecraft-180.png").convert("RGBA")
 square = Image.new("RGBA", touch.size, FIELD)
 square.alpha_composite(touch)
 square.convert("RGB").save(f"{OUT}/apple-touch-icon.png")
+# Safari and older browsers ask for /favicon.ico by that name.
+Image.open(f"{OUT}/bridgecraft-512.png").convert("RGBA").save(f"{OUT}/favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
