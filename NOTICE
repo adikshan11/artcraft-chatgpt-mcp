@@ -18,7 +18,7 @@ static/app-icons/artcraft.svg is the ArtCraft logo, unmodified, from
 github.com/storytold/artcraft. It is a trademark of the ArtCraft Team and is
 shown on the catalog card that links to the ArtCraft repository and on the
 back of the homepage logo, labelled "Built for ArtCraft", with "Not an official
-Storytold or ArtCraft product" stated directly below it.
+Storytold or ArtCraft product" stated in the footer of every page.
 
 The BridgeCraft logo (static/bridgecraft.svg) began as an engraving generated in
 Canva for this project (design/phoenix-source.jpg). design/prep_phoenix.py

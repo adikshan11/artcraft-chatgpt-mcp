@@ -155,7 +155,10 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         # Limits and status are stated plainly.
         self.assertIn(b"EffectCraft, FilmCraft, CADCraft, GridCraft", response.data)
         self.assertIn(b"Up to 500 MB each and 5 GB per account.", response.data)
-        self.assertIn(b"Not an official Storytold or ArtCraft product.", response.data)
+        # The disclaimer sits in the footer, not under the hero.
+        hero, footer = response.data.split(b'<footer class="footer">', 1)
+        self.assertIn(b"Built and run by Adithya Shankaran. Not an official Storytold or ArtCraft product.", footer)
+        self.assertNotIn(b"Built and run by", hero)
         self.assertIn(b"https://github.com/storytold/craft-contrib/pull/23", response.data)
         self.assertIn(b"https://artcraft-storytold-mcp.onrender.com/studio", response.data)
         self.assertIn(b"adikshan11/artcraft-plugin", response.data)

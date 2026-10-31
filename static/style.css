@@ -393,11 +393,6 @@ h2 em {
   margin-top: 4px;
 }
 
-.fine-print {
-  color: var(--muted);
-  font-size: 14px;
-}
-
 .link-plain {
   font-weight: 600;
   text-decoration: underline;
