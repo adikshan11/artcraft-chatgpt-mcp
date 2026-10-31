@@ -29,6 +29,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 import craft_sessions
 import media_engine as engine
+import usage
 from media_storage import (
     StorageError,
     media_kind,
@@ -175,6 +176,10 @@ async def sweep_expired_files_forever():
         except Exception:
             last_sweep.update(at=datetime.now(timezone.utc), ok=False, deleted=0)
             log.exception("Deleting expired files failed.")
+        try:
+            await asyncio.to_thread(usage.prune, storage())
+        except Exception:
+            log.exception("Deleting old usage counts failed.")
         await asyncio.sleep(SWEEP_INTERVAL_SECONDS)
 
 

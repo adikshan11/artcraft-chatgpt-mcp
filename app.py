@@ -14,7 +14,7 @@ from pathlib import Path
 from urllib import error, request
 
 from a2wsgi import WSGIMiddleware
-from flask import Flask, jsonify, render_template, send_from_directory
+from flask import Flask, jsonify, redirect, render_template, send_from_directory
 from flask import request as http_request
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
@@ -99,7 +99,7 @@ APP_ICONS = {
 }
 # The ArtCraft community server, where I post as a contributor.
 DISCORD_URL = "https://discord.gg/artcraft"
-LEGAL_LAST_UPDATED = "31 October 2026"
+LEGAL_LAST_UPDATED = "1 November 2026"
 # When this process started, for the uptime on /status.
 STARTED_AT = time.time()
 MCP_INSTRUCTIONS = (
@@ -302,6 +302,10 @@ def root_icons():
 
 @app.get("/health")
 def health():
+    # Render's health check and scripts get the JSON; a person opening it in a
+    # browser gets the status page instead.
+    if http_request.accept_mimetypes.best_match(["application/json", "text/html"]) == "text/html":
+        return redirect("/status")
     return jsonify({"status": "ok", "mcp_endpoint": "/mcp/", "studio_endpoint": "/studio"})
 
 
@@ -355,8 +359,14 @@ def status_page():
 @app.get("/status.json")
 def status_json():
     import site_status
+    import usage
+    from studio_mcp import storage
 
-    response = jsonify(site_status.summary(STARTED_AT))
+    try:
+        counts = usage.cached_summary(storage())
+    except Exception:  # noqa: BLE001 - the status page still answers without the bucket
+        counts = None
+    response = jsonify({**site_status.summary(STARTED_AT), "usage": counts})
     response.headers["Cache-Control"] = "no-store"
     return response
 
@@ -396,18 +406,35 @@ def create_asgi_app():
     )
 
     import craft_sessions
-    from studio_mcp import STUDIO_PATH, create_studio_app, studio, sweep_expired_files_forever
+    import usage
+    from studio_mcp import STUDIO_PATH, create_studio_app, storage, studio, sweep_expired_files_forever
 
     studio_app = create_studio_app(mcp_allowed_hosts())
+
+    # Count each connector's tool calls, and for Studio which Craft app they used:
+    # named when a session opens, then found from the session id.
+    app_names = {hosted["name"] for hosted in HOSTED_APPS}
+
+    def craft_app_of(arguments):
+        if arguments.get("app") in app_names:
+            return arguments["app"]
+        session = craft_sessions.manager.sessions.get(str(arguments.get("session_id", "")))
+        return session.app.name if session else None
+
+    usage.timed_tools(mcp, "catalog")
+    usage.timed_tools(studio, "studio", craft_app_of)
 
     @asynccontextmanager
     async def lifespan(_app):
         async with mcp.session_manager.run(), studio.session_manager.run():
             sweeper = asyncio.create_task(sweep_expired_files_forever())
+            counter = asyncio.create_task(usage.flush_forever(storage))
             try:
                 yield
             finally:
                 sweeper.cancel()
+                counter.cancel()
+                await usage.flush_now(storage)
                 await craft_sessions.manager.close_all()
 
     site = Starlette(
@@ -440,7 +467,7 @@ def create_asgi_app():
         else:
             await site(scope, receive, send)
 
-    return dispatch
+    return usage.counted_requests(dispatch)
 
 
 asgi_app = create_asgi_app()

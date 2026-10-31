@@ -21,6 +21,8 @@ from pathlib import Path
 # Extensions run up to 11 characters for Craft project files such as .vectorcraft.
 MEDIA_ID_PATTERN = re.compile(r"^[0-9a-f]{32}\.[a-z0-9]{2,11}$")
 USER_ID_PATTERN = re.compile(r"^[0-9a-f]{32}$")
+# The service's own records (usage counts) live under ops/, apart from users/.
+OPS_KEY_PATTERN = re.compile(r"^ops/[a-z]+/[0-9T-]+/[0-9a-f]{12}\.json$")
 DOWNLOAD_URL_TTL_SECONDS = 3600
 UPLOAD_URL_TTL_SECONDS = 900
 
@@ -86,6 +88,12 @@ def object_key(user_id: str, media_id: str) -> str:
     return f"users/{user_id}/media/{validate_media_id(media_id)}"
 
 
+def ops_key(key: str) -> str:
+    if not OPS_KEY_PATTERN.match(key):
+        raise StorageError("Invalid record key.")
+    return key
+
+
 def content_type_for(media_id: str) -> str:
     return mimetypes.guess_type(media_id)[0] or "application/octet-stream"
 
@@ -141,6 +149,26 @@ class LocalStorage:
 
     def download_url(self, user_id, media_id):
         return self._path(user_id, media_id).resolve().as_uri()
+
+    def put_record(self, key: str, data: bytes):
+        target = self.root / ops_key(key)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+
+    def get_record(self, key: str) -> bytes | None:
+        source = self.root / ops_key(key)
+        return source.read_bytes() if source.is_file() else None
+
+    def list_records(self, prefix: str) -> "list[str]":
+        """Keys of the records under ``prefix`` (``ops/<kind>/``), oldest first."""
+        folder = self.root / prefix
+        if not prefix.startswith("ops/") or ".." in prefix or not folder.is_dir():
+            return []
+        keys = (path.relative_to(self.root).as_posix() for path in folder.rglob("*.json"))
+        return sorted(key for key in keys if OPS_KEY_PATTERN.match(key))
+
+    def delete_record(self, key: str):
+        (self.root / ops_key(key)).unlink(missing_ok=True)
 
     def upload_url(self, user_id, media_id):
         return self._path(user_id, media_id).resolve().as_uri()
@@ -224,6 +252,30 @@ class S3Storage:
             Params={"Bucket": self.bucket, "Key": object_key(user_id, media_id)},
             ExpiresIn=DOWNLOAD_URL_TTL_SECONDS,
         )
+
+    def put_record(self, key: str, data: bytes):
+        self.client.put_object(Bucket=self.bucket, Key=ops_key(key), Body=data, ContentType="application/json")
+
+    def get_record(self, key: str) -> bytes | None:
+        from botocore.exceptions import ClientError
+
+        try:
+            return self.client.get_object(Bucket=self.bucket, Key=ops_key(key))["Body"].read()
+        except ClientError:
+            return None
+
+    def list_records(self, prefix: str) -> "list[str]":
+        """Keys of the records under ``prefix`` (``ops/<kind>/``), oldest first."""
+        if not prefix.startswith("ops/"):
+            return []
+        keys = []
+        paginator = self.client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
+            keys.extend(obj["Key"] for obj in page.get("Contents", []) if OPS_KEY_PATTERN.match(obj["Key"]))
+        return sorted(keys)
+
+    def delete_record(self, key: str):
+        self.client.delete_object(Bucket=self.bucket, Key=ops_key(key))
 
     def upload_url(self, user_id, media_id):
         return self.client.generate_presigned_url(

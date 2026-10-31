@@ -94,6 +94,14 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json, {"status": "ok", "mcp_endpoint": "/mcp/", "studio_endpoint": "/studio"})
 
+    def test_health_sends_browsers_to_the_status_page(self):
+        browser = self.client.get("/health", headers={"Accept": "text/html,application/xhtml+xml,*/*;q=0.8"})
+        self.assertEqual(browser.status_code, 302)
+        self.assertEqual(browser.headers["Location"], "/status")
+        # Render's check and curl send */* or JSON, and keep getting the JSON.
+        for accept in ("*/*", "application/json"):
+            self.assertEqual(self.client.get("/health", headers={"Accept": accept}).status_code, 200)
+
     @patch("app.request.urlopen")
     def test_github_token_is_sent_as_bearer_auth(self, urlopen):
         urlopen.return_value.__enter__.return_value.read.return_value = b"{}"
