@@ -275,12 +275,6 @@ def support():
 def index():
     from studio_mcp import RETENTION_DAYS
 
-    try:
-        repos = list_projects(12)
-        error_message = None
-    except GitHubRequestError as exc:
-        repos = []
-        error_message = str(exc)
     return render_template(
         "index.html",
         org_name=ORG_NAME,
@@ -288,11 +282,9 @@ def index():
         project_url=PROJECT_URL,
         product_url=ARTCRAFT_PRODUCT_URL,
         site_url=ARTCRAFT_SITE_URL,
-        repos=repos,
         app_icons=APP_ICONS,
         hosted_apps=HOSTED_APPS,
         retention_days=RETENTION_DAYS,
-        error_message=error_message,
     )
 
 

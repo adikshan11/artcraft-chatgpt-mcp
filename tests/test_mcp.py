@@ -99,7 +99,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b"Just <em>ask.</em>", response.data)
         self.assertIn(b"Your files stay <em>yours.</em>", response.data)
         self.assertIn(b"Add it once.", response.data)
-        # The ArtCraft card leads the catalog with ArtCraft's own icon.
+        # The back of the tern carries ArtCraft's own icon.
         self.assertIn(b"/static/app-icons/artcraft.svg", response.data)
         for app in (b"WordCraft", b"DeckCraft", b"PdfCraft", b"PhotoCraft", b"VectorCraft",
                     b"DesignCraft", b"FigCraft", b"SoundCraft"):
@@ -115,9 +115,17 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         # The page says plainly what BridgeCraft is and that it is not official.
         self.assertIn(b"An extension for the <em>ArtCraft apps.</em>", response.data)
         self.assertIn(b'class="flip-mark" src="/static/app-icons/artcraft.svg"', response.data)
-        self.assertIn(b"It is not an official\n            Storytold or ArtCraft product.", response.data)
+        self.assertIn(b"It is not an official\n              Storytold or ArtCraft product.", response.data)
         self.assertIn(b"https://github.com/storytold/craft-contrib/pull/23", response.data)
         self.assertIn(b'class="flip"', response.data)
+        # One way in from the hero, then real outputs from the hosted apps.
+        self.assertIn(b"Add to Claude or ChatGPT", response.data)
+        self.assertNotIn(b"See how it works", response.data)
+        self.assertNotIn(b"ticker", response.data)
+        self.assertIn(b"Made with BridgeCraft", response.data)
+        for sample in (b"deck-chart.png", b"report.png", b"badge.png", b"screen.png"):
+            self.assertIn(b"/static/showcase/" + sample, response.data)
+        self.assertIn(b'href="https://github.com/storytold/figcraft"', response.data)
         self.assertNotIn(b"artcraft-icon.svg", response.data)
         self.assertIn(
             f'href="{ARTCRAFT_PRODUCT_URL}"'.encode(),
