@@ -3,6 +3,7 @@
   font-family: "Archivo";
   src: url("fonts/archivo.woff2") format("woff2");
   font-weight: 100 900;
+  font-stretch: 62% 125%;
   font-display: swap;
 }
 
@@ -36,6 +37,7 @@
   --muted: #5f5a50;
   --line: #d9cfbc;
   --accent: #ffc62e;
+  --craft: #a36f00;
   --link: #0a5cc2;
   --dark: #111110;
   --on-dark: #f6f1e7;
@@ -62,6 +64,7 @@
   --line: #3a3628;
   --link: #8cc0ff;
   --dark: #0b0a07;
+  --craft: var(--accent);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -75,6 +78,7 @@
     --line: #3a3628;
     --link: #8cc0ff;
     --dark: #0b0a07;
+    --craft: var(--accent);
   }
 }
 
@@ -213,14 +217,25 @@ h2 em {
   transform: translateX(3px);
 }
 
+/* The wordmark follows the Craft apps' two-tone names, in our yellow:
+   ochre on light paper, where the bright yellow would be too faint. */
 .brand {
   display: inline-flex;
   align-items: center;
   gap: 10px;
   font-family: var(--display);
   font-size: 19px;
-  font-weight: 620;
-  letter-spacing: -0.02em;
+  font-weight: 700;
+  font-stretch: 112%;
+  letter-spacing: -0.01em;
+}
+
+.brand .craft {
+  color: var(--craft);
+}
+
+.footer .brand .craft {
+  color: var(--accent);
 }
 
 .brand img {

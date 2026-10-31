@@ -60,6 +60,10 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(response.data.startswith(kind), path)
             response.close()
 
+    def test_wordmark_is_two_tone(self):
+        page = self.client.get("/").data.decode()
+        self.assertEqual(page.count('Bridge<span class="craft">Craft</span>'), 2)  # nav and footer
+
     def test_static_links_are_versioned_and_cached(self):
         page = self.client.get("/").data.decode()
         match = re.search(r'src="/static/bridgecraft.svg\?v=([0-9a-f]{10})"', page)
