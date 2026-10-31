@@ -42,7 +42,7 @@ together, into ChatGPT, Claude and other AI assistants. They are the same apps,
 run as they are: you ask in a chat, and your assistant uses them for you.
 
 **Status:** community-built and run by Adithya Shankaran. It is not an official
-Storytold or ArtCraft product. We have proposed that Storytold adopt it in
+Storytold or ArtCraft product. I have proposed that Storytold adopt it in
 [RFC-0016](https://github.com/storytold/craft-contrib/pull/23); until they do,
 it must not be presented as part of ArtCraft.
 
