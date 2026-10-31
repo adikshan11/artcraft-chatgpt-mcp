@@ -47,8 +47,26 @@
   --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
+/* Dark follows the system unless the nav switch picked one (site.js keeps it). */
+:root {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #15140f;
+  --paper-2: #1e1c16;
+  --surface: #1e1c16;
+  --ink: #f3ecdc;
+  --muted: #b1a993;
+  --line: #3a3628;
+  --link: #8cc0ff;
+  --dark: #0b0a07;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --paper: #15140f;
     --paper-2: #1e1c16;
     --surface: #1e1c16;
@@ -151,6 +169,7 @@ h2 em {
   font: 700 12px/1 var(--mono);
   letter-spacing: 0.1em;
   text-transform: uppercase;
+  white-space: nowrap;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
@@ -250,23 +269,79 @@ h2 em {
   text-underline-offset: 5px;
 }
 
+.nav-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nav-tools .button {
+  margin-left: 8px;
+}
+
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  border-color: var(--line);
+}
+
+.icon-sun,
+:root[data-theme="dark"] .icon-moon {
+  display: none;
+}
+
+:root[data-theme="dark"] .icon-sun {
+  display: block;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .icon-moon {
+    display: none;
+  }
+
+  :root:not([data-theme="light"]) .icon-sun {
+    display: block;
+  }
+}
+
+.nav-menu,
+.nav-links .menu-only {
+  display: none;
+}
+
 /* ---------------------------------------------------------------- hero */
 
-/* Short and centred: the mark, one sentence and one way in. */
+/* Words on the left, the plate on the right; one column on narrow screens. */
 .hero {
   display: grid;
-  justify-items: center;
-  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 500px);
+  align-items: center;
+  gap: 72px;
   max-width: calc(var(--page) + 2 * var(--gutter));
   margin: 0 auto;
-  padding: 64px var(--gutter) 88px;
-  text-align: center;
+  padding: 80px var(--gutter) 96px;
+}
+
+.hero-copy {
+  display: grid;
+  justify-items: start;
+  gap: 26px;
 }
 
 .hero h1 {
-  max-width: 20ch;
-  font-size: clamp(40px, 5.2vw, 68px);
-  line-height: 1;
+  max-width: 13ch;
+  font-size: clamp(44px, 5.6vw, 78px);
+  line-height: 0.98;
 }
 
 .lede {
@@ -280,7 +355,6 @@ h2 em {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
   gap: 16px 28px;
   margin-top: 4px;
 }
@@ -296,11 +370,79 @@ h2 em {
   text-underline-offset: 4px;
 }
 
+/* The plate: the tern on a yellow field, every Craft app arched over it. */
+.plate {
+  position: relative;
+  aspect-ratio: 1;
+  border: 1px solid #111110;
+  background: var(--accent);
+  overflow: hidden;
+}
+
+/* The waterline the tern skims. */
+.plate::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 13% 0;
+  border-top: 1px solid #111110;
+}
+
+.plate figcaption {
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  bottom: 4.5%;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #111110;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.arch {
+  list-style: none;
+  padding: 0;
+}
+
+.arch li {
+  --a: calc(180deg - 180deg * var(--i) / (var(--n) - 1));
+  --r: 41%;
+  --size: 9%;
+  position: absolute;
+  left: calc(50% + cos(var(--a)) * var(--r) - var(--size) / 2);
+  top: calc(57% - sin(var(--a)) * var(--r) - var(--size) / 2);
+  width: var(--size);
+}
+
+.arch img {
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 4px 7px rgba(17, 17, 16, 0.22));
+  transition: transform 0.2s;
+}
+
+.arch img:hover {
+  transform: translateY(-3px) scale(1.06);
+}
+
+/* Apps ArtCraft has that I don't host yet. */
+.arch .is-off img {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
 /* The tern turns over to say what BridgeCraft is built for. */
 .flip {
-  position: relative;
-  width: 120px;
+  position: absolute;
+  left: 50%;
+  bottom: 13%;
+  width: 46%;
   aspect-ratio: 1;
+  translate: -50% 0;
   padding: 0;
   border: 0;
   background: none;
@@ -622,6 +764,30 @@ h2 em {
   font-size: 15px;
 }
 
+.app-group-title {
+  margin: 8px 0 -32px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.app-grid-off {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.app-grid-off .app-cell img {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
+.app-grid-off .app-kind {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
 /* Connect */
 
 .url-box {
@@ -764,6 +930,173 @@ h2 em {
   text-underline-offset: 3px;
 }
 
+/* ---------------------------------------------------------------- status */
+
+.status {
+  display: grid;
+  gap: 32px;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 72px 24px 104px;
+}
+
+.status-head {
+  display: grid;
+  gap: 16px;
+}
+
+.status h1 {
+  font-size: clamp(40px, 6vw, 60px);
+}
+
+.status-lede,
+.status-note,
+.status-foot {
+  max-width: 40em;
+  color: var(--muted);
+}
+
+.status-note,
+.status-foot {
+  font-size: 15px;
+}
+
+.status-foot a {
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+[data-health="ok"] > .dot {
+  background: #2f9e57;
+}
+
+[data-health="warn"] > .dot {
+  background: #e0a100;
+}
+
+[data-health="error"] > .dot {
+  background: #d23f31;
+}
+
+[data-health="off"] > .dot {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--muted);
+}
+
+.status-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 24px;
+  border: 1px solid var(--line);
+  background: var(--paper-2);
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 620;
+  letter-spacing: -0.02em;
+}
+
+.status-banner .dot {
+  width: 14px;
+  height: 14px;
+}
+
+.status-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.status-facts div {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 18px 20px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.status-facts dt {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.status-facts dd {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 24px;
+  font-weight: 620;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.status-group {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.status-group h2 {
+  font-size: 26px;
+  letter-spacing: -0.02em;
+}
+
+.status-rows {
+  list-style: none;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+.status-rows li {
+  display: grid;
+  grid-template-columns: 10px minmax(150px, 220px) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px 18px;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.status-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+a.status-name:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.status-name img {
+  border-radius: 5px;
+}
+
+.status-text {
+  color: var(--muted);
+  font-size: 15px;
+}
+
+[data-health="off"] .status-name img {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
 /* ---------------------------------------------------------------- smaller screens */
 
 @media (max-width: 1080px) {
@@ -776,10 +1109,69 @@ h2 em {
   }
 }
 
-/* Too narrow for every nav link on one line; the sections are a scroll away. */
+/* Too narrow for the links on one line: they move into the menu. */
 @media (max-width: 960px) {
+  .nav-inner {
+    position: relative;
+    justify-content: space-between;
+  }
+
+  .nav-menu {
+    display: inline-grid;
+  }
+
   .nav-links {
-    visibility: hidden;
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    gap: 0;
+    padding: 8px var(--gutter) 16px;
+    border-bottom: 1px solid var(--line);
+    background: var(--paper);
+    font-size: 13px;
+  }
+
+  .nav-links.is-open {
+    display: flex;
+  }
+
+  .nav-links.is-open .menu-only {
+    display: block;
+  }
+
+  .nav-links a {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .nav-links a:last-child {
+    border-bottom: 0;
+  }
+
+  .hero {
+    grid-template-columns: 1fr;
+    gap: 48px;
+    padding-block: 56px 80px;
+  }
+
+  .hero h1 {
+    max-width: 18ch;
+  }
+
+  .plate {
+    justify-self: center;
+    width: min(100%, 460px);
+  }
+
+  .app-grid-off {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .status-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .two-col {
@@ -810,21 +1202,45 @@ h2 em {
     font-size: 16px;
   }
 
-  .nav-links {
+  .nav-inner {
+    gap: 12px;
+  }
+
+  .nav-github {
     display: none;
   }
 
-  .nav-inner {
-    justify-content: space-between;
+  .nav-tools .button {
+    margin-left: 2px;
   }
 
   .hero {
-    gap: 22px;
-    padding-block: 48px 72px;
+    gap: 40px;
+    padding-block: 40px 64px;
   }
 
-  .flip {
-    width: 96px;
+  .plate figcaption {
+    font-size: 9px;
+  }
+
+  .app-grid-off {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .status {
+    padding: 48px 16px 80px;
+  }
+
+  .status-facts dd {
+    font-size: 20px;
+  }
+
+  .status-rows li {
+    grid-template-columns: 10px minmax(0, 1fr);
+  }
+
+  .status-text {
+    grid-column: 2;
   }
 
   .lede {
@@ -858,12 +1274,24 @@ h2 em {
 /* Short windows, such as a browser pane beside an editor: keep the headline and button in view. */
 @media (max-height: 640px) {
   .hero {
-    gap: 16px;
-    padding-block: 28px 56px;
+    gap: 40px;
+    padding-block: 32px 56px;
   }
 
-  .flip {
-    width: 72px;
+  .hero-copy {
+    gap: 18px;
+  }
+
+  .hero h1 {
+    font-size: clamp(34px, 5vw, 48px);
+  }
+
+  .lede {
+    font-size: 17px;
+  }
+
+  .plate {
+    width: min(100%, 320px);
   }
 }
 

@@ -6,6 +6,7 @@ import base64
 import json
 import os
 import re
+import time
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
@@ -50,6 +51,8 @@ APP_ICONS = {
     if path.suffix in (".png", ".svg")
 }
 LEGAL_LAST_UPDATED = "31 October 2026"
+# When this process started, for the uptime on /status.
+STARTED_AT = time.time()
 MCP_INSTRUCTIONS = (
     "Use these read-only tools to discover public ArtCraft and Storytold projects. "
     "They search, list, and read repository information only; they do not control "
@@ -247,6 +250,7 @@ def legal_page(template):
         template,
         site_url=ARTCRAFT_SITE_URL,
         project_url=PROJECT_URL,
+        product_url=ARTCRAFT_PRODUCT_URL,
         last_updated=LEGAL_LAST_UPDATED,
         # Studio deletes files older than this itself (studio_mcp.sweep_expired_files_forever).
         retention_days=RETENTION_DAYS,
@@ -271,8 +275,33 @@ def support():
     return legal_page("support.html")
 
 
+@app.get("/status")
+def status_page():
+    import site_status
+
+    return render_template(
+        "status.html",
+        site_url=ARTCRAFT_SITE_URL,
+        project_url=PROJECT_URL,
+        product_url=ARTCRAFT_PRODUCT_URL,
+        org_url=ORG_URL,
+        app_icons=APP_ICONS,
+        status=site_status.summary(STARTED_AT),
+    )
+
+
+@app.get("/status.json")
+def status_json():
+    import site_status
+
+    response = jsonify(site_status.summary(STARTED_AT))
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 @app.get("/")
 def index():
+    from site_status import NOT_HOSTED_APPS
     from studio_mcp import RETENTION_DAYS
 
     return render_template(
@@ -284,6 +313,7 @@ def index():
         site_url=ARTCRAFT_SITE_URL,
         app_icons=APP_ICONS,
         hosted_apps=HOSTED_APPS,
+        not_hosted_apps=NOT_HOSTED_APPS,
         retention_days=RETENTION_DAYS,
     )
 

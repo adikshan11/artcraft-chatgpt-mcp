@@ -1,0 +1,109 @@
+{% extends "page.html" %}
+{% block title %}Status{% endblock %}
+{% block description %}Whether BridgeCraft's connectors, sign-in, file storage and each hosted Craft app are working right now.{% endblock %}
+{% block main %}
+{% set dot_words = {"ok": "Working", "warn": "Needs attention", "error": "Broken", "off": "Off"} %}
+<main class="status" data-status>
+  <header class="status-head">
+    <h1>Status</h1>
+    <p class="status-lede">
+      What this server can see about itself right now. It reads its own settings and
+      sessions when you open the page. It keeps no request logs and no history, so uptime,
+      open sessions and the last cleanup start again from zero after each restart.
+    </p>
+  </header>
+
+  <p class="status-banner" data-health="{{ status.overall }}">
+    <span class="dot" aria-hidden="true"></span>
+    <span data-field="headline">{{ status.headline }}</span>
+  </p>
+
+  <dl class="status-facts">
+    <div><dt>Version</dt><dd data-field="version">{{ status.facts.version }}</dd></div>
+    <div><dt>Up for</dt><dd data-field="up_for">{{ status.facts.up_for }}</dd></div>
+    <div>
+      <dt>Open app sessions</dt>
+      <dd><span data-field="open_sessions">{{ status.facts.open_sessions }}</span> of {{ status.facts.max_sessions }}</dd>
+    </div>
+    <div><dt>Files kept for</dt><dd>{{ status.facts.retention_days }} days</dd></div>
+  </dl>
+  <p class="status-note">
+    Each person can have {{ status.facts.max_sessions_per_user }} apps open at once, and an
+    app closes after {{ status.facts.idle_minutes }} minutes without a request.
+  </p>
+
+  <section class="status-group" aria-labelledby="status-services">
+    <h2 id="status-services">Services</h2>
+    <ul class="status-rows" data-list="services">
+      {% for row in status.services %}
+      <li data-health="{{ row.health }}">
+        <span class="dot" role="img" aria-label="{{ dot_words[row.health] }}"></span>
+        <span class="status-name">{{ row.name }}</span>
+        <span class="status-text">{{ row.text }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="status-group" aria-labelledby="status-apps">
+    <h2 id="status-apps">Craft apps</h2>
+    <ul class="status-rows" data-list="apps">
+      {% for row in status.apps %}
+      <li data-health="{{ row.health }}">
+        <span class="dot" role="img" aria-label="{{ dot_words[row.health] }}"></span>
+        <a class="status-name" href="{{ org_url }}/{{ row.app }}" target="_blank" rel="noopener noreferrer">
+          <img src="{{ url_for('static', filename=app_icons[row.app]) }}" alt="" width="22" height="22" loading="lazy" />
+          {{ row.name }}
+        </a>
+        <span class="status-text">{{ row.text }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <p class="status-foot">
+    Checked at <time data-field="generated_at" datetime="{{ status.generated_at }}">{{ status.generated_at[11:16] }} UTC</time>.
+    This page checks again every 30 seconds while it's open. The same data is at
+    <a href="{{ url_for('status_json') }}">/status.json</a>. If something here looks wrong,
+    <a href="{{ project_url }}/issues" target="_blank" rel="noopener noreferrer">open an issue</a>.
+  </p>
+</main>
+<script>
+  // Refresh the rows every 30 seconds, but only while the tab is visible.
+  (() => {
+    const words = {{ dot_words|tojson }};
+    const page = document.querySelector("[data-status]");
+    const field = (name) => page.querySelector(`[data-field="${name}"]`);
+
+    function render(data) {
+      page.querySelector(".status-banner").dataset.health = data.overall;
+      field("headline").textContent = data.headline;
+      for (const name of ["version", "up_for", "open_sessions"]) field(name).textContent = data.facts[name];
+      const at = field("generated_at");
+      at.dateTime = data.generated_at;
+      at.textContent = `${data.generated_at.slice(11, 16)} UTC`;
+      for (const list of ["services", "apps"]) {
+        const items = page.querySelectorAll(`[data-list="${list}"] > li`);
+        data[list].forEach((row, i) => {
+          const item = items[i];
+          if (!item) return;
+          item.dataset.health = row.health;
+          item.querySelector(".dot").setAttribute("aria-label", words[row.health]);
+          item.querySelector(".status-text").textContent = row.text;
+        });
+      }
+    }
+
+    async function refresh() {
+      if (document.hidden) return;
+      try {
+        const response = await fetch("{{ url_for('status_json') }}", { cache: "no-store" });
+        if (response.ok) render(await response.json());
+      } catch {}
+    }
+
+    setInterval(refresh, 30000);
+    document.addEventListener("visibilitychange", refresh);
+  })();
+</script>
+{% endblock %}

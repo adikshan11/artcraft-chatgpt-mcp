@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import unittest
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -98,7 +99,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b"<h1>Use the Craft apps from ChatGPT and Claude</h1>", response.data)
         # Plain headings: no eyebrow labels or accent words on the homepage.
         for heading in (b"<h2>Examples</h2>", b"<h2>The apps</h2>", b"<h2>What doesn't work yet</h2>",
-                        b"<h2>Privacy</h2>", b"<h2>Who runs this</h2>", b"<h2>Set it up</h2>"):
+                        b"<h2>Who runs this</h2>", b"<h2>Set it up</h2>"):
             self.assertIn(heading, response.data)
         self.assertNotIn(b"<em>", response.data)
         self.assertNotIn(b'class="label', response.data)
@@ -109,6 +110,23 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
                     b"DesignCraft", b"FigCraft", b"SoundCraft"):
             self.assertIn(app, response.data)
         self.assertIn(b"v0.12.0", response.data)
+        # All 13 Craft apps are on the plate and in the grid; the unhosted ones say why.
+        for app in (b"EffectCraft", b"FilmCraft", b"CADCraft", b"GridCraft", b"LightCraft"):
+            self.assertIn(app + b" (not hosted yet)", response.data)
+        self.assertEqual(response.data.count(b'<li style="--i: '), 13)
+        self.assertEqual(response.data.count(b'class="is-off"'), 5)
+        self.assertIn(b"<h3 class=\"app-group-title\">Not hosted yet</h3>", response.data)
+        self.assertIn(b"Fix in review upstream", response.data)
+        self.assertIn(b'href="https://github.com/storytold/lightcraft"', response.data)
+        # Privacy is a footer link, not a homepage section; footer links carry no arrows.
+        self.assertNotIn(b'id="privacy"', response.data)
+        self.assertNotIn("↗".encode(), response.data)
+        # Narrow screens get a menu button; everyone gets a light/dark switch and GitHub.
+        self.assertIn(b'class="icon-button nav-menu"', response.data)
+        self.assertIn(b"data-theme-toggle", response.data)
+        self.assertIn(b'aria-label="Source code on GitHub"', response.data)
+        self.assertIn(b"/static/site.js", response.data)
+        self.assertIn(b'href="/status"', response.data)
         # One example from every hosted app, made by the apps themselves.
         for sample in (b"deck-chart.png", b"report.png", b"pdf-draft.png", b"flyer.png", b"badge.png",
                        b"post.png", b"screen.png", b"jingle-wave.png", b"jingle.mp3"):
@@ -136,6 +154,54 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(b"Adobe Express", response.data)
         for path in (b'href="/privacy"', b'href="/terms"', b'href="/support"'):
             self.assertIn(path, response.data)
+
+    def test_status_page_lists_services_and_every_app(self):
+        response = self.client.get("/status")
+        self.assertEqual(response.status_code, 200)
+        for text in (b"<h1>Status</h1>", b"Sign-in", b"File storage", b"File cleanup", b"Open app sessions",
+                     b"keeps no request logs", b"/status.json", b"every 30 seconds"):
+            self.assertIn(text, response.data)
+        for app in (b"WordCraft", b"SoundCraft", b"EffectCraft", b"LightCraft"):
+            self.assertIn(app, response.data)
+        self.assertIn(b"Not hosted. A project can still read footage", response.data)
+        self.assertIn(b'data-theme-toggle', response.data)
+
+    @patch.dict(os.environ, {"RENDER": "true", "RENDER_GIT_COMMIT": "abcdef1234567", "OAUTH_ISSUER": "",
+                             "S3_BUCKET": ""})
+    def test_status_json_reports_problems_without_secrets(self):
+        import studio_mcp
+
+        studio_mcp.storage.cache_clear()
+        self.addCleanup(studio_mcp.storage.cache_clear)
+        with patch.dict(studio_mcp.last_sweep, {"at": datetime(2026, 10, 31, 9, 5, tzinfo=timezone.utc),
+                                                "ok": False, "deleted": 0}):
+            response = self.client.get("/status.json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["Cache-Control"], "no-store")
+        data = response.get_json()
+        rows = {row["name"]: row for row in data["services"] + data["apps"]}
+        self.assertEqual(data["facts"]["version"], "abcdef1")
+        self.assertEqual(rows["Sign-in"]["health"], "warn")
+        # Render without a bucket refuses to store files on its throwaway disk.
+        self.assertEqual(rows["File storage"]["health"], "error")
+        self.assertEqual(rows["File cleanup"]["health"], "error")
+        self.assertIn("09:05 UTC", rows["File cleanup"]["text"])
+        # The apps aren't installed in the test environment, which on Render is a fault.
+        self.assertEqual(rows["WordCraft"]["health"], "error")
+        self.assertEqual(rows["EffectCraft"]["health"], "off")
+        self.assertEqual(len(data["apps"]), 13)
+        self.assertEqual(data["overall"], "error")
+        body = response.get_data(as_text=True).lower()
+        for secret in ("key", "token", "secret", "password", "bucket", "/opt/craft"):
+            self.assertNotIn(secret, body)
+
+    def test_status_counts_open_sessions(self):
+        import craft_sessions
+
+        with patch.dict(craft_sessions.manager.sessions, {"s1": object(), "s2": object()}):
+            data = self.client.get("/status.json").get_json()
+        self.assertEqual(data["facts"]["open_sessions"], 2)
+        self.assertEqual(data["facts"]["max_sessions"], craft_sessions.MAX_SESSIONS)
 
     def test_privacy_terms_and_support_pages(self):
         pages = {

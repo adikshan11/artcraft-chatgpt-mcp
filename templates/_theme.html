@@ -1,0 +1,7 @@
+    <script>
+      // Apply a saved light/dark choice before the page paints.
+      try {
+        const theme = localStorage.getItem("theme");
+        if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+      } catch {}
+    </script>

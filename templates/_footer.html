@@ -1,0 +1,23 @@
+    <footer class="footer">
+      <div class="footer-inner">
+        <div class="footer-row">
+          <a class="brand" href="{{ url_for('index') }}">
+            <img src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="" width="28" height="28" />
+            <span>BridgeCraft</span>
+          </a>
+          <nav aria-label="Footer">
+            <a href="{{ url_for('status_page') }}">Status</a>
+            <a href="{{ url_for('support') }}">Support</a>
+            <a href="{{ url_for('privacy') }}">Privacy</a>
+            <a href="{{ url_for('terms') }}">Terms</a>
+            <a href="{{ project_url }}" target="_blank" rel="noopener noreferrer">Source</a>
+            <a href="{{ product_url }}" target="_blank" rel="noopener noreferrer">Official ArtCraft</a>
+          </nav>
+        </div>
+        <p>
+          Independent, community-built software, not an official Storytold or ArtCraft product.
+          ArtCraft and its logo are trademarks of the ArtCraft Team. © 2026 Adithya Shankaran · Apache-2.0.
+        </p>
+      </div>
+    </footer>
+    <script src="{{ url_for('static', filename='site.js') }}" defer></script>

@@ -18,57 +18,62 @@
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#f6f1e7" />
     <link rel="canonical" href="{{ site_url }}" />
     <link rel="icon" href="{{ url_for('static', filename='bridgecraft.svg') }}" type="image/svg+xml" />
     <link rel="preload" href="{{ url_for('static', filename='fonts/archivo.woff2') }}" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="{{ url_for('static', filename='fonts/inter.woff2') }}" as="font" type="font/woff2" crossorigin />
     <title>BridgeCraft — use the Craft apps from ChatGPT and Claude</title>
+{% include "_theme.html" %}
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
-    <header class="nav">
-      <div class="nav-inner">
-        <a class="brand" href="#top" aria-label="BridgeCraft home">
-          <img src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="" width="30" height="30" />
-          <span>BridgeCraft</span>
-        </a>
-        <nav class="nav-links" aria-label="Main navigation">
-          <a href="#examples">Examples</a>
-          <a href="#apps">Apps</a>
-          <a href="#limits">Limits</a>
-          <a href="#privacy">Privacy</a>
-          <a href="{{ project_url }}" target="_blank" rel="noopener noreferrer">GitHub</a>
-        </nav>
-        <a class="button button-dark button-small" href="#setup">Set up</a>
-      </div>
-    </header>
+{% include "_nav.html" %}
 
     <main id="top">
       <section class="hero">
-        <button class="flip" type="button" aria-pressed="false" aria-label="BridgeCraft logo, an Arctic tern whose wings arch over the water. Flip it to see the ArtCraft logo: BridgeCraft is built for ArtCraft.">
-          <span class="flip-inner">
-            <img class="flip-face" src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="" width="120" height="120" />
-            <span class="flip-face flip-back" aria-hidden="true">
-              <img class="flip-mark" src="{{ url_for('static', filename='app-icons/artcraft.svg') }}" alt="" width="64" height="54" />
-              <span class="flip-for">Built for</span>
-              <span class="flip-name">ArtCraft</span>
-            </span>
-          </span>
-        </button>
-        <h1>Use the Craft apps from ChatGPT and Claude</h1>
-        <p class="lede">
-          BridgeCraft is a connector. Add one address to your AI assistant and it can open
-          Storytold's open-source Craft apps, do the work you ask for, and give you the file.
-          There's nothing to install.
-        </p>
-        <div class="actions">
-          <a class="button button-dark" href="#setup">Set it up</a>
-          <a class="link-plain" href="#examples">See what it makes</a>
+        <div class="hero-copy">
+          <h1>Use the Craft apps from ChatGPT and Claude</h1>
+          <p class="lede">
+            BridgeCraft is a connector. Add one address to your AI assistant and it can open
+            Storytold's open-source Craft apps, do the work you ask for, and give you the file.
+            There's nothing to install.
+          </p>
+          <div class="actions">
+            <a class="button button-dark" href="#setup">Set it up</a>
+            <a class="link-plain" href="#examples">See what it makes</a>
+          </div>
+          <p class="fine-print">
+            Built and run by Adithya Shankaran. Not an official Storytold or ArtCraft product.
+          </p>
         </div>
-        <p class="fine-print">
-          Built and run by Adithya Shankaran. Not an official Storytold or ArtCraft product.
-        </p>
+
+        {# Hosted apps in the middle of the arch, the ones I can't host yet faded at the ends. #}
+        <figure class="plate">
+          <ul class="arch" aria-label="The Craft apps. The faded ones aren't hosted yet.">
+            {% for app in not_hosted_apps[:3] + hosted_apps + not_hosted_apps[3:] %}
+            {% set off = app in not_hosted_apps %}
+            <li style="--i: {{ loop.index0 }}; --n: {{ loop.length }}"{% if off %} class="is-off"{% endif %}>
+              <img src="{{ url_for('static', filename=app_icons[app.name]) }}" alt="{{ app.title }}{% if off %} (not hosted yet){% endif %}" title="{{ app.title }}{% if off %} · not hosted yet{% endif %}" width="48" height="48" />
+            </li>
+            {% endfor %}
+          </ul>
+          <button class="flip" type="button" aria-pressed="false" aria-label="BridgeCraft logo, an Arctic tern whose wings arch over the water. Flip it to see the ArtCraft logo: BridgeCraft is built for ArtCraft.">
+            <span class="flip-inner">
+              <img class="flip-face" src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="" width="240" height="240" />
+              <span class="flip-face flip-back" aria-hidden="true">
+                <img class="flip-mark" src="{{ url_for('static', filename='app-icons/artcraft.svg') }}" alt="" width="64" height="54" />
+                <span class="flip-for">Built for</span>
+                <span class="flip-name">ArtCraft</span>
+              </span>
+            </span>
+          </button>
+          <figcaption>
+            <span>{{ hosted_apps|length }} apps hosted</span>
+            <span>{{ not_hosted_apps|length }} not yet</span>
+          </figcaption>
+        </figure>
       </section>
 
       <section class="section" id="examples">
@@ -118,9 +123,10 @@
         <header class="section-head">
           <h2>The apps</h2>
           <p>
-            {{ hosted_apps|length }} of Storytold's Craft apps run on my server, each one locked to a
-            folder that holds only your files. There are also built-in tools for trimming and
-            captioning video, editing images, and PDFs and e-signatures.
+            ArtCraft has {{ hosted_apps|length + not_hosted_apps|length }} Craft apps. {{ hosted_apps|length }} of them run on my
+            server, each one locked to a folder that holds only your files. There are also
+            built-in tools for trimming and captioning video, editing images, and
+            PDFs and e-signatures.
           </p>
         </header>
         {% set kinds = {
@@ -144,6 +150,18 @@
           </li>
           {% endfor %}
         </ul>
+        <h3 class="app-group-title">Not hosted yet</h3>
+        <ul class="app-grid app-grid-off">
+          {% for app in not_hosted_apps %}
+          <li>
+            <a class="app-cell" href="{{ org_url }}/{{ app.name }}" target="_blank" rel="noopener noreferrer" title="{{ app.reason }}">
+              <img src="{{ url_for('static', filename=app_icons[app.name]) }}" alt="" width="64" height="64" loading="lazy" />
+              <span class="app-name">{{ app.title }}</span>
+              <span class="app-kind">{{ app.short }}</span>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
       </section>
 
       <section class="section" id="limits">
@@ -156,7 +174,8 @@
             <li>
               <strong>Not every Craft app is here.</strong> EffectCraft, FilmCraft, CADCraft, GridCraft
               and LightCraft can't yet be locked to one person's folder, so I don't host them. The
-              EffectCraft fix is in review upstream.
+              EffectCraft fix is in review upstream. The <a href="{{ url_for('status_page') }}">status page</a>
+              shows what's running now.
             </li>
             <li>
               <strong>No AI image or video generation on the hosted server.</strong> ArtCraft's
@@ -174,22 +193,6 @@
               <strong>It's one server run by one person.</strong> If something breaks,
               <a href="{{ project_url }}/issues" target="_blank" rel="noopener noreferrer">open an issue</a> and I'll look at it.
             </li>
-          </ul>
-        </div>
-      </section>
-
-      <section class="section section-dark" id="privacy">
-        <div class="two-col">
-          <header class="section-head">
-            <h2>Privacy</h2>
-            <p>You sign in once, and the tools only ever see your own files.</p>
-          </header>
-          <ul class="plain-list">
-            <li>Each account has its own library. Nobody else can see it, including other users of the same app.</li>
-            <li>Files are deleted automatically after {{ retention_days }} days.</li>
-            <li>Download links stop working after an hour.</li>
-            <li>The server never passes its own keys or settings to the apps.</li>
-            <li><a href="{{ url_for('privacy') }}">Read the full privacy policy</a></li>
           </ul>
         </div>
       </section>
@@ -236,46 +239,6 @@
       </section>
     </main>
 
-    <footer class="footer">
-      <div class="footer-inner">
-        <div class="footer-row">
-          <a class="brand" href="#top">
-            <img src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="" width="28" height="28" />
-            <span>BridgeCraft</span>
-          </a>
-          <nav aria-label="Footer">
-            <a href="{{ url_for('privacy') }}">Privacy</a>
-            <a href="{{ url_for('terms') }}">Terms</a>
-            <a href="{{ url_for('support') }}">Support</a>
-            <a href="{{ project_url }}" target="_blank" rel="noopener noreferrer">Source ↗</a>
-            <a href="{{ product_url }}" target="_blank" rel="noopener noreferrer">Official ArtCraft ↗</a>
-          </nav>
-        </div>
-        <p>
-          Independent, community-built software, not an official Storytold or ArtCraft product.
-          ArtCraft and its logo are trademarks of the ArtCraft Team. © 2026 Adithya Shankaran · Apache-2.0.
-        </p>
-      </div>
-    </footer>
-
-    <script>
-      const flip = document.querySelector(".flip");
-      flip.addEventListener("click", () => {
-        flip.setAttribute("aria-pressed", String(flip.getAttribute("aria-pressed") !== "true"));
-      });
-
-      for (const button of document.querySelectorAll("[data-copy]")) {
-        button.addEventListener("click", async () => {
-          const text = document.getElementById(button.dataset.copy).textContent.trim();
-          try {
-            await navigator.clipboard.writeText(text);
-            button.textContent = "Copied";
-          } catch {
-            button.textContent = "Select and copy";
-          }
-          setTimeout(() => (button.textContent = "Copy"), 1800);
-        });
-      }
-    </script>
+{% include "_footer.html" %}
   </body>
 </html>

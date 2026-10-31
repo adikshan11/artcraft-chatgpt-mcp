@@ -155,14 +155,20 @@ def delete_expired_files() -> int:
     return storage().delete_older_than(datetime.now(timezone.utc) - timedelta(days=RETENTION_DAYS))
 
 
+# The last sweep's time and outcome, for the /status page.
+last_sweep: dict = {}
+
+
 async def sweep_expired_files_forever():
     """Run delete_expired_files at startup and then every hour; a failed sweep is retried next time."""
     while True:
         try:
             deleted = await asyncio.to_thread(delete_expired_files)
+            last_sweep.update(at=datetime.now(timezone.utc), ok=True, deleted=deleted)
             if deleted:
                 log.info("Deleted %d files older than %d days.", deleted, RETENTION_DAYS)
         except Exception:
+            last_sweep.update(at=datetime.now(timezone.utc), ok=False, deleted=0)
             log.exception("Deleting expired files failed.")
         await asyncio.sleep(SWEEP_INTERVAL_SECONDS)
 
