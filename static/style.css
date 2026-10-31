@@ -324,9 +324,9 @@ h2 em {
 /* Words on the left, the plate on the right; one column on narrow screens. */
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 500px);
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 72px;
+  gap: clamp(32px, 5vw, 72px);
   max-width: calc(var(--page) + 2 * var(--gutter));
   margin: 0 auto;
   padding: 80px var(--gutter) 96px;
@@ -371,8 +371,10 @@ h2 em {
 }
 
 /* The plate: the tern on a yellow field, every Craft app arched over it. */
+/* Sized to the window's height as well, so the whole plate shows beside the words. */
 .plate {
   position: relative;
+  width: min(500px, 42vw, calc(100svh - 150px));
   aspect-ratio: 1;
   border: 1px solid #111110;
   background: var(--accent);
@@ -408,10 +410,11 @@ h2 em {
   padding: 0;
 }
 
+/* A 240-degree arc leaves room for bigger icons than a half circle would. */
 .arch li {
-  --a: calc(180deg - 180deg * var(--i) / (var(--n) - 1));
-  --r: 41%;
-  --size: 9%;
+  --a: calc(210deg - 240deg * var(--i) / (var(--n) - 1));
+  --r: 40%;
+  --size: 12%;
   position: absolute;
   left: calc(50% + cos(var(--a)) * var(--r) - var(--size) / 2);
   top: calc(57% - sin(var(--a)) * var(--r) - var(--size) / 2);
@@ -435,12 +438,18 @@ h2 em {
   filter: grayscale(1);
 }
 
+/* Both sides of the flip are the plate's own yellow, so on the plate they have no edge or shadow. */
+.plate .flip-face {
+  border-radius: 0;
+  box-shadow: none;
+}
+
 /* The tern turns over to say what BridgeCraft is built for. */
 .flip {
   position: absolute;
   left: 50%;
   bottom: 13%;
-  width: 46%;
+  width: 50%;
   aspect-ratio: 1;
   translate: -50% 0;
   padding: 0;
@@ -1151,21 +1160,6 @@ a.status-name:hover {
     border-bottom: 0;
   }
 
-  .hero {
-    grid-template-columns: 1fr;
-    gap: 48px;
-    padding-block: 56px 80px;
-  }
-
-  .hero h1 {
-    max-width: 18ch;
-  }
-
-  .plate {
-    justify-self: center;
-    width: min(100%, 460px);
-  }
-
   .app-grid-off {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -1176,6 +1170,24 @@ a.status-name:hover {
 
   .two-col {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Phones: the plate goes under the words. */
+@media (max-width: 700px) {
+  .hero {
+    grid-template-columns: 1fr;
+    gap: 48px;
+    padding-block: 48px 72px;
+  }
+
+  .hero h1 {
+    max-width: 18ch;
+  }
+
+  .plate {
+    justify-self: center;
+    width: min(100%, 420px);
   }
 }
 
@@ -1275,23 +1287,20 @@ a.status-name:hover {
 @media (max-height: 640px) {
   .hero {
     gap: 40px;
-    padding-block: 32px 56px;
+    padding-block: 24px 56px;
   }
 
   .hero-copy {
-    gap: 18px;
+    gap: 16px;
   }
 
   .hero h1 {
-    font-size: clamp(34px, 5vw, 48px);
+    max-width: none;
+    font-size: clamp(32px, 4.4vw, 46px);
   }
 
   .lede {
     font-size: 17px;
-  }
-
-  .plate {
-    width: min(100%, 320px);
   }
 }
 
