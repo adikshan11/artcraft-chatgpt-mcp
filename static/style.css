@@ -416,10 +416,9 @@ h2 em {
 }
 
 /* The section names. Passed sections stack small at the top with the one being
-   read large under them; sections still ahead stack small at the bottom. As the
-   next one comes up, its letters leave the bottom list, stand on end beside the
-   ruler at that section's mark, then fly up into the large slot. site.js places
-   every letter from the scroll position. */
+   read large under them; sections still ahead stack small at the bottom. In
+   between, a name stands on end on the ruler beside its section's top and
+   scrolls with it. site.js places every letter from the scroll position. */
 .rail-labels {
   position: absolute;
   top: calc(var(--nav-height) + 20px);
@@ -508,7 +507,8 @@ h2 em {
   align-items: center;
   gap: 6px;
   transform: translateY(-50%);
-  color: var(--ink);
+  /* The number fades out of a standing name's way; its tick stays. */
+  color: color-mix(in srgb, var(--ink) calc(100% - var(--yield, 0) * 100%), transparent);
   opacity: 0.5;
   font: 400 9px/1 var(--mono);
   letter-spacing: 0.08em;
@@ -517,7 +517,7 @@ h2 em {
 .rail-scale span::after {
   content: "";
   width: 16px;
-  border-top: 1px solid currentColor;
+  border-top: 1px solid var(--ink);
 }
 
 /* How far down the page you are: a yellow line and a counter whose digits roll. */
