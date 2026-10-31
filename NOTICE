@@ -17,7 +17,8 @@ app's MIT OR Apache-2.0 license.
 static/app-icons/artcraft.svg is the ArtCraft logo, unmodified, from
 github.com/storytold/artcraft. It is a trademark of the ArtCraft Team and is
 shown on the catalog card that links to the ArtCraft repository and on the
-back of the homepage logo, labelled "Built for ArtCraft" and "not affiliated".
+back of the homepage logo, labelled "Built for ArtCraft", with "Not an official
+Storytold or ArtCraft product" stated directly below it.
 
 The BridgeCraft logo (static/bridgecraft.svg) was drawn in VectorCraft by
 design/draw_logo.py; design/bridgecraft.vectorcraft is its source document.

@@ -13,8 +13,9 @@ xAI API), and Kimi:
   ArtCraft name, wordmark and logos are trademarks of the ArtCraft Team and are not open
   source. BridgeCraft never uses them as its own branding: the name appears in plain text
   to say what BridgeCraft works with. The unmodified ArtCraft logo appears on the catalog
-  card that links to ArtCraft's repository and on the back of the homepage tern, beside
-  "Built for ArtCraft · community-built · not affiliated". The other cards show each Craft app's
+  card that links to ArtCraft's repository and on the back of the homepage tern, labelled
+  "Built for ArtCraft", with "Not an official Storytold or ArtCraft product" just below the
+  headline. The other cards show each Craft app's
   own icon, which is licensed like its code.
 - **ArtCraft apps and projects**: list, search, and read public Storytold
   repositories, including the Craft creative-app projects.

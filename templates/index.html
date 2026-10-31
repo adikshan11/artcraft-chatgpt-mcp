@@ -7,7 +7,7 @@
       name="description"
       content="BridgeCraft connects ChatGPT, Claude and other AI assistants to ArtCraft and Storytold's open-source Craft apps. Nothing to install."
     />
-    <meta property="og:title" content="BridgeCraft — your assistant, now a creative studio" />
+    <meta property="og:title" content="BridgeCraft — use the Craft apps from ChatGPT and Claude" />
     <meta
       property="og:description"
       content="A community-built MCP plugin for ArtCraft and Storytold's Craft apps."
@@ -23,7 +23,7 @@
     <link rel="icon" href="{{ url_for('static', filename='bridgecraft.svg') }}" type="image/svg+xml" />
     <link rel="preload" href="{{ url_for('static', filename='fonts/archivo.woff2') }}" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="{{ url_for('static', filename='fonts/inter.woff2') }}" as="font" type="font/woff2" crossorigin />
-    <title>BridgeCraft — your assistant, now a creative studio</title>
+    <title>BridgeCraft — use the Craft apps from ChatGPT and Claude</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
@@ -34,13 +34,13 @@
           <span>BridgeCraft</span>
         </a>
         <nav class="nav-links" aria-label="Main navigation">
-          <a href="#how">How it works</a>
-          <a href="#made">Examples</a>
+          <a href="#examples">Examples</a>
           <a href="#apps">Apps</a>
+          <a href="#limits">Limits</a>
           <a href="#privacy">Privacy</a>
-          <a href="#about">About</a>
+          <a href="{{ project_url }}" target="_blank" rel="noopener noreferrer">GitHub</a>
         </nav>
-        <a class="button button-dark button-small" href="#connect">Connect</a>
+        <a class="button button-dark button-small" href="#setup">Set up</a>
       </div>
     </header>
 
@@ -48,78 +48,63 @@
       <section class="hero">
         <button class="flip" type="button" aria-pressed="false" aria-label="BridgeCraft logo, an Arctic tern whose wings arch over the water. Flip it to see the ArtCraft logo: BridgeCraft is built for ArtCraft.">
           <span class="flip-inner">
-            <img class="flip-face" src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="" width="220" height="220" />
+            <img class="flip-face" src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="" width="120" height="120" />
             <span class="flip-face flip-back" aria-hidden="true">
               <img class="flip-mark" src="{{ url_for('static', filename='app-icons/artcraft.svg') }}" alt="" width="64" height="54" />
-              <span class="label">Built for</span>
+              <span class="flip-for">Built for</span>
               <span class="flip-name">ArtCraft</span>
-              <span class="flip-note">Community-built · not affiliated</span>
             </span>
           </span>
         </button>
-        <h1>Your assistant, now a creative <em>studio.</em></h1>
+        <h1>Use the Craft apps from ChatGPT and Claude</h1>
         <p class="lede">
-          BridgeCraft lets ChatGPT, Claude and other AI assistants use Storytold's open-source
-          Craft apps, so you can ask for a deck, a document or a design in a chat and get the file.
+          BridgeCraft is a connector. Add one address to your AI assistant and it can open
+          Storytold's open-source Craft apps, do the work you ask for, and give you the file.
+          There's nothing to install.
         </p>
         <div class="actions">
-          <a class="button button-dark" href="#connect">Add to Claude or ChatGPT</a>
-          <a class="link-arrow" href="#how">How it works <span aria-hidden="true">↓</span></a>
+          <a class="button button-dark" href="#setup">Set it up</a>
+          <a class="link-plain" href="#examples">See what it makes</a>
         </div>
-        <p class="fine-print">Free · open source · nothing to install</p>
+        <p class="fine-print">
+          Built and run by Adithya Shankaran. Not an official Storytold or ArtCraft product.
+        </p>
       </section>
 
-      <section class="section" id="how">
-        <div class="split">
-          <div class="split-copy">
-            <p class="label">How it works</p>
-            <h2>Just <em>ask.</em></h2>
-            <p class="section-lede">
-              Your assistant opens the right Craft app, does the work and saves the result to
-              your private library. Every edit makes a new file, so your original is never touched.
-            </p>
-            <p class="section-lede">
-              The apps are Storytold's own, run as they are. BridgeCraft is the bridge between
-              them and your chat.
-            </p>
-          </div>
-          <figure class="chat" aria-label="Example conversation">
-            <figcaption class="label label-muted">Claude · with BridgeCraft</figcaption>
-            <p class="bubble bubble-user">Make a slide of our morning footfall on Mill Street, March to August, as a bar chart.</p>
-            <div class="tool-row" aria-hidden="true">
-              <span>DeckCraft</span><span>insert_chart</span><span>render_slide</span>
-            </div>
-            <div class="bubble">
-              <p>Here it is. <strong>footfall.pptx</strong> is in your library.</p>
-              <img class="bubble-image" src="{{ url_for('static', filename='showcase/deck-chart.png') }}" alt="A slide titled Morning footfall on Mill Street, with an orange bar chart rising from 410 in March to 575 in August." width="960" height="540" loading="lazy" />
-            </div>
-          </figure>
-        </div>
-      </section>
-
-      <section class="section" id="made">
+      <section class="section" id="examples">
         <header class="section-head">
-          <p class="label">Made with BridgeCraft</p>
-          <h2>Real files, from one <em>sentence.</em></h2>
+          <h2>Examples</h2>
           <p>
-            Each of these came from the request under it, made by the same hosted apps you
-            connect to. The bakery and its numbers are made up.
+            Each file below was made by the hosted apps from the request under it. Your
+            assistant opens the app, runs its tools and saves the result as a new file in your
+            library, so your originals are never changed. The bakery and the running club are
+            made up.
           </p>
         </header>
+        {% set examples = [
+          ("deckcraft", "deck-chart.png", 960, 540, "Make a slide of our morning footfall, March to August, as a bar chart.", "A slide titled Morning footfall on Mill Street, with an orange bar chart rising from 410 in March to 575 in August."),
+          ("wordcraft", "report.png", 612, 792, "Write up the footfall count as a one-page report.", "A one-page report titled Mill Street footfall, with summary, background, findings and recommendations."),
+          ("pdfcraft", "pdf-draft.png", 612, 792, "Stamp that report as a draft and add a page number.", "The same report as a PDF, with a large pale red DRAFT watermark across it and Page 1 of 1 at the bottom."),
+          ("designcraft", "flyer.png", 840, 1190, "Lay out an A5 flyer for the opening day.", "A navy A5 flyer reading Grand opening, Rise & Crumb opens on Mill Street, with the date and address on a yellow panel."),
+          ("vectorcraft", "badge.png", 400, 400, "Draw a navy badge for the Mill Street Runners with a gold star.", "A round navy badge with a gold ring and star, reading Mill Street Runners, est. 2026."),
+          ("photocraft", "post.png", 1080, 1080, "Put the badge on a square post for Sunday's run.", "A square image with the runners' badge above the words Sunday long run, 7 am from the bakery, all paces welcome."),
+          ("figcraft", "screen.png", 720, 1280, "Mock up a sign-up screen with name, email and password.", "A phone sign-up screen with three fields and a blue Create account button."),
+          ("soundcraft", "jingle-wave.png", 960, 200, "Write a three-second jingle for the shop's radio spot.", "The waveform of a short synth jingle."),
+        ] %}
         <div class="gallery">
-          {% set made = [
-            ("report.png", "wordcraft", "Write up the footfall count as a one-page report.", "A one-page report titled Mill Street footfall, with summary, background, findings and recommendations.", 612, 792),
-            ("badge.png", "vectorcraft", "Draw a navy badge for the Mill Street Runners with a gold star.", "A round navy badge with a gold ring and star, reading Mill Street Runners, est. 2026.", 400, 400),
-            ("screen.png", "figcraft", "Mock up a sign-up screen with name, email and password.", "A phone sign-up screen with three fields and a blue Create account button.", 720, 1280),
-          ] %}
-          {% for file, app, ask, alt, w, h in made %}
+          {% for app, file, w, h, ask, alt in examples %}
           <figure class="work">
-            <div class="work-frame">
+            <div class="work-frame{% if app == 'soundcraft' %} work-frame-audio{% endif %}">
               <img src="{{ url_for('static', filename='showcase/' ~ file) }}" alt="{{ alt }}" width="{{ w }}" height="{{ h }}" loading="lazy" />
+              {% if app == 'soundcraft' %}
+              <audio controls preload="none" src="{{ url_for('static', filename='showcase/jingle.mp3') }}">
+                <a href="{{ url_for('static', filename='showcase/jingle.mp3') }}">Download the jingle</a>
+              </audio>
+              {% endif %}
             </div>
             <figcaption>
               <span class="work-app">
-                <img src="{{ url_for('static', filename=app_icons[app]) }}" alt="" width="24" height="24" />
+                <img src="{{ url_for('static', filename=app_icons[app]) }}" alt="" width="20" height="20" />
                 {{ hosted_apps|selectattr("name", "equalto", app)|map(attribute="title")|first }}
               </span>
               “{{ ask }}”
@@ -130,86 +115,115 @@
       </section>
 
       <section class="section" id="apps">
-        <header class="section-head section-head-row">
-          <div>
-            <p class="label">The apps</p>
-            {% set count_words = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve"] %}
-            <h2>{{ count_words[hosted_apps|length] if hosted_apps|length < 13 else hosted_apps|length }} Craft apps. One <em>bridge.</em></h2>
-            <p>
-              Each one runs on my server, locked to a private folder that holds only your files.
-              There are built-in tools too, for video, images, and PDFs and e-signatures.
-            </p>
-          </div>
-          <a class="link-arrow" href="{{ org_url }}" target="_blank" rel="noopener noreferrer">Storytold on GitHub <span aria-hidden="true">↗</span></a>
+        <header class="section-head">
+          <h2>The apps</h2>
+          <p>
+            {{ hosted_apps|length }} of Storytold's Craft apps run on my server, each one locked to a
+            folder that holds only your files. There are also built-in tools for trimming and
+            captioning video, editing images, and PDFs and e-signatures.
+          </p>
         </header>
+        {% set kinds = {
+          "wordcraft": "Documents",
+          "deckcraft": "Slide decks",
+          "pdfcraft": "PDFs",
+          "photocraft": "Photos",
+          "vectorcraft": "Vector art",
+          "designcraft": "Page layout",
+          "figcraft": "Screen design",
+          "soundcraft": "Audio",
+        } %}
         <ul class="app-grid">
-          {% set kinds = {
-            "wordcraft": "Documents",
-            "deckcraft": "Slide decks",
-            "pdfcraft": "PDFs",
-            "photocraft": "Photos",
-            "vectorcraft": "Vector art",
-            "designcraft": "Page layout",
-            "figcraft": "Screen design",
-            "soundcraft": "Audio",
-          } %}
           {% for app in hosted_apps %}
           <li>
             <a class="app-cell" href="{{ org_url }}/{{ app.name }}" target="_blank" rel="noopener noreferrer">
               <img src="{{ url_for('static', filename=app_icons[app.name]) }}" alt="" width="64" height="64" loading="lazy" />
               <span class="app-name">{{ app.title }}</span>
-              <span class="app-kind">{{ kinds.get(app.name, "") }}</span>
+              <span class="app-kind">{{ kinds.get(app.name, "") }} · v{{ app.version }}</span>
             </a>
           </li>
           {% endfor %}
         </ul>
       </section>
 
-      <section class="section section-dark" id="privacy">
-        <header class="section-head">
-          <p class="label">Privacy</p>
-          <h2>Your files stay <em>yours.</em></h2>
-          <p>You sign in once, and the tools only ever see your own files.</p>
-        </header>
-        <div class="columns facts">
-          <div><strong>1</strong><span>private library for each account, invisible to everyone else</span></div>
-          <div><strong>{{ retention_days }}</strong><span>days, then your files are deleted automatically</span></div>
-          <div><strong>1 h</strong><span>is how long a download link works</span></div>
+      <section class="section" id="limits">
+        <div class="two-col">
+          <header class="section-head">
+            <h2>What doesn't work yet</h2>
+            <p>Worth knowing before you set it up.</p>
+          </header>
+          <ul class="plain-list">
+            <li>
+              <strong>Not every Craft app is here.</strong> EffectCraft, FilmCraft, CADCraft, GridCraft
+              and LightCraft can't yet be locked to one person's folder, so I don't host them. The
+              EffectCraft fix is in review upstream.
+            </li>
+            <li>
+              <strong>No AI image or video generation on the hosted server.</strong> ArtCraft's
+              generation needs your own ArtCraft account, so it only works with the
+              <a href="{{ project_url }}#run-the-local-mcp-server" target="_blank" rel="noopener noreferrer">local server on a Mac</a>.
+            </li>
+            <li>
+              <strong>The apps run without their windows.</strong> Anything that needs the desktop
+              app, such as printing, isn't available.
+            </li>
+            <li>
+              <strong>Files are capped.</strong> Up to 500 MB each and 5 GB per account.
+            </li>
+            <li>
+              <strong>It's one server run by one person.</strong> If something breaks,
+              <a href="{{ project_url }}/issues" target="_blank" rel="noopener noreferrer">open an issue</a> and I'll look at it.
+            </li>
+          </ul>
         </div>
-        <a class="link-arrow" href="{{ url_for('privacy') }}">Read the privacy policy <span aria-hidden="true">→</span></a>
+      </section>
+
+      <section class="section section-dark" id="privacy">
+        <div class="two-col">
+          <header class="section-head">
+            <h2>Privacy</h2>
+            <p>You sign in once, and the tools only ever see your own files.</p>
+          </header>
+          <ul class="plain-list">
+            <li>Each account has its own library. Nobody else can see it, including other users of the same app.</li>
+            <li>Files are deleted automatically after {{ retention_days }} days.</li>
+            <li>Download links stop working after an hour.</li>
+            <li>The server never passes its own keys or settings to the apps.</li>
+            <li><a href="{{ url_for('privacy') }}">Read the full privacy policy</a></li>
+          </ul>
+        </div>
       </section>
 
       <section class="section" id="about">
-        <div class="about">
-          <div class="section-head">
-            <p class="label">About</p>
-            <h2>An extension for the <em>ArtCraft apps.</em></h2>
-          </div>
+        <div class="two-col">
+          <header class="section-head">
+            <h2>Who runs this</h2>
+          </header>
           <div class="about-copy">
             <p>
-              ArtCraft brings Storytold's open-source Craft apps together. BridgeCraft extends
-              those same apps into ChatGPT, Claude and other AI assistants.
+              I'm Adithya Shankaran. ArtCraft brings Storytold's open-source Craft apps together
+              on the desktop, and I built BridgeCraft to extend those same apps into ChatGPT,
+              Claude and other assistants.
             </p>
             <p>
-              BridgeCraft is community-built and run by Adithya Shankaran. It is not an official
-              Storytold or ArtCraft product. I have proposed that Storytold adopt it;
-              follow along in <a href="https://github.com/storytold/craft-contrib/pull/23" target="_blank" rel="noopener noreferrer">RFC-0016</a>.
-            </p>
-            <p class="about-links">
-              <a class="link-arrow" href="{{ project_url }}" target="_blank" rel="noopener noreferrer">BridgeCraft source <span aria-hidden="true">↗</span></a>
-              <a class="link-arrow" href="{{ product_url }}" target="_blank" rel="noopener noreferrer">Official ArtCraft <span aria-hidden="true">↗</span></a>
+              It is not an official Storytold or ArtCraft product. I've proposed that Storytold
+              adopt it, and you can follow that in
+              <a href="https://github.com/storytold/craft-contrib/pull/23" target="_blank" rel="noopener noreferrer">RFC-0016</a>.
+              The code is Apache-2.0 on
+              <a href="{{ project_url }}" target="_blank" rel="noopener noreferrer">GitHub</a>,
+              and the list of changes is in its
+              <a href="{{ project_url }}/commits/main" target="_blank" rel="noopener noreferrer">commit history</a>.
             </p>
           </div>
         </div>
       </section>
 
-      <section class="section section-accent" id="connect">
+      <section class="section section-accent" id="setup">
         <header class="section-head">
-          <p class="label">Get started</p>
-          <h2>Add it once. Use it <em>everywhere.</em></h2>
+          <h2>Set it up</h2>
           <p>
-            In Claude or ChatGPT, add a custom connector with this address and sign in.
-            It works in the web app and on your phone.
+            In Claude or ChatGPT, add a custom connector with this address, then sign in when it
+            asks. After that it works in the web app and on your phone.
           </p>
         </header>
         <div class="url-box">
@@ -217,9 +231,7 @@
           <button class="button button-dark" type="button" data-copy="studio-url">Copy</button>
         </div>
         <p class="connect-links">
-          <a class="link-arrow" href="{{ url_for('support') }}">Step-by-step setup <span aria-hidden="true">→</span></a>
-          <span>On a Mac and want ArtCraft image and video generation? Use the
-            <a href="{{ project_url }}#run-the-local-mcp-server" target="_blank" rel="noopener noreferrer">local server</a>.</span>
+          <a href="{{ url_for('support') }}">Step-by-step setup</a>
         </p>
       </section>
     </main>

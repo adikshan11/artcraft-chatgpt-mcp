@@ -40,7 +40,7 @@ GITHUB_API = "https://api.github.com"
 MAX_README_CHARS = 12000
 # The Craft apps Studio hosts, in the order the site shows them.
 HOSTED_APPS = [
-    {"name": app["name"], "title": app["title"]}
+    {"name": app["name"], "title": app["title"], "version": app["version"]}
     for app in json.loads((Path(__file__).parent / "craft_apps.json").read_text())["apps"]
 ]
 # Each project's own icon, keyed by repository name (credited in NOTICE).

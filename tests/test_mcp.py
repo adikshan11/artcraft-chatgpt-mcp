@@ -95,37 +95,38 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
     def test_homepage_presents_unified_artcraft_integration(self, _list_projects):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b"now a creative <em>studio.</em>", response.data)
-        self.assertIn(b"Just <em>ask.</em>", response.data)
-        self.assertIn(b"Your files stay <em>yours.</em>", response.data)
-        self.assertIn(b"Add it once.", response.data)
+        self.assertIn(b"<h1>Use the Craft apps from ChatGPT and Claude</h1>", response.data)
+        # Plain headings: no eyebrow labels or accent words on the homepage.
+        for heading in (b"<h2>Examples</h2>", b"<h2>The apps</h2>", b"<h2>What doesn't work yet</h2>",
+                        b"<h2>Privacy</h2>", b"<h2>Who runs this</h2>", b"<h2>Set it up</h2>"):
+            self.assertIn(heading, response.data)
+        self.assertNotIn(b"<em>", response.data)
+        self.assertNotIn(b'class="label', response.data)
         # The back of the tern carries ArtCraft's own icon.
-        self.assertIn(b"/static/app-icons/artcraft.svg", response.data)
+        self.assertIn(b'class="flip-mark" src="/static/app-icons/artcraft.svg"', response.data)
+        self.assertIn(b'class="flip"', response.data)
         for app in (b"WordCraft", b"DeckCraft", b"PdfCraft", b"PhotoCraft", b"VectorCraft",
                     b"DesignCraft", b"FigCraft", b"SoundCraft"):
             self.assertIn(app, response.data)
-        self.assertIn(b"https://artcraft-storytold-mcp.onrender.com/studio", response.data)
-        self.assertIn(b"adikshan11/artcraft-plugin", response.data)
-        self.assertIn(b"Eight Craft apps. One <em>bridge.</em>", response.data)
-        self.assertIn(b"PDFs and e-signatures", response.data)
-        self.assertIn(b"#run-the-local-mcp-server", response.data)
-        self.assertNotIn(b"ONE ARTCRAFT APP", response.data)
-        self.assertIn(b"/static/bridgecraft.svg", response.data)
-        self.assertIn(b"/static/og.jpg", response.data)
-        # The page says plainly what BridgeCraft is and that it is not official.
-        self.assertIn(b"An extension for the <em>ArtCraft apps.</em>", response.data)
-        self.assertIn(b'class="flip-mark" src="/static/app-icons/artcraft.svg"', response.data)
-        self.assertIn(b"It is not an official\n              Storytold or ArtCraft product.", response.data)
-        self.assertIn(b"https://github.com/storytold/craft-contrib/pull/23", response.data)
-        self.assertIn(b'class="flip"', response.data)
-        # One way in from the hero, then real outputs from the hosted apps.
-        self.assertIn(b"Add to Claude or ChatGPT", response.data)
-        self.assertNotIn(b"See how it works", response.data)
-        self.assertNotIn(b"ticker", response.data)
-        self.assertIn(b"Made with BridgeCraft", response.data)
-        for sample in (b"deck-chart.png", b"report.png", b"badge.png", b"screen.png"):
+        self.assertIn(b"v0.12.0", response.data)
+        # One example from every hosted app, made by the apps themselves.
+        for sample in (b"deck-chart.png", b"report.png", b"pdf-draft.png", b"flyer.png", b"badge.png",
+                       b"post.png", b"screen.png", b"jingle-wave.png", b"jingle.mp3"):
             self.assertIn(b"/static/showcase/" + sample, response.data)
         self.assertIn(b'href="https://github.com/storytold/figcraft"', response.data)
+        # Limits and status are stated plainly.
+        self.assertIn(b"EffectCraft, FilmCraft, CADCraft, GridCraft", response.data)
+        self.assertIn(b"Up to 500 MB each and 5 GB per account.", response.data)
+        self.assertIn(b"Not an official Storytold or ArtCraft product.", response.data)
+        self.assertIn(b"https://github.com/storytold/craft-contrib/pull/23", response.data)
+        self.assertIn(b"https://artcraft-storytold-mcp.onrender.com/studio", response.data)
+        self.assertIn(b"adikshan11/artcraft-plugin", response.data)
+        self.assertIn(b"PDFs and e-signatures", response.data)
+        self.assertIn(b"#run-the-local-mcp-server", response.data)
+        self.assertIn(b"/static/bridgecraft.svg", response.data)
+        self.assertIn(b"/static/og.jpg", response.data)
+        self.assertNotIn(b"See how it works", response.data)
+        self.assertNotIn(b"ticker", response.data)
         self.assertNotIn(b"artcraft-icon.svg", response.data)
         self.assertIn(
             f'href="{ARTCRAFT_PRODUCT_URL}"'.encode(),
