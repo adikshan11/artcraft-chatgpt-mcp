@@ -7,22 +7,22 @@
       name="description"
       content="Use Storytold's Craft apps and video, image and PDF tools from ChatGPT, Claude, Gemini and other AI assistants, on the web or your phone, with nothing to install."
     />
-    <meta property="og:title" content="ArtCraft Plugin — creative workflows, connected" />
+    <meta property="og:title" content="BridgeCraft — connect AI assistants to ArtCraft and the Craft apps" />
     <meta
       property="og:description"
       content="A community-built MCP plugin for ArtCraft and the Storytold creative ecosystem."
     />
     <meta property="og:type" content="website" />
     <link rel="canonical" href="{{ site_url }}" />
-    <link rel="icon" href="{{ icon_url }}" type="image/svg+xml" />
-    <title>ArtCraft Plugin — creative workflows, connected</title>
+    <link rel="icon" href="{{ url_for('static', filename='bridgecraft.svg') }}" type="image/svg+xml" />
+    <title>BridgeCraft — connect AI assistants to ArtCraft and the Craft apps</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
     <header class="site-header">
-      <a class="brand" href="#top" aria-label="ArtCraft Plugin home">
-        <img src="{{ icon_url }}" alt="" />
-        <span>ArtCraft<span class="brand-sub">plugin</span></span>
+      <a class="brand" href="#top" aria-label="BridgeCraft home">
+        <img src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="" />
+        <span>BridgeCraft</span>
       </a>
       <nav class="main-nav" aria-label="Main navigation">
         <a href="#capabilities">Capabilities</a>
@@ -57,8 +57,8 @@
           <div class="art-orbit orbit-one"></div>
           <div class="art-orbit orbit-two"></div>
           <div class="art-glow"></div>
-          <img src="{{ icon_url }}" alt="" />
-          <span class="art-label">ARTCRAFT&nbsp; × &nbsp;MCP</span>
+          <img src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="" />
+          <span class="art-label">CRAFT APPS&nbsp; × &nbsp;MCP</span>
         </div>
       </section>
 
@@ -125,7 +125,11 @@
           {% for repo in repos %}
           <article class="project-card">
             <div class="project-card-top">
+              {% if repo.name in app_icons %}
+              <img class="project-icon" src="{{ url_for('static', filename='app-icons/' ~ repo.name ~ '.png') }}" alt="" />
+              {% else %}
               <span class="project-mark" aria-hidden="true">{{ repo.name[:1]|upper }}</span>
+              {% endif %}
               <span class="project-stars" aria-label="{{ repo.stars }} GitHub stars">☆ {{ repo.stars }}</span>
             </div>
             <h3><a href="{{ repo.url }}" target="_blank" rel="noopener noreferrer">{{ repo.name }}</a></h3>
@@ -167,8 +171,8 @@
 
     <footer class="site-footer page-width">
       <a class="brand footer-brand" href="#top">
-        <img src="{{ icon_url }}" alt="" />
-        <span>ArtCraft<span class="brand-sub">plugin</span></span>
+        <img src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="" />
+        <span>BridgeCraft</span>
       </a>
       <p>An independent, open-source community integration for creative workflows. © 2026 Adithya Shankaran · Apache-2.0 ·
         <a href="{{ url_for('privacy') }}">Privacy</a> ·

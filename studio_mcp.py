@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 Adithya Shankaran
 
-"""ArtCraft Studio: the public, multi-user MCP server for video, image, and PDF work.
+"""BridgeCraft Studio: the public, multi-user MCP server for video, image, and PDF work.
 
 Users sign in with OAuth (Auth0, Clerk, or any OIDC provider that issues JWT
 access tokens). Every tool resolves the caller from their access token and only
@@ -39,10 +39,6 @@ from media_storage import (
 )
 
 STUDIO_PATH = "/studio"
-ARTCRAFT_ICON_URL = (
-    "https://raw.githubusercontent.com/storytold/artcraft/main/"
-    "frontend/apps/artcraft/app/public/artcraft-icon.svg"
-)
 SITE_URL = os.environ.get("PUBLIC_BASE_URL", "https://artcraft-storytold-mcp.onrender.com").rstrip("/")
 MAX_FILE_BYTES = int(os.environ.get("STUDIO_MAX_FILE_MB", "500")) * 1_000_000
 USER_QUOTA_BYTES = int(os.environ.get("STUDIO_USER_QUOTA_MB", "5000")) * 1_000_000
@@ -52,7 +48,7 @@ RETENTION_DAYS = int(os.environ.get("STUDIO_FILE_RETENTION_DAYS", "7"))
 SWEEP_INTERVAL_SECONDS = 3600
 log = logging.getLogger(__name__)
 STUDIO_INSTRUCTIONS = (
-    "ArtCraft Studio edits the signed-in user's own media. Start by importing a file "
+    "BridgeCraft Studio edits the signed-in user's own media. Start by importing a file "
     "with import_media_from_url (or create_upload_link), then pass the returned media_id "
     "to video, image, or PDF tools. Every edit creates a new file and returns a "
     "download_url; originals are never modified. Only sign PDFs when the user explicitly "
@@ -123,10 +119,10 @@ _verifier, _auth_settings = _auth_config()
 
 studio = MCPServer(
     "artcraft-studio",
-    title="ArtCraft Studio",
-    description="Edit video, images, and PDFs (including e-signatures) in your own ArtCraft workspace.",
+    title="BridgeCraft Studio",
+    description="Edit video, images, and PDFs (including e-signatures) in your own BridgeCraft workspace.",
     website_url=SITE_URL,
-    icons=[Icon(src=ARTCRAFT_ICON_URL, mimeType="image/svg+xml")],
+    icons=[Icon(src=f"{SITE_URL}/static/bridgecraft.svg", mimeType="image/svg+xml")],
     version="1.0.0",
     instructions=STUDIO_INSTRUCTIONS,
     token_verifier=_verifier,
@@ -146,7 +142,7 @@ def current_user() -> str:
     dev_user = os.environ.get("STUDIO_DEV_USER")
     if dev_user and not os.environ.get("RENDER"):
         return user_id_for("local-dev", dev_user)
-    raise ToolError("Sign in to ArtCraft Studio to use this tool.")
+    raise ToolError("Sign in to BridgeCraft Studio to use this tool.")
 
 
 @lru_cache(maxsize=1)
@@ -258,7 +254,7 @@ def _check_quota(user_id: str, incoming: int):
         raise ToolError(f"Files are limited to {MAX_FILE_BYTES // 1_000_000} MB.")
     used = sum(obj.size_bytes for obj in storage().list(user_id))
     if used + incoming > USER_QUOTA_BYTES:
-        raise ToolError("Your ArtCraft Studio storage is full. Delete some files and try again.")
+        raise ToolError("Your BridgeCraft Studio storage is full. Delete some files and try again.")
 
 
 def _run(action):
@@ -286,7 +282,7 @@ CREATE = ToolAnnotations(read_only_hint=False, destructive_hint=False, idempoten
 
 @studio.tool(title="List my media", annotations=READ, structured_output=True)
 def list_media(kind: Literal["all", "video", "image", "audio", "pdf", "document", "presentation", "project"] = "all", limit: int = 50) -> MediaList:
-    """List files in the user's ArtCraft Studio library, newest first."""
+    """List files in the user's BridgeCraft Studio library, newest first."""
     user = current_user()
 
     def body():

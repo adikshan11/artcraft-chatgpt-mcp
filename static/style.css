@@ -61,15 +61,6 @@ a:focus-visible {
   letter-spacing: -0.04em;
 }
 
-.brand-sub {
-  margin-left: 5px;
-  font-size: 0.62em;
-  font-weight: 560;
-  letter-spacing: 0;
-  opacity: 0.7;
-  vertical-align: baseline;
-}
-
 .brand img {
   width: 30px;
   height: 30px;
@@ -424,6 +415,12 @@ p {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.project-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
 }
 
 .project-mark {

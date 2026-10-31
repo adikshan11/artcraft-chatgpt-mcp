@@ -5,15 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="{% block description %}{% endblock %}" />
     <link rel="canonical" href="{{ site_url }}{{ request.path }}" />
-    <link rel="icon" href="{{ icon_url }}" type="image/svg+xml" />
-    <title>{% block title %}{% endblock %} · ArtCraft Plugin</title>
+    <link rel="icon" href="{{ url_for('static', filename='bridgecraft.svg') }}" type="image/svg+xml" />
+    <title>{% block title %}{% endblock %} · BridgeCraft</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
     <header class="site-header">
-      <a class="brand" href="{{ url_for('index') }}" aria-label="ArtCraft Plugin home">
-        <img src="{{ icon_url }}" alt="" />
-        <span>ArtCraft<span class="brand-sub">plugin</span></span>
+      <a class="brand" href="{{ url_for('index') }}" aria-label="BridgeCraft home">
+        <img src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="" />
+        <span>BridgeCraft</span>
       </a>
       <nav class="main-nav" aria-label="Main navigation">
         <a href="{{ url_for('privacy') }}">Privacy</a>
@@ -33,8 +33,8 @@
 
     <footer class="site-footer page-width">
       <a class="brand footer-brand" href="{{ url_for('index') }}">
-        <img src="{{ icon_url }}" alt="" />
-        <span>ArtCraft<span class="brand-sub">plugin</span></span>
+        <img src="{{ url_for('static', filename='bridgecraft.svg') }}" alt="" />
+        <span>BridgeCraft</span>
       </a>
       <p>© 2026 Adithya Shankaran · Apache-2.0 ·
         <a href="{{ url_for('privacy') }}">Privacy</a> ·

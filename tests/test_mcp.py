@@ -19,7 +19,7 @@ from starlette.testclient import TestClient as AsgiTestClient
 
 from app import (
     ARTCRAFT_APP_DESCRIPTION,
-    ARTCRAFT_ICON_URL,
+    BRAND_ICON_URL,
     ARTCRAFT_PRODUCT_URL,
     ARTCRAFT_SITE_URL,
     GitHubRequestError,
@@ -30,7 +30,7 @@ from app import (
 )
 from artcraft_api import ArtCraftAPIError, get_api_key
 from craft_app_mcp import PhotoCraftBridge, _photocraft_parameters
-from local_artcraft_mcp import ARTCRAFT_ICON_URL, server as local_mcp
+from local_artcraft_mcp import BRAND_ICON_URL, server as local_mcp
 from pdfcraft_mcp import _pdf_path
 
 FREE_ESTIMATE = (
@@ -105,7 +105,8 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b"PDFs and e-signatures", response.data)
         self.assertIn(b"#run-the-local-mcp-server", response.data)
         self.assertNotIn(b"ONE ARTCRAFT APP", response.data)
-        self.assertIn(ARTCRAFT_ICON_URL.encode(), response.data)
+        self.assertIn(b"/static/bridgecraft.svg", response.data)
+        self.assertNotIn(b"artcraft-icon.svg", response.data)
         self.assertIn(
             f'href="{ARTCRAFT_PRODUCT_URL}"'.encode(),
             response.data,
@@ -285,9 +286,9 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         async with Client(local_mcp) as client:
             icon = client.server_info.icons[0]
             server_info = client.server_info
-        self.assertEqual(icon.src, ARTCRAFT_ICON_URL)
+        self.assertEqual(icon.src, BRAND_ICON_URL)
         self.assertEqual(icon.mime_type, "image/svg+xml")
-        self.assertEqual(server_info.title, "ArtCraft")
+        self.assertEqual(server_info.title, "BridgeCraft")
         self.assertEqual(server_info.description, ARTCRAFT_APP_DESCRIPTION)
         self.assertEqual(server_info.website_url, ARTCRAFT_SITE_URL)
 

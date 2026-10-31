@@ -1,12 +1,18 @@
-ArtCraft Plugin
+BridgeCraft
 Copyright 2026 Adithya Shankaran
 
 This product includes software developed by Adithya Shankaran
 (https://github.com/adikshan11/artcraft-plugin).
 
-ArtCraft Plugin is an unofficial community project. It is not affiliated with
-or endorsed by Storytold or the ArtCraft team. "ArtCraft" and the names of the
+BridgeCraft is an unofficial community project. It is not affiliated with
+or endorsed by Storytold or the ArtCraft team. The ArtCraft name, wordmark
+and logos are trademarks of the ArtCraft Team; BridgeCraft does not use the
+logos and uses the name only to say what it works with. The names of the
 Craft apps belong to their owners.
+
+The Craft app icons in static/app-icons/ are resized copies of each app's
+assets/app-icon artwork from github.com/storytold/<app>, used under that
+app's MIT OR Apache-2.0 license.
 
 The Craft app command-line tools (WordCraft, DeckCraft, PdfCraft, PhotoCraft,
 VectorCraft, DesignCraft, FigCraft and SoundCraft) are not part of this source

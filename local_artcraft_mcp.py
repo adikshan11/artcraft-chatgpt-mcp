@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from app import (
     ARTCRAFT_APP_DESCRIPTION,
-    ARTCRAFT_ICON_URL,
+    BRAND_ICON_URL,
     ARTCRAFT_SITE_URL,
     GitHubRequestError,
     ProjectDetails,
@@ -34,11 +34,11 @@ from pdfcraft_mcp import register_pdfcraft_tools
 
 server = MCPServer(
     "artcraft",
-    title="ArtCraft",
+    title="BridgeCraft",
     description=ARTCRAFT_APP_DESCRIPTION,
     website_url=ARTCRAFT_SITE_URL,
     version="0.1.0",
-    icons=[Icon(src=ARTCRAFT_ICON_URL, mimeType="image/svg+xml")],
+    icons=[Icon(src=BRAND_ICON_URL, mimeType="image/svg+xml")],
     instructions=(
         "This unified ArtCraft connection provides public Storytold project discovery and "
         "ArtCraft image and video generation. Repository tools are read-only. Use "

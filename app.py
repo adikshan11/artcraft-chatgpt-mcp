@@ -8,6 +8,7 @@ import os
 import re
 from contextlib import asynccontextmanager
 from functools import lru_cache
+from pathlib import Path
 from urllib import error, request
 
 from a2wsgi import WSGIMiddleware
@@ -27,18 +28,18 @@ ORG_URL = f"https://github.com/{ORG_NAME}"
 PROJECT_URL = "https://github.com/adikshan11/artcraft-plugin"
 ARTCRAFT_SITE_URL = "https://artcraft-storytold-mcp.onrender.com"
 ARTCRAFT_PRODUCT_URL = "https://getartcraft.com"
-ARTCRAFT_ICON_URL = (
-    "https://raw.githubusercontent.com/storytold/artcraft/main/"
-    "frontend/apps/artcraft/app/public/artcraft-icon.svg"
-)
+# Our own mark. The ArtCraft name and logos are the ArtCraft Team's trademarks.
+BRAND_ICON_URL = f"{ARTCRAFT_SITE_URL}/static/bridgecraft.svg"
 ARTCRAFT_APP_DESCRIPTION = (
-    "A community-built MCP plugin for ArtCraft image and video generation, public "
+    "BridgeCraft, a community-built MCP plugin for ArtCraft image and video generation, public "
     "Storytold projects, local PDF workflows, and PhotoCraft tools. Paid generations "
     "start only after you agree to the price; some other Craft app controls are not yet available. Project "
     f"website: {ARTCRAFT_SITE_URL}. Official ArtCraft: {ARTCRAFT_PRODUCT_URL}"
 )
 GITHUB_API = "https://api.github.com"
 MAX_README_CHARS = 12000
+# Each Craft app's own icon (Apache-2.0 / MIT, see NOTICE). ArtCraft's logo is a trademark, so it has none.
+APP_ICONS = {path.stem for path in (Path(__file__).parent / "static" / "app-icons").glob("*.png")}
 LEGAL_LAST_UPDATED = "31 October 2026"
 MCP_INSTRUCTIONS = (
     "Use these read-only tools to discover public ArtCraft and Storytold projects. "
@@ -47,10 +48,10 @@ MCP_INSTRUCTIONS = (
 )
 mcp = MCPServer(
     "artcraft-storytold",
-    title="ArtCraft Project Catalog",
+    title="BridgeCraft Project Catalog",
     description="Browse public Storytold creative apps and open-source project information.",
     website_url=ARTCRAFT_SITE_URL,
-    icons=[Icon(src=ARTCRAFT_ICON_URL, mimeType="image/svg+xml")],
+    icons=[Icon(src=BRAND_ICON_URL, mimeType="image/svg+xml")],
     version="0.1.0",
     instructions=MCP_INSTRUCTIONS,
 )
@@ -83,7 +84,7 @@ def github_get(path):
     token = os.environ.get("GITHUB_TOKEN")
     headers = {
         "Accept": "application/vnd.github+json",
-        "User-Agent": "ArtCraft-Plugin/1.0",
+        "User-Agent": "BridgeCraft/1.0",
         "X-GitHub-Api-Version": "2022-11-28",
     }
     if token:
@@ -236,7 +237,6 @@ def legal_page(template):
         template,
         site_url=ARTCRAFT_SITE_URL,
         project_url=PROJECT_URL,
-        icon_url=ARTCRAFT_ICON_URL,
         last_updated=LEGAL_LAST_UPDATED,
         # Studio deletes files older than this itself (studio_mcp.sweep_expired_files_forever).
         retention_days=RETENTION_DAYS,
@@ -276,8 +276,8 @@ def index():
         project_url=PROJECT_URL,
         product_url=ARTCRAFT_PRODUCT_URL,
         site_url=ARTCRAFT_SITE_URL,
-        icon_url=ARTCRAFT_ICON_URL,
         repos=repos,
+        app_icons=APP_ICONS,
         error_message=error_message,
     )
 

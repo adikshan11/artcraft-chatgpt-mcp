@@ -1,14 +1,17 @@
-# ArtCraft Plugin
+# BridgeCraft
 
-This project provides one unified **ArtCraft** MCP plugin that works with any
+BridgeCraft is an independent, community-built MCP plugin for ArtCraft and
+Storytold's Craft apps. It works with any
 MCP-capable AI assistant, including ChatGPT, Claude, Gemini CLI, Grok (via the
 xAI API), and Kimi:
 
 - **Website**: [artcraft-storytold-mcp.onrender.com](https://artcraft-storytold-mcp.onrender.com)
   is the public introduction and read-only Storytold project catalog.
 - **Official ArtCraft website**: [getartcraft.com](https://getartcraft.com).
-- **ArtCraft branding**: the local MCP server uses the
-  [open-source ArtCraft icon from the Storytold repository](https://github.com/storytold/artcraft/blob/main/frontend/apps/artcraft/app/public/artcraft-icon.svg).
+- **Branding**: BridgeCraft uses its own name and logo (`static/bridgecraft.svg`). The
+  ArtCraft name, wordmark and logos are trademarks of the ArtCraft Team and are not open
+  source, so they are only used in plain text to say what BridgeCraft works with. The
+  website's project cards show each Craft app's own icon, which is licensed like its code.
 - **ArtCraft apps and projects**: list, search, and read public Storytold
   repositories, including the Craft creative-app projects.
 - **ArtCraft image and video generation**: list models, see the price first,
