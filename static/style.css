@@ -34,16 +34,20 @@
   --paper: #121316;
   --paper-2: #18191c;
   --surface: #1c1d21;
-  --ink: #f1f1ef;
-  --muted: #9a9ca3;
-  --line: #2a2c31;
+  --ink: #f2f1ee;
+  --ink-strong: #ffffff;
+  --muted: #f2f1ee99;
+  --faint: #f2f1ee61;
+  --line: #f2f1ee26;
+  --line-strong: #f2f1ee66;
   --accent: #ffc62e;
   --craft: var(--accent);
   --link: #ffd866;
   --dark: #0c0d0f;
   --on-dark: #f1f1ef;
-  --page: 1280px;
-  --gutter: 80px;
+  --page: 1200px;
+  --gutter: 40px;
+  --nav-height: 48px;
   --rail: 0px;
   --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
   --serif: "Instrument Serif", Georgia, "Times New Roman", serif;
@@ -55,12 +59,15 @@
    colour. Light is there for anyone who picks it with the nav switch. */
 :root[data-theme="light"] {
   color-scheme: light;
-  --paper: #f6f6f4;
-  --paper-2: #ececea;
-  --surface: #ffffff;
-  --ink: #121316;
-  --muted: #5c5e66;
-  --line: #d8d8d4;
+  --paper: #f2f1ee;
+  --paper-2: #e9e8e4;
+  --surface: #faf9f7;
+  --ink: #101014;
+  --ink-strong: #000000;
+  --muted: #1010149e;
+  --faint: #1010146b;
+  --line: #10101429;
+  --line-strong: #10101466;
   --craft: #a36f00;
   --link: #0a5cc2;
   --dark: #121316;
@@ -82,8 +89,8 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--body);
-  font-size: 17px;
-  line-height: 1.55;
+  font-size: 16px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -118,11 +125,12 @@ figure {
 h1,
 h2,
 h3 {
+  color: var(--ink-strong);
   font-family: var(--display);
-  font-weight: 700;
-  font-stretch: 110%;
-  letter-spacing: -0.03em;
-  line-height: 0.98;
+  font-weight: 620;
+  font-stretch: 118%;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
 }
 
 h1 em,
@@ -138,8 +146,8 @@ h2 em {
 .label {
   font-family: var(--mono);
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-weight: 500;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
 }
 
@@ -152,12 +160,13 @@ h2 em {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 15px 22px;
-  border: 1px solid var(--ink);
+  min-height: 48px;
+  padding: 0 22px;
+  border: 1px solid var(--line-strong);
   background: transparent;
   color: var(--ink);
-  font: 700 12px/1 var(--mono);
-  letter-spacing: 0.1em;
+  font: 700 11px/1 var(--mono);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   white-space: nowrap;
   cursor: pointer;
@@ -170,7 +179,8 @@ h2 em {
 }
 
 .button-dark {
-  background: var(--ink);
+  border-color: var(--ink-strong);
+  background: var(--ink-strong);
   color: var(--paper);
 }
 
@@ -181,7 +191,8 @@ h2 em {
 }
 
 .button-small {
-  padding: 12px 18px;
+  min-height: 40px;
+  padding: 0 18px;
 }
 
 .link-arrow {
@@ -211,9 +222,9 @@ h2 em {
   gap: 10px;
   font-family: var(--display);
   font-size: 19px;
-  font-weight: 700;
-  font-stretch: 112%;
-  letter-spacing: -0.01em;
+  font-weight: 620;
+  font-stretch: 118%;
+  letter-spacing: -0.03em;
 }
 
 .brand .craft {
@@ -234,17 +245,19 @@ h2 em {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: color-mix(in srgb, var(--paper) 88%, transparent);
-  backdrop-filter: saturate(1.4) blur(14px);
-  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  background: color-mix(in srgb, var(--paper) 95%, transparent);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   border-bottom: 1px solid var(--line);
 }
 
+/* 48px tall, the tools on the right as full-height cells, like the Craft apps' pages. */
 .nav-inner {
   display: flex;
   align-items: center;
   gap: 40px;
-  padding: 10px clamp(16px, 3vw, 56px);
+  height: var(--nav-height);
+  padding-left: 20px;
 }
 
 .nav .brand {
@@ -253,9 +266,9 @@ h2 em {
 
 .crumb {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
 }
 
@@ -271,9 +284,9 @@ h2 em {
   gap: 32px;
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
 }
 
@@ -287,12 +300,28 @@ h2 em {
 
 .nav-tools {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-self: stretch;
+}
+
+.nav-tools .icon-button {
+  width: 48px;
+  height: 100%;
+  border: 0;
+  border-left: 1px solid var(--line);
 }
 
 .nav-tools .button {
-  margin-left: 8px;
+  min-height: 0;
+  height: 100%;
+  border-width: 0 0 0 1px;
+  border-color: var(--line);
+  background: var(--ink-strong);
+  color: var(--paper);
+}
+
+.nav-tools .button:hover {
+  background: var(--accent);
+  color: #000000;
 }
 
 .icon-button {
@@ -308,7 +337,7 @@ h2 em {
 }
 
 .icon-button:hover {
-  border-color: var(--line);
+  background: var(--paper-2);
 }
 
 .icon-moon,
@@ -327,21 +356,18 @@ h2 em {
 
 /* ---------------------------------------------------------------- page index */
 
-/* On wide screens the homepage keeps a rail on the right, like the Craft apps'
-   pages: the section names and a ruler of the page, with the part on screen
-   shaded. */
+/* On wide screens the homepage has the Craft apps' page index: section names
+   over the right edge of the page and a ruler as long as the page down the
+   right side of the window. The page keeps 80px either side so the ruler has
+   room. */
 .rail {
   display: none;
 }
 
 @media (min-width: 1100px) {
-  .has-rail {
-    --rail: 208px;
-  }
-
   .has-rail main,
   .has-rail .footer {
-    margin-right: var(--rail);
+    padding-inline: 80px;
   }
 
   /* The ruler stands in for the scrollbar, so the browser's own is hidden. */
@@ -355,38 +381,61 @@ h2 em {
 
   .rail {
     position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     z-index: 5;
     display: block;
-    width: var(--rail);
-    border-left: 1px solid var(--line);
-    background: var(--paper);
+    pointer-events: none;
+  }
+
+  /* Frosted corners behind the names, so they read over whatever scrolls under them. */
+  .rail::before,
+  .rail::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    width: 440px;
+    background: color-mix(in srgb, var(--paper) 80%, transparent);
+    backdrop-filter: blur(9px);
+    -webkit-backdrop-filter: blur(9px);
+  }
+
+  .rail::before {
+    top: 0;
+    height: 300px;
+    mask-image: radial-gradient(100% 100% at 100% 0%, #000 38%, #000000d1 56%, #0000007a 72%, #00000033 86%, #0000000d 94%, transparent 97%);
+  }
+
+  .rail::after {
+    bottom: 0;
+    height: 220px;
+    mask-image: radial-gradient(100% 100% at 100% 100%, #000 38%, #000000d1 56%, #0000007a 72%, #00000033 86%, #0000000d 94%, transparent 97%);
   }
 }
 
-/* The section names, as on the Craft apps' pages. Passed sections stack small
-   at the top with the one being read large under them; sections still ahead
-   stack small at the bottom. As the next one comes up, its letters leave the
-   bottom list, stand on end beside the ruler at that section's place, then fly
-   up into the large slot. site.js places every letter from the scroll position. */
+/* The section names. Passed sections stack small at the top with the one being
+   read large under them; sections still ahead stack small at the bottom. As the
+   next one comes up, its letters leave the bottom list, stand on end beside the
+   ruler at that section's mark, then fly up into the large slot. site.js places
+   every letter from the scroll position. */
 .rail-labels {
   position: absolute;
-  top: 64px;
-  right: 56px;
-  bottom: 36px;
-  left: 12px;
+  top: calc(var(--nav-height) + 20px);
+  right: 66px;
+  bottom: 24px;
+  width: 380px;
+  z-index: 1;
 }
 
 .rail-label {
-  color: var(--muted);
+  color: var(--faint);
   font-family: var(--display);
-  font-size: 20px;
-  font-weight: 700;
-  font-stretch: 112%;
+  font-size: 34px;
+  font-weight: 620;
+  font-stretch: 118%;
   line-height: 1;
   text-transform: uppercase;
+  text-shadow: 0 0 4px var(--paper), 0 0 10px var(--paper);
+  pointer-events: auto;
 }
 
 .rail-label span {
@@ -395,7 +444,7 @@ h2 em {
 
 .rail-label.is-current,
 .rail-label:hover {
-  color: var(--ink);
+  color: var(--ink-strong);
 }
 
 .rail-label:focus-visible {
@@ -409,11 +458,10 @@ h2 em {
   align-content: start;
   justify-items: end;
   gap: 8px;
-  font-size: 13px;
 }
 
 .rail:not(.is-live) .rail-label {
-  font-size: 13px;
+  font-size: 16px;
 }
 
 .rail.is-live .rail-label span {
@@ -424,22 +472,32 @@ h2 em {
   will-change: transform;
 }
 
+/* The ruler is as long as the page and scrolls with it: a short tick every 1%,
+   a numbered one every 5%. site.js sets its length and moves it. */
 .rail-ruler {
   position: absolute;
-  top: 64px;
-  bottom: 36px;
-}
-
-/* A short tick every 1%, a numbered long one every 5%. */
-.rail-ruler {
+  top: var(--nav-height);
   right: 0;
-  width: 48px;
-  cursor: ns-resize;
+  bottom: 0;
+  width: 60px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--paper) 55%, transparent);
+  cursor: crosshair;
   touch-action: none;
-  background: repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px 1%) right / 8px 100% no-repeat;
+  pointer-events: auto;
 }
 
-.rail-ruler span {
+.rail-scale {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: var(--length, 100%);
+  background: repeating-linear-gradient(to bottom, var(--line-strong) 0 1px, transparent 1px 1%) right / 8px 100% no-repeat;
+  will-change: transform;
+}
+
+.rail-scale span {
   position: absolute;
   top: calc(var(--n) * 1%);
   right: 0;
@@ -447,42 +505,71 @@ h2 em {
   align-items: center;
   gap: 6px;
   transform: translateY(-50%);
-  color: var(--muted);
-  font: 500 10px/1 var(--mono);
+  color: var(--ink);
+  opacity: 0.5;
+  font: 400 9px/1 var(--mono);
+  letter-spacing: 0.08em;
 }
 
-.rail-ruler span::after {
+.rail-scale span::after {
   content: "";
   width: 16px;
-  border-top: 1px solid var(--muted);
+  border-top: 1px solid currentColor;
 }
 
-/* How far down the page you are, as a yellow line and a percentage. */
+/* How far down the page you are: a yellow line and a counter whose digits roll. */
 .rail-mark {
   position: absolute;
   top: calc(var(--progress, 0) * 100%);
   right: 0;
-  width: 100%;
-  border-top: 2px solid var(--accent);
+  left: 0;
+  border-top: 1px solid var(--accent);
 }
 
 .rail-mark b {
   position: absolute;
-  right: 2px;
-  bottom: 3px;
-  color: var(--accent);
-  font: 600 10px/1 var(--mono);
-  letter-spacing: 0.04em;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  color: var(--craft);
+  font: 500 9px/1 var(--mono);
+  letter-spacing: 0.08em;
 }
 
+.digit {
+  display: block;
+  height: 1em;
+  overflow: hidden;
+}
+
+.digit i {
+  display: block;
+  font-style: normal;
+  transform: translateY(calc(var(--d, 0) * -1em));
+  transition: transform 0.35s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+/* Where a click would take you, under the pointer. */
 .rail-view {
   position: absolute;
-  top: calc(var(--view-top, 0) * 100%);
+  top: calc(var(--at, 0) * 1px - 37px);
   right: 0;
-  width: 100%;
-  height: calc(var(--view-size, 0.1) * 100%);
-  border-bottom: 2px solid var(--ink);
-  background: color-mix(in srgb, var(--ink) 9%, transparent);
+  left: 0;
+  height: 75px;
+  border-block: 1px solid color-mix(in srgb, var(--ink) 50%, transparent);
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.rail-ruler:hover .rail-view {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .digit i {
+    transition: none;
+  }
 }
 
 /* ---------------------------------------------------------------- hero */
@@ -512,19 +599,20 @@ h2 em {
 }
 
 .badge {
-  padding: 5px 9px;
+  padding: 4px 8px;
   background: var(--accent);
-  color: #121316;
-  font: 700 12px/1 var(--mono);
-  letter-spacing: 0.12em;
+  color: #000000;
+  font: 700 11px/16.5px var(--mono);
+  letter-spacing: 0.15em;
 }
 
 .wordmark {
+  color: var(--ink-strong);
   font-family: var(--display);
-  font-size: 30px;
-  font-weight: 700;
-  font-stretch: 112%;
-  letter-spacing: -0.01em;
+  font-size: 24px;
+  font-weight: 620;
+  font-stretch: 118%;
+  letter-spacing: -0.03em;
   line-height: 1;
 }
 
@@ -540,8 +628,7 @@ h2 em {
 /* Balanced so the lines come out even, and sized to sit in three or four lines beside the plate. */
 .hero h1 {
   max-width: 20ch;
-  font-size: clamp(38px, 4.5vw, 66px);
-  line-height: 0.98;
+  font-size: clamp(40px, 5vw, 72px);
   text-wrap: balance;
 }
 
@@ -580,8 +667,8 @@ h2 em {
 .lede {
   max-width: 34em;
   color: var(--muted);
-  font-size: 20px;
-  line-height: 1.5;
+  font-size: 18px;
+  line-height: 1.625;
 }
 
 .actions {
@@ -807,15 +894,14 @@ h2 em {
   max-width: calc(var(--page) + 2 * var(--gutter));
   margin: 0 auto;
   padding: 0 var(--gutter) 120px;
-  border: 1px solid var(--line);
-  border-bottom: 0;
+  border-inline: 1px solid var(--line);
 }
 
 /* The bar across the top of each part of the page: its number and name on the
    left, a short note on the right, like the Craft apps' pages. */
 /* Links to a part of the page stop below the sticky nav. */
 section[id] {
-  scroll-margin-top: 56px;
+  scroll-margin-top: var(--nav-height);
 }
 
 .section-bar {
@@ -825,12 +911,27 @@ section[id] {
   justify-content: space-between;
   gap: 4px 24px;
   margin: 0 calc(-1 * var(--gutter)) 32px;
-  padding: 15px var(--gutter);
-  border-bottom: 1px solid var(--line);
-  color: var(--muted);
+  padding: 13px var(--gutter);
+  border-block: 1px solid var(--line);
+  color: var(--faint);
   font: 500 11px/1.4 var(--mono);
-  letter-spacing: 0.14em;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
+}
+
+/* Each bar stays under the nav while its part of the page is on screen. */
+.section-bar {
+  position: sticky;
+  top: var(--nav-height);
+  z-index: 4;
+  background: color-mix(in srgb, var(--paper) 60%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* The hero's bar sits right under the nav, which already draws that line. */
+.hero > .section-bar {
+  border-top: 0;
 }
 
 .section-bar span:first-child {
@@ -850,16 +951,16 @@ section[id] {
 }
 
 .section h2 {
-  font-size: clamp(32px, 3.6vw, 46px);
+  font-size: clamp(34px, 4.2vw, 60px);
   max-width: 22ch;
-  line-height: 1.05;
 }
 
 .section-head p:not(.label),
 .section-lede {
   max-width: 36em;
   color: var(--muted);
-  font-size: 19px;
+  font-size: 18px;
+  line-height: 1.625;
 }
 
 /* Full-bleed bands keep their content on the page grid. */
@@ -1246,7 +1347,7 @@ section[id] {
   border-bottom: 1px solid var(--line);
   color: var(--muted);
   font: 500 11px/1 var(--mono);
-  letter-spacing: 0.14em;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
 }
 
@@ -1704,10 +1805,6 @@ a.status-name:hover {
 
   .nav-social {
     display: none;
-  }
-
-  .nav-tools .button {
-    margin-left: 2px;
   }
 
   .hero {

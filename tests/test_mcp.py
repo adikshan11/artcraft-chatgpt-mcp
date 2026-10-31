@@ -182,8 +182,9 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         # PNG only: the traced SVG is 700KB and Safari skips it for the tab icon.
         self.assertNotIn(b'rel="icon" href="/static/bridgecraft.svg', response.data)
         self.assertIn(b"/static/bridgecraft-512.png", response.data)
-        self.assertIn(b"/static/bridgecraft-32.png", response.data)
-        self.assertIn(b"/static/apple-touch-icon.png", response.data)
+        # Safari asks for the root paths, so the page names those too.
+        self.assertIn(b'rel="icon" href="/favicon.ico"', response.data)
+        self.assertIn(b'rel="apple-touch-icon" href="/apple-touch-icon.png"', response.data)
         self.assertIn(b"<title>BridgeCraft \xc2\xb7 Craft apps in your AI assistant</title>", response.data)
         self.assertIn(b"/static/og.jpg", response.data)
         self.assertNotIn(b"See how it works", response.data)

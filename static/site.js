@@ -45,8 +45,10 @@ document.addEventListener("keydown", (event) => {
 // the top, the one being read sits large under them, and sections still ahead
 // stack small at the bottom. As a section scrolls up into view, its letters
 // leave the bottom list one by one, stand on end beside the ruler at that
-// section's place, then fly up into the large slot, while the name before it
+// section's mark, then fly up into the large slot, while the name before it
 // shrinks into the list above. Every letter's place follows the scroll position.
+// The ruler is as long as the page and scrolls with it, its marker running from
+// its top to its bottom as you go down the page.
 const rail = document.querySelector(".rail");
 if (rail) {
   const labels = [...rail.querySelectorAll(".rail-label")];
@@ -54,14 +56,16 @@ if (rail) {
   const letters = labels.map((label) => [...label.children]);
   const box = rail.querySelector(".rail-labels");
   const ruler = rail.querySelector(".rail-ruler");
+  const scale = rail.querySelector(".rail-scale");
+  const digits = [...rail.querySelectorAll(".digit i")];
   const view = rail.querySelector(".rail-view");
   const mark = rail.querySelector(".rail-mark");
   const still = matchMedia("(prefers-reduced-motion: reduce)");
 
-  const BASE = 20; // the letters' own font size; the layouts scale from it
-  const SMALL = 12 / BASE;
-  const ON_END = 15 / BASE;
-  const LINE = 17; // one row of the small lists
+  const BASE = 34; // the letters' own font size; the layouts scale from it
+  const SMALL = 16 / BASE;
+  const ON_END = 16 / BASE;
+  const LINE = 20; // one row of the small lists
   let widths = []; // each letter's width at BASE
   let layout = null;
 
@@ -105,14 +109,19 @@ if (rail) {
     const boxRect = box.getBoundingClientRect();
     const rulerRect = ruler.getBoundingClientRect();
     const scrollable = Math.max(1, root.scrollHeight - innerHeight);
+    // Scrolled by the page, a ruler this long brings the tick for the share of
+    // the page scrolled to the marker's place, share * the ruler's height.
+    const length = scrollable + rulerRect.height;
+    scale.style.setProperty("--length", `${length}px`);
     layout = {
       width: boxRect.width,
       height: boxRect.height,
-      places: labels.map((_, i) => {
-        // Where the section starts, in the same scale as the ruler and its marker.
-        const share = Math.min(1, sections[i].offsetTop / scrollable);
-        return rulerRect.top - boxRect.top + share * rulerRect.height;
-      }),
+      offset: rulerRect.top - boxRect.top,
+      rulerHeight: rulerRect.height,
+      length,
+      scrollable,
+      // Each section's mark: the share of the page scrolled when it reaches the top.
+      shares: sections.map((section) => Math.min(1, section.offsetTop / scrollable)),
       last: labels.length,
     };
     draw();
@@ -129,12 +138,11 @@ if (rail) {
 
   function draw() {
     if (!layout) return;
-    const height = root.scrollHeight;
-    view.style.setProperty("--view-top", scrollY / height);
-    view.style.setProperty("--view-size", innerHeight / height);
-    const progress = clamp(scrollY / Math.max(1, height - innerHeight));
+    const progress = clamp(scrollY / layout.scrollable);
+    scale.style.transform = `translateY(${-scrollY}px)`;
     mark.style.setProperty("--progress", progress);
-    mark.firstChild.textContent = `${String(Math.round(progress * 100)).padStart(3, "0")}%`;
+    const percent = String(Math.round(progress * 100)).padStart(3, "0");
+    digits.forEach((digit, k) => digit.style.setProperty("--d", percent[k]));
 
     const t = labels.map((_, i) => arrival(i));
     let current = 0;
@@ -148,7 +156,7 @@ if (rail) {
       const big = across(i, top, 1);
       const passed = across(i, top, SMALL);
       const ahead = across(i, layout.height - (layout.last - i) * LINE, SMALL);
-      const standing = onEnd(i, layout.places[i]);
+      const standing = onEnd(i, layout.offset + layout.shares[i] * layout.length - scrollY);
       const next = i + 1 < labels.length ? t[i + 1] : 0;
 
       letters[i].forEach((span, j) => {
@@ -188,18 +196,22 @@ if (rail) {
     { passive: true },
   );
 
-  // With the browser's scrollbar hidden, the ruler scrolls the page: click or drag on it.
-  function scrollToPointer(event) {
-    const area = ruler.getBoundingClientRect();
-    const share = clamp((event.clientY - area.top) / area.height);
-    scrollTo({ top: share * (root.scrollHeight - innerHeight), behavior: "instant" });
-  }
+  // With the browser's scrollbar hidden, the ruler scrolls the page. A click
+  // goes to the tick under the pointer; a drag moves the marker as far as the pointer moves.
+  const pointerY = (event) => event.clientY - ruler.getBoundingClientRect().top;
+  let dragY = 0;
   ruler.addEventListener("pointerdown", (event) => {
+    if (!layout) return;
     ruler.setPointerCapture(event.pointerId);
-    scrollToPointer(event);
+    dragY = event.clientY;
+    const share = clamp((pointerY(event) + scrollY) / layout.length);
+    scrollTo({ top: share * layout.scrollable, behavior: "instant" });
   });
   ruler.addEventListener("pointermove", (event) => {
-    if (ruler.hasPointerCapture(event.pointerId)) scrollToPointer(event);
+    view.style.setProperty("--at", pointerY(event));
+    if (!layout || !ruler.hasPointerCapture(event.pointerId)) return;
+    scrollBy({ top: ((event.clientY - dragY) * layout.scrollable) / layout.rulerHeight, behavior: "instant" });
+    dragY = event.clientY;
   });
 
   rail.classList.add("is-live");

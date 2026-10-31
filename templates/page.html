@@ -7,9 +7,9 @@
     <meta name="color-scheme" content="dark light" />
     <meta name="theme-color" content="#121316" />
     <link rel="canonical" href="{{ site_url }}{{ request.path }}" />
-    <link rel="icon" href="{{ url_for('static', filename='bridgecraft-32.png') }}" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" href="{{ url_for('static', filename='bridgecraft-512.png') }}" type="image/png" sizes="512x512" />
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>{% block title %}{% endblock %} · BridgeCraft</title>
 {% include "_theme.html" %}
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />

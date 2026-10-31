@@ -21,9 +21,9 @@
     <meta name="color-scheme" content="dark light" />
     <meta name="theme-color" content="#121316" />
     <link rel="canonical" href="{{ site_url }}" />
-    <link rel="icon" href="{{ url_for('static', filename='bridgecraft-32.png') }}" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" href="{{ url_for('static', filename='bridgecraft-512.png') }}" type="image/png" sizes="512x512" />
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="preload" href="{{ url_for('static', filename='fonts/archivo.woff2') }}" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="{{ url_for('static', filename='fonts/inter.woff2') }}" as="font" type="font/woff2" crossorigin />
     <title>BridgeCraft · Craft apps in your AI assistant</title>
@@ -38,10 +38,10 @@
         <a class="rail-label" href="#{{ id }}" aria-label="{{ name }}">{% for letter in name %}<span aria-hidden="true">{{ letter }}</span>{% endfor %}</a>
         {% endfor %}
       </div>
-      <div class="rail-ruler" aria-hidden="true" title="Drag to scroll">
-        {% for n in range(0, 101, 5) %}<span style="--n: {{ n }}">{{ n }}</span>{% endfor %}
+      <div class="rail-ruler" aria-hidden="true" title="Click or drag to scroll">
+        <div class="rail-scale">{% for n in range(0, 101, 5) %}<span style="--n: {{ n }}">{{ n }}</span>{% endfor %}</div>
         <i class="rail-view"></i>
-        <i class="rail-mark"><b>000%</b></i>
+        <i class="rail-mark"><b>{% for _ in range(3) %}<span class="digit"><i>0<br />1<br />2<br />3<br />4<br />5<br />6<br />7<br />8<br />9</i></span>{% endfor %}%</b></i>
       </div>
     </nav>
 
