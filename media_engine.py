@@ -8,11 +8,13 @@ Storage, auth, and tool wiring live in ``studio_mcp.py``.
 """
 
 import hashlib
+import http.client
 import io
 import ipaddress
 import json
 import os
 import socket
+import ssl
 import subprocess
 import warnings
 from datetime import datetime, timezone
@@ -46,33 +48,57 @@ class MediaError(RuntimeError):
 # --------------------------------------------------------------------------- #
 
 
-def _assert_public_host(hostname: str):
+def _public_address(hostname: str, port: int) -> str:
+    """Resolve ``hostname`` and return an address, refusing if any answer is non-public."""
     try:
-        infos = socket.getaddrinfo(hostname, 443, proto=socket.IPPROTO_TCP)
+        infos = socket.getaddrinfo(hostname, port, proto=socket.IPPROTO_TCP)
     except socket.gaierror as exc:
         raise MediaError(f"Could not resolve {hostname}.") from exc
     for info in infos:
         address = ipaddress.ip_address(info[4][0])
         if not address.is_global:
             raise MediaError("URLs that point to private or internal networks are not allowed.")
+    return infos[0][4][0]
+
+
+def _check_url(url: str):
+    parsed = parse.urlparse(url)
+    if parsed.scheme != "https" or not parsed.hostname:
+        raise MediaError("Only https:// URLs can be imported.")
+    if parsed.port not in (None, 443):
+        raise MediaError("Only the standard HTTPS port (443) is allowed.")
+
+
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    """Connects to the address that passed the public-network check.
+
+    Resolving once to check and again to connect would let a DNS server answer
+    with a public address and then a private one (DNS rebinding). TLS still
+    verifies the certificate against the original hostname.
+    """
+
+    def connect(self):
+        address = _public_address(self.host, self.port)
+        sock = socket.create_connection((address, self.port), self.timeout)
+        self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
+
+
+class _PinnedHTTPSHandler(request.HTTPSHandler):
+    def https_open(self, req):
+        return self.do_open(_PinnedHTTPSConnection, req, context=ssl.create_default_context())
 
 
 class _NoRedirect(request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        target = parse.urlparse(newurl)
-        if target.scheme != "https" or not target.hostname:
-            raise MediaError("Redirects to non-HTTPS URLs are not allowed.")
-        _assert_public_host(target.hostname)
+        _check_url(newurl)
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 def fetch_url(url: str, target: Path, max_bytes: int) -> str | None:
     """Download a public HTTPS URL to ``target``; returns the Content-Type."""
-    parsed = parse.urlparse(url)
-    if parsed.scheme != "https" or not parsed.hostname:
-        raise MediaError("Only https:// URLs can be imported.")
-    _assert_public_host(parsed.hostname)
-    opener = request.build_opener(_NoRedirect)
+    _check_url(url)
+    # No proxies: the pinned connection talks to the checked address directly.
+    opener = request.build_opener(request.ProxyHandler({}), _PinnedHTTPSHandler, _NoRedirect)
     req = request.Request(url, headers={"User-Agent": "ArtCraft-Studio/1.0"})
     try:
         with opener.open(req, timeout=30) as response, target.open("wb") as output:

@@ -10,12 +10,13 @@ touches that caller's files in storage. No personal API keys are used.
 
 import asyncio
 import logging
+import mimetypes
 import os
 import tempfile
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from mcp.server import MCPServer
 from mcp.server.auth.middleware.auth_context import get_access_token
@@ -24,7 +25,7 @@ from mcp.server.auth.settings import AuthSettings
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import CallToolResult, Icon, ImageContent, TextContent, ToolAnnotations
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 import craft_sessions
 import media_engine as engine
@@ -49,7 +50,8 @@ SWEEP_INTERVAL_SECONDS = 3600
 log = logging.getLogger(__name__)
 STUDIO_INSTRUCTIONS = (
     "BridgeCraft Studio edits the signed-in user's own media. Start by importing a file "
-    "with import_media_from_url (or create_upload_link), then pass the returned media_id "
+    "with import_chat_files (files attached in the chat), import_media_from_url, or "
+    "create_upload_link, then pass the returned media_id "
     "to video, image, or PDF tools. Every edit creates a new file and returns a "
     "download_url; originals are never modified. Only sign PDFs when the user explicitly "
     "asks to sign as themselves. For documents, use the Craft apps: list_craft_apps, then "
@@ -321,6 +323,55 @@ def import_media_from_url(url: str, filename: str) -> MediaItem:
             output = ws.output(normalize_extension(filename))
             engine.fetch_url(url, output, MAX_FILE_BYTES)
             return ws.save(output)
+
+    return _run(body)
+
+
+class ChatFile(BaseModel):
+    """A file the chat app passes in. The four fields are the ones ChatGPT's file params require."""
+
+    model_config = ConfigDict(extra="forbid")
+    download_url: str
+    file_id: str
+    mime_type: str = ""
+    file_name: str = ""
+
+
+MAX_CHAT_FILES = 10
+
+
+def _chat_file_extension(file: ChatFile) -> str:
+    if file.file_name and "." in file.file_name:
+        return normalize_extension(file.file_name)
+    guessed = mimetypes.guess_extension(file.mime_type)
+    if guessed:
+        return normalize_extension(guessed)
+    raise StorageError("The file has no name or type, so Studio can't tell what kind of file it is.")
+
+
+@studio.tool(
+    title="Import files from the chat",
+    annotations=ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world_hint=True),
+    meta={"openai/fileParams": ["files"]},
+    structured_output=True,
+)
+def import_chat_files(files: Annotated[list[ChatFile], Field(min_length=1, max_length=MAX_CHAT_FILES)]) -> MediaList:
+    """Copy files the user attached in the chat into their library, then use the returned media_ids.
+
+    The chat app fills in each file's download_url; don't invent one.
+    """
+    user = current_user()
+
+    def body():
+        _check_quota(user, 0)
+        items = []
+        for file in files:
+            with Workspace(user) as ws:
+                output = ws.output(_chat_file_extension(file))
+                engine.fetch_url(file.download_url, output, MAX_FILE_BYTES)
+                items.append(ws.save(output))
+        used = sum(obj.size_bytes for obj in storage().list(user))
+        return MediaList(items=items, used_bytes=used, quota_bytes=USER_QUOTA_BYTES)
 
     return _run(body)
 

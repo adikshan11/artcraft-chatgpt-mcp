@@ -523,7 +523,7 @@ personal API key is shared with the public.
 
 | Area | Tools |
 | --- | --- |
-| Library | `list_media`, `import_media_from_url`, `create_upload_link`, `get_download_link`, `inspect_media`, `delete_media` |
+| Library | `list_media`, `import_chat_files`, `import_media_from_url`, `create_upload_link`, `get_download_link`, `inspect_media`, `delete_media` |
 | Video & audio (FFmpeg) | `trim_video`, `transform_video` (resize, speed, mute, rotate, crop, convert), `join_videos`, `add_audio_to_video`, `add_text_to_video`, `extract_audio`, `capture_frame` |
 | Images (Pillow) | `edit_image` (crop, resize, rotate, flip, brightness/contrast/saturation, blur, sharpen, grayscale, sepia, border, text…), `layer_images` |
 | PDF | `read_pdf_text`, `organize_pdf` (reorder, delete, extract, rotate), `merge_pdfs`, `add_text_to_pdf`, `fill_pdf_form`, `watermark_pdf`, `sign_pdf` |
@@ -534,7 +534,15 @@ Edits never overwrite: each produces a new file and a one-hour download link.
 original document's SHA-256; it is not a certificate-based (PAdES) digital
 signature.
 
-Safety limits: URL imports are HTTPS-only and refuse private/internal addresses;
+`import_chat_files` takes files attached in the chat. It declares
+`openai/fileParams`, so ChatGPT (including on a phone) passes each attachment's
+temporary download link to it directly, and it accepts up to 10 files per call.
+Other clients can keep using `import_media_from_url` or `create_upload_link`.
+
+Safety limits: URL and chat-file imports are HTTPS-only on port 443 and refuse
+private/internal addresses, including after redirects. Each connection goes to
+the address that passed that check, so a DNS answer can't change between the
+check and the download;
 FFmpeg only accepts ordinary media containers from local files (no playlists or
 network inputs); images are capped at 80 MP; files default to 500 MB and each
 user to 5 GB (`STUDIO_MAX_FILE_MB`, `STUDIO_USER_QUOTA_MB`).

@@ -230,6 +230,84 @@ class VideoTests(StudioTestCase):
 
 
 
+class ChatFileTests(StudioTestCase):
+    def fake_fetch(self, content: bytes):
+        def fetch(url, target, max_bytes):
+            target.write_bytes(content)
+            return "application/octet-stream"
+        return patch("studio_mcp.engine.fetch_url", side_effect=fetch)
+
+    async def test_tool_declares_openai_file_params(self):
+        async with Client(studio) as client:
+            tool = next(t for t in (await client.list_tools()).tools if t.name == "import_chat_files")
+        self.assertEqual(tool.meta["openai/fileParams"], ["files"])
+        files = tool.input_schema["properties"]["files"]
+        item = tool.input_schema["$defs"][files["items"]["$ref"].rsplit("/", 1)[1]]
+        self.assertEqual(set(item["properties"]), {"download_url", "file_id", "mime_type", "file_name"})
+        self.assertEqual(set(item["required"]), {"download_url", "file_id"})
+        self.assertFalse(item["additionalProperties"])
+        self.assertEqual((files["minItems"], files["maxItems"]), (1, studio_mcp.MAX_CHAT_FILES))
+
+    async def test_imports_attachments_by_name_or_type(self):
+        image = self.tmp / "p.png"
+        Image.new("RGB", (8, 8)).save(image)
+        files = [
+            {"download_url": "https://files.example/1", "file_id": "f1", "file_name": "../../holiday.PNG"},
+            {"download_url": "https://files.example/2", "file_id": "f2", "mime_type": "image/png"},
+        ]
+        with self.fake_fetch(image.read_bytes()) as fetch:
+            result = await self.call("import_chat_files", files=files)
+        self.assertEqual([c.args[0] for c in fetch.call_args_list], ["https://files.example/1", "https://files.example/2"])
+        self.assertEqual([i["media_id"].rsplit(".", 1)[1] for i in result["items"]], ["png", "png"])
+        self.assertEqual(len(self.store.list(self.user)), 2)
+
+    async def test_refuses_unknown_types_and_too_many_files(self):
+        with self.fake_fetch(b"x"):
+            with self.assertRaisesRegex(ToolError, "can't tell"):
+                await self.call("import_chat_files", files=[{"download_url": "https://f.example/1", "file_id": "f"}])
+            with self.assertRaisesRegex(ToolError, "Unsupported file type"):
+                await self.call("import_chat_files", files=[
+                    {"download_url": "https://f.example/1", "file_id": "f", "file_name": "run.exe"}])
+            with self.assertRaises(ToolError):
+                await self.call("import_chat_files", files=[
+                    {"download_url": "https://f.example/1", "file_id": str(n), "file_name": "a.png"} for n in range(11)])
+            with self.assertRaises(ToolError):
+                await self.call("import_chat_files", files=[
+                    {"download_url": "https://f.example/1", "file_id": "f", "file_name": "a.png", "extra": "x"}])
+        self.assertEqual(self.store.list(self.user), [])
+
+
+class UrlFetchTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+
+    def answer(self, address):
+        return patch("media_engine.socket.getaddrinfo",
+                     return_value=[(2, 1, 6, "", (address, 443))])
+
+    def test_refuses_other_ports(self):
+        with self.assertRaisesRegex(engine.MediaError, "443"):
+            engine.fetch_url("https://example.com:8443/a.png", self.tmp / "a.png", 1000)
+
+    def test_refuses_names_that_resolve_to_private_addresses(self):
+        for address in ("10.0.0.5", "169.254.169.254", "::1"):
+            with self.answer(address), self.assertRaisesRegex(engine.MediaError, "private"):
+                engine.fetch_url("https://files.example/a.png", self.tmp / "a.png", 1000)
+
+    def test_connects_to_the_address_it_checked(self):
+        # The control: a second lookup would return a private address. Only one lookup may happen.
+        answers = iter([[(2, 1, 6, "", ("93.184.215.14", 443))], [(2, 1, 6, "", ("127.0.0.1", 443))]])
+        with patch("media_engine.socket.getaddrinfo", side_effect=lambda *a, **k: next(answers)) as lookup, \
+                patch("media_engine.socket.create_connection", side_effect=OSError("stop")) as connect:
+            with self.assertRaises(engine.MediaError):
+                engine.fetch_url("https://files.example/a.png", self.tmp / "a.png", 1000)
+        self.assertEqual(lookup.call_count, 1)
+        self.assertEqual(connect.call_args.args[0], ("93.184.215.14", 443))
+
+
 class RetentionTests(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
