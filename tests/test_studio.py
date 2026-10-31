@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -226,6 +227,76 @@ class VideoTests(StudioTestCase):
         playlist.write_text("#EXTM3U\n#EXTINF:1,\nfile:///etc/passwd\n")
         with self.assertRaises(engine.MediaError):
             engine.probe(playlist)
+
+
+
+class RetentionTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.store = LocalStorage(self.tmp / "store")
+        self.addCleanup(shutil.rmtree, self.tmp)
+
+    def put(self, user, media_id, age_days):
+        source = self.tmp / "src.png"
+        source.write_bytes(b"x")
+        self.store.put_file(user, media_id, source)
+        path = self.tmp / "store" / object_key(user, media_id)
+        stamp = (datetime.now(timezone.utc) - timedelta(days=age_days)).timestamp()
+        os.utime(path, (stamp, stamp))
+        return path
+
+    def test_local_storage_deletes_only_old_files(self):
+        alice, bob = user_id_for("t", "alice"), user_id_for("t", "bob")
+        old = self.put(alice, f"{'a' * 32}.png", 8)
+        new = self.put(alice, f"{'b' * 32}.png", 1)
+        other_old = self.put(bob, f"{'c' * 32}.pdf", 30)
+        stray = self.tmp / "store" / "users" / alice / "media" / "notes.txt"
+        stray.write_text("not a media file")
+        os.utime(stray, (0, 0))
+        cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+        self.assertEqual(self.store.delete_older_than(cutoff), 2)
+        self.assertFalse(old.exists())
+        self.assertFalse(other_old.exists())
+        self.assertTrue(new.exists())
+        self.assertTrue(stray.exists())
+
+    def test_delete_expired_files_uses_the_retention_period(self):
+        user = user_id_for("t", "alice")
+        kept = self.put(user, f"{'a' * 32}.png", studio_mcp.RETENTION_DAYS - 1)
+        gone = self.put(user, f"{'b' * 32}.png", studio_mcp.RETENTION_DAYS + 1)
+        with patch("studio_mcp.storage", return_value=self.store):
+            self.assertEqual(studio_mcp.delete_expired_files(), 1)
+        self.assertTrue(kept.exists())
+        self.assertFalse(gone.exists())
+
+    def test_s3_storage_deletes_only_old_media_keys(self):
+        from media_storage import S3Storage
+
+        now = datetime.now(timezone.utc)
+        user = user_id_for("t", "alice")
+        objects = [
+            {"Key": f"users/{user}/media/{'a' * 32}.png", "LastModified": now - timedelta(days=8)},
+            {"Key": f"users/{user}/media/{'b' * 32}.png", "LastModified": now - timedelta(days=1)},
+            {"Key": f"users/{user}/other/{'c' * 32}.png", "LastModified": now - timedelta(days=30)},
+            {"Key": f"users/not-a-user/media/{'d' * 32}.png", "LastModified": now - timedelta(days=30)},
+        ]
+
+        class FakeClient:
+            deleted = []
+
+            def get_paginator(self, _name):
+                return self
+
+            def paginate(self, Bucket, Prefix):
+                return [{"Contents": [o for o in objects if o["Key"].startswith(Prefix)]}]
+
+            def delete_object(self, Bucket, Key):
+                self.deleted.append(Key)
+
+        store = S3Storage.__new__(S3Storage)
+        store.bucket, store.client = "b", FakeClient()
+        self.assertEqual(store.delete_older_than(now - timedelta(days=7)), 1)
+        self.assertEqual(store.client.deleted, [objects[0]["Key"]])
 
 
 if __name__ == "__main__":

@@ -9,8 +9,10 @@ touches that caller's files in storage. No personal API keys are used.
 """
 
 import asyncio
+import logging
 import os
 import tempfile
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -44,6 +46,11 @@ ARTCRAFT_ICON_URL = (
 SITE_URL = os.environ.get("PUBLIC_BASE_URL", "https://artcraft-storytold-mcp.onrender.com").rstrip("/")
 MAX_FILE_BYTES = int(os.environ.get("STUDIO_MAX_FILE_MB", "500")) * 1_000_000
 USER_QUOTA_BYTES = int(os.environ.get("STUDIO_USER_QUOTA_MB", "5000")) * 1_000_000
+# The privacy policy promises this, so the server enforces it instead of relying on
+# a bucket lifecycle rule someone has to remember to set.
+RETENTION_DAYS = int(os.environ.get("STUDIO_FILE_RETENTION_DAYS", "7"))
+SWEEP_INTERVAL_SECONDS = 3600
+log = logging.getLogger(__name__)
 STUDIO_INSTRUCTIONS = (
     "ArtCraft Studio edits the signed-in user's own media. Start by importing a file "
     "with import_media_from_url (or create_upload_link), then pass the returned media_id "
@@ -145,6 +152,23 @@ def current_user() -> str:
 @lru_cache(maxsize=1)
 def storage():
     return storage_from_env()
+
+
+def delete_expired_files() -> int:
+    """Delete files older than RETENTION_DAYS for every user."""
+    return storage().delete_older_than(datetime.now(timezone.utc) - timedelta(days=RETENTION_DAYS))
+
+
+async def sweep_expired_files_forever():
+    """Run delete_expired_files at startup and then every hour; a failed sweep is retried next time."""
+    while True:
+        try:
+            deleted = await asyncio.to_thread(delete_expired_files)
+            if deleted:
+                log.info("Deleted %d files older than %d days.", deleted, RETENTION_DAYS)
+        except Exception:
+            log.exception("Deleting expired files failed.")
+        await asyncio.sleep(SWEEP_INTERVAL_SECONDS)
 
 
 class MediaItem(BaseModel):

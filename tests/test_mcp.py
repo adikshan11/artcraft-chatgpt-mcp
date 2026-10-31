@@ -128,8 +128,9 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
                 for text in expected:
                     self.assertIn(text, response.data)
 
-    @patch.dict(os.environ, {"SUPPORT_EMAIL": "help@example.com", "STUDIO_FILE_RETENTION_DAYS": "3"})
-    def test_support_email_and_retention_come_from_the_environment(self):
+    @patch.dict(os.environ, {"SUPPORT_EMAIL": "help@example.com"})
+    @patch("studio_mcp.RETENTION_DAYS", 3)
+    def test_support_email_and_retention_come_from_the_settings(self):
         self.assertIn(b"mailto:help@example.com", self.client.get("/support").data)
         self.assertIn(b"deleted automatically after 3 days", self.client.get("/privacy").data)
 

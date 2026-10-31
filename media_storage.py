@@ -128,6 +128,17 @@ class LocalStorage:
                 items.append(StoredObject(path.name, media_kind(path.name), stat.st_size, modified))
         return sorted(items, key=lambda item: item.modified_at, reverse=True)
 
+    def delete_older_than(self, cutoff: datetime) -> int:
+        """Delete every user's files last written before ``cutoff``; returns how many."""
+        deleted = 0
+        for path in self.root.glob("users/*/media/*"):
+            if not (USER_ID_PATTERN.match(path.parent.parent.name) and MEDIA_ID_PATTERN.match(path.name)):
+                continue
+            if datetime.fromtimestamp(path.stat().st_mtime, timezone.utc) < cutoff:
+                path.unlink()
+                deleted += 1
+        return deleted
+
     def download_url(self, user_id, media_id):
         return self._path(user_id, media_id).resolve().as_uri()
 
@@ -187,6 +198,25 @@ class S3Storage:
                         )
                     )
         return sorted(items, key=lambda item: item.modified_at, reverse=True)
+
+    def delete_older_than(self, cutoff: datetime) -> int:
+        """Delete every user's files last written before ``cutoff``; returns how many."""
+        deleted = 0
+        paginator = self.client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self.bucket, Prefix="users/"):
+            for obj in page.get("Contents", []):
+                parts = obj["Key"].split("/")
+                if not (
+                    len(parts) == 4
+                    and parts[2] == "media"
+                    and USER_ID_PATTERN.match(parts[1])
+                    and MEDIA_ID_PATTERN.match(parts[3])
+                ):
+                    continue
+                if obj["LastModified"] < cutoff:
+                    self.client.delete_object(Bucket=self.bucket, Key=obj["Key"])
+                    deleted += 1
+        return deleted
 
     def download_url(self, user_id, media_id):
         return self.client.generate_presigned_url(
