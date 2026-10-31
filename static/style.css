@@ -346,6 +346,38 @@ h2 em {
   text-wrap: balance;
 }
 
+/* The AI apps it works with, in grey under the headline, split by centre dots.
+   Every name has a dot in front; the row is pulled left by one dot's width and
+   that strip is clipped, so no line, first or wrapped, starts with a dot. */
+.ai-apps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 0;
+  margin: -6px 0 0 -1.8em;
+  clip-path: inset(0 0 0 1.8em);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ai-apps span::before {
+  content: "\00b7";
+  display: inline-block;
+  width: 1.8em;
+  text-align: center;
+}
+
+/* Tighter on phones, so the row stays on one line. */
+@media (max-width: 480px) {
+  .ai-apps {
+    font-size: 11px;
+    letter-spacing: 0.03em;
+  }
+}
+
 .lede {
   max-width: 34em;
   color: var(--muted);
