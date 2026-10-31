@@ -128,11 +128,14 @@ if (rail) {
     draw();
   }
 
-  // 0 while the section is below the window, 1 once its top nears the window's top.
+  // 0 while the section is below the window, 1 once its top nears the window's top. A
+  // section already in the window at the top of the page starts from where it sits there,
+  // so no name is on its way before the page is scrolled.
   function arrival(i) {
     if (i === 0) return 1;
     const top = sections[i].getBoundingClientRect().top;
-    let t = clamp((innerHeight - top) / (innerHeight - 120));
+    const start = Math.min(innerHeight, top + scrollY);
+    let t = clamp((start - top) / (start - 120));
     if (scrollY >= root.scrollHeight - innerHeight - 2 && top < innerHeight) t = 1;
     return still.matches ? (t >= 0.5 ? 1 : 0) : t;
   }
