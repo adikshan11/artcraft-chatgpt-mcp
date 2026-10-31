@@ -3,6 +3,7 @@
 
 import asyncio
 import base64
+import hashlib
 import json
 import os
 import re
@@ -14,6 +15,7 @@ from urllib import error, request
 
 from a2wsgi import WSGIMiddleware
 from flask import Flask, jsonify, render_template
+from flask import request as http_request
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
@@ -23,6 +25,40 @@ from starlette.applications import Starlette
 from starlette.routing import Mount
 
 app = Flask(__name__)
+STATIC_MAX_AGE = 365 * 24 * 3600
+
+
+@lru_cache(maxsize=None)
+def _static_version(filename):
+    """A short hash of a static file's bytes; it changes whenever the file does."""
+    try:
+        data = (Path(app.static_folder) / filename).read_bytes()
+    except OSError:
+        return None
+    return hashlib.sha256(data).hexdigest()[:10]
+
+
+@app.url_defaults
+def _version_static_urls(endpoint, values):
+    # Static links carry ?v=<content hash>, so browsers can keep the file and still
+    # get a new one the moment it changes. Fonts are left out: style.css loads them
+    # by plain path, and their preload links must match that path exactly.
+    if endpoint == "static" and "v" not in values and not values.get("filename", "").startswith("fonts/"):
+        version = _static_version(values.get("filename", ""))
+        if version:
+            values["v"] = version
+
+
+@app.after_request
+def _cache_versioned_static(response):
+    # A versioned link names one exact file, so it can be cached for a year without
+    # asking again. Unversioned links (the connector icons other apps fetch) keep
+    # Flask's default, which revalidates.
+    if http_request.endpoint == "static" and response.status_code == 200:
+        version = http_request.args.get("v")
+        if version and version == _static_version(http_request.view_args.get("filename", "")):
+            response.headers["Cache-Control"] = f"public, max-age={STATIC_MAX_AGE}, immutable"
+    return response
 
 
 @app.context_processor

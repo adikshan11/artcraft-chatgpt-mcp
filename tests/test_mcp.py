@@ -4,6 +4,7 @@
 import base64
 import json
 import os
+import re
 import subprocess
 import tempfile
 import unittest
@@ -49,6 +50,18 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         app.config.update(TESTING=True)
         self.client = app.test_client()
+
+    def test_static_links_are_versioned_and_cached(self):
+        page = self.client.get("/").data.decode()
+        match = re.search(r'src="/static/bridgecraft.svg\?v=([0-9a-f]{10})"', page)
+        self.assertIsNotNone(match)
+        cached = self.client.get(f"/static/bridgecraft.svg?v={match.group(1)}")
+        self.assertEqual(cached.headers["Cache-Control"], "public, max-age=31536000, immutable")
+        # A stale or missing version is not cached for long.
+        self.assertNotIn("immutable", self.client.get("/static/bridgecraft.svg?v=0000000000").headers.get("Cache-Control", ""))
+        self.assertNotIn("immutable", self.client.get("/static/bridgecraft.svg").headers.get("Cache-Control", ""))
+        # Font preloads keep the plain path that style.css uses.
+        self.assertIn('href="/static/fonts/archivo.woff2"', page)
 
     def test_health_endpoint(self):
         response = self.client.get("/health")
@@ -106,7 +119,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(b"<em>", response.data)
         self.assertNotIn(b'class="label', response.data)
         # The back of the phoenix carries ArtCraft's own icon.
-        self.assertIn(b'class="flip-mark" src="/static/app-icons/artcraft.svg"', response.data)
+        self.assertIn(b'class="flip-mark" src="/static/app-icons/artcraft.svg?v=', response.data)
         self.assertIn(b'class="flip"', response.data)
         for app in (b"WordCraft", b"DeckCraft", b"PdfCraft", b"PhotoCraft", b"VectorCraft",
                     b"DesignCraft", b"FigCraft", b"SoundCraft"):
