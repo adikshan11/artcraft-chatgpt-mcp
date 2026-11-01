@@ -44,12 +44,30 @@ def redact(text: str) -> str:
     return text
 
 
+def _redact_args(args):
+    """Redact strings inside a log record's arguments and keep their shape.
+
+    Uvicorn's access formatter unpacks five values (client, method, path,
+    HTTP version, status). Replacing that tuple with an empty one raises
+    ValueError on every request, after the response has already succeeded.
+    """
+    if isinstance(args, tuple):
+        return tuple(redact(item) if isinstance(item, str) else item for item in args)
+    if isinstance(args, dict):
+        return {
+            key: redact(value) if isinstance(value, str) else value
+            for key, value in args.items()
+        }
+    return args
+
+
 class RedactingFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         if getattr(record, "_redacted", False):
             return True
-        record.msg = redact(record.getMessage())
-        record.args = ()
+        if isinstance(record.msg, str):
+            record.msg = redact(record.msg)
+        record.args = _redact_args(record.args)
         if record.exc_info:
             record.exc_text = redact("".join(traceback.format_exception(*record.exc_info)))
             record.exc_info = None
@@ -63,11 +81,19 @@ def install() -> None:
     """Redact every record a handler emits, including ones that propagated."""
     if getattr(logging.Handler.handle, "_redacts", False):
         return
-    original = logging.Handler.handle
+    original_handle = logging.Handler.handle
+    original_format = logging.Formatter.format
 
     def handle(self, record):
         RedactingFilter().filter(record)
-        return original(self, record)
+        return original_handle(self, record)
+
+    def format(self, record):
+        # The formatter assembles the line the handler writes. Redact that
+        # line as well, so a secret split across the template and arguments
+        # does not survive interpolation.
+        return redact(original_format(self, record))
 
     handle._redacts = True
     logging.Handler.handle = handle
+    logging.Formatter.format = format
