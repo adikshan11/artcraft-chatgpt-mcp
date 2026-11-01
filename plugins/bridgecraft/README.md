@@ -21,7 +21,8 @@ commands or local programs.
   your browser (OAuth). The plugin never reads credentials from your computer.
 - **What it sends:** the files you choose to upload, and the requests Claude
   makes to the tools. They are stored in a private folder for your account only.
-- **How long files are kept:** files are deleted automatically after 7 days.
+- **How long files are kept:** files are deleted 7 days after the session ends,
+  and immediately if you delete them, disconnect, or close the account.
   Download links stop working after an hour.
 
 Privacy policy: https://bridgecraft.onrender.com/privacy

@@ -18,8 +18,8 @@
     tool name and its inputs, such as a file ID, a caption or a page number. We don't
     receive your conversation.</li>
   <li><strong>Request logs.</strong> Our host (Render) records each web request's time,
-    path, status and IP address to keep the service running. We don't log file contents
-    or tool inputs.</li>
+    path, status and IP address to keep the service running. Logs do not contain file
+    contents, tokens or secrets, and tool inputs are not logged.</li>
   <li><strong>Usage counts.</strong> To show on the status page how the service is used,
     we count requests by page (home, status, Studio and so on), tool calls by tool name and
     Craft app, whether each worked, and how long it took, added up by the hour. The counts
@@ -35,10 +35,16 @@
 
 <h2>Where it's kept and for how long</h2>
 <ul>
-  <li>Files are kept in a private storage bucket (S3-compatible), filed under your
-    account ID. Other users can't list or open them.</li>
-  <li>Files are deleted automatically after {{ retention_days }} days. You can delete
-    any file sooner by asking your assistant to delete it.</li>
+  <li>Files are kept in a private storage bucket (S3-compatible), under
+    <code>users/&lt;id&gt;/</code> for your account only. Other users can't list or open them.</li>
+  <li>Files are deleted {{ retention_days }} days after your session ends. Deleting a
+    file, disconnecting, or closing your account deletes them immediately.</li>
+  <li>Sign-in uses a connector token for <code>https://connect.getartcraft.com/mcp</code>.
+    Studio checks its issuer, signature, expiry, audience and scopes. That token is
+    not sent to ArtCraft or to other APIs. Studio exchanges it with the sign-in
+    service for a separate token, used only for generation and library reads, and
+    stores that token encrypted until you disconnect, close the account, or the
+    grant is revoked. It is not logged and is not sent back to your assistant.</li>
   <li>While a tool runs, Studio copies the files it needs into a temporary folder on the
     server. The folder is deleted when the tool finishes, or when a Craft app session
     closes or has been idle for a few minutes.</li>

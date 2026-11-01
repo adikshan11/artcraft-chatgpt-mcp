@@ -8,6 +8,10 @@ import json
 import os
 import re
 import time
+
+import log_redaction
+
+log_redaction.install()
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
@@ -146,6 +150,10 @@ class GitHubRequestError(RuntimeError):
 
 def github_get(path):
     token = os.environ.get("GITHUB_TOKEN")
+    from connector_auth import client_token_in_context
+    client = client_token_in_context()
+    if token and client and token == client:
+        raise GitHubRequestError("Refusing to send the connector token to GitHub.")
     headers = {
         "Accept": "application/vnd.github+json",
         "User-Agent": "BridgeCraft/1.0",
@@ -318,7 +326,7 @@ def legal_page(template):
         project_url=PROJECT_URL,
         product_url=ARTCRAFT_PRODUCT_URL,
         last_updated=LEGAL_LAST_UPDATED,
-        # Studio deletes files older than this itself (studio_mcp.sweep_expired_files_forever).
+        # Studio deletes files this many days after the session ends.
         retention_days=RETENTION_DAYS,
         max_file_mb=MAX_FILE_BYTES // 1_000_000,
         quota_mb=USER_QUOTA_BYTES // 1_000_000,
@@ -339,6 +347,28 @@ def terms():
 @app.get("/support")
 def support():
     return legal_page("support.html")
+
+
+@app.post("/account/disconnect")
+@app.post("/account/close")
+def end_account():
+    """Disconnect and account close both delete the grant and the user's files now."""
+    import connector_auth
+    from media_storage import user_id_for
+    from studio_mcp import _verifier, storage
+
+    header = http_request.headers.get("Authorization", "")
+    scheme, _, value = header.partition(" ")
+    if scheme.lower() != "bearer" or not value.strip() or _verifier is None:
+        return jsonify({"error": "Sign in required."}), 401
+    access = _verifier.verify_connector_token(value.strip())
+    if access is None or not access.subject:
+        return jsonify({"error": "Sign in required."}), 401
+    user = user_id_for((access.claims or {}).get("iss", ""), access.subject)
+    # Sync on purpose: this view runs on a worker thread, and the Craft session
+    # lock belongs to the server loop.
+    deleted = connector_auth.forget_user_files(storage(), user)
+    return jsonify({"deleted_files": deleted})
 
 
 @app.get("/status")

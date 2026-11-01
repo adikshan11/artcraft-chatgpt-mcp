@@ -298,7 +298,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
 
     def test_privacy_terms_and_support_pages(self):
         pages = {
-            "/privacy": [b"Privacy policy", b"deleted automatically after 7 days", b"not operated by Storytold"],
+            "/privacy": [b"Privacy policy", b"deleted 7 days after your session ends", b"not operated by Storytold"],
             "/terms": [b"Terms of use", b"500 MB per file", b"certified or qualified"],
             "/support": [b"Support", b"/studio", b"/issues"],
         }
@@ -313,7 +313,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
     @patch("studio_mcp.RETENTION_DAYS", 3)
     def test_support_email_and_retention_come_from_the_settings(self):
         self.assertIn(b"mailto:help@example.com", self.client.get("/support").data)
-        self.assertIn(b"deleted automatically after 3 days", self.client.get("/privacy").data)
+        self.assertIn(b"deleted 3 days after your session ends", self.client.get("/privacy").data)
 
     def test_mcp_streamable_http_mount_exists(self):
         request_body = {

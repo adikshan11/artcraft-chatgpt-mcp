@@ -116,8 +116,7 @@ class IdentityAndIsolationTests(StudioTestCase):
 
         server = studio_mcp.MCPServer(
             "t",
-            token_verifier=JwtTokenVerifier("https://idp.example", "https://site.example/studio",
-                                            "https://idp.example/jwks.json"),
+            token_verifier=JwtTokenVerifier("https://idp.example", "https://idp.example/jwks.json"),
             auth=AuthSettings(issuer_url="https://idp.example", resource_server_url="https://site.example/studio",
                               validate_token_resource=False),
         )
@@ -313,68 +312,86 @@ class RetentionTests(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp())
         self.store = LocalStorage(self.tmp / "store")
         self.addCleanup(shutil.rmtree, self.tmp)
+        self.now = datetime.now(timezone.utc)
 
     def put(self, user, media_id, age_days):
         source = self.tmp / "src.png"
         source.write_bytes(b"x")
         self.store.put_file(user, media_id, source)
         path = self.tmp / "store" / object_key(user, media_id)
-        stamp = (datetime.now(timezone.utc) - timedelta(days=age_days)).timestamp()
+        stamp = (self.now - timedelta(days=age_days)).timestamp()
         os.utime(path, (stamp, stamp))
         return path
 
-    def test_local_storage_deletes_only_old_files(self):
-        alice, bob = user_id_for("t", "alice"), user_id_for("t", "bob")
-        old = self.put(alice, f"{'a' * 32}.png", 8)
-        new = self.put(alice, f"{'b' * 32}.png", 1)
-        other_old = self.put(bob, f"{'c' * 32}.pdf", 30)
-        stray = self.tmp / "store" / "users" / alice / "media" / "notes.txt"
-        stray.write_text("not a media file")
-        os.utime(stray, (0, 0))
-        cutoff = datetime.now(timezone.utc) - timedelta(days=7)
-        self.assertEqual(self.store.delete_older_than(cutoff), 2)
-        self.assertFalse(old.exists())
-        self.assertFalse(other_old.exists())
-        self.assertTrue(new.exists())
-        self.assertTrue(stray.exists())
+    def test_files_go_seven_days_after_the_session_ends(self):
+        import connector_auth
+
+        user = user_id_for("t", "alice")
+        other = user_id_for("t", "bob")
+        gone = self.put(user, f"{'a' * 32}.png", 1)
+        kept = self.put(other, f"{'b' * 32}.png", 30)
+        ended = (self.now - timedelta(days=studio_mcp.RETENTION_DAYS + 1)).isoformat()
+        connector_auth._write_session(self.store, user, {"last_active": ended, "ended_at": ended})
+        recent = (self.now - timedelta(days=1)).isoformat()
+        connector_auth._write_session(self.store, other, {"last_active": recent, "ended_at": recent})
+        self.assertEqual(connector_auth.expire_stored_files(self.store, self.now, studio_mcp.RETENTION_DAYS, 600), 2)
+        self.assertFalse(gone.exists())
+        self.assertTrue(kept.exists())
+
+    def test_an_active_session_keeps_old_files(self):
+        import connector_auth
+
+        user = user_id_for("t", "alice")
+        kept = self.put(user, f"{'a' * 32}.png", 30)
+        connector_auth.note_activity(self.store, user, self.now)
+        self.assertEqual(connector_auth.expire_stored_files(self.store, self.now, studio_mcp.RETENTION_DAYS, 600), 0)
+        self.assertTrue(kept.exists())
 
     def test_delete_expired_files_uses_the_retention_period(self):
+        import connector_auth
+
         user = user_id_for("t", "alice")
-        kept = self.put(user, f"{'a' * 32}.png", studio_mcp.RETENTION_DAYS - 1)
-        gone = self.put(user, f"{'b' * 32}.png", studio_mcp.RETENTION_DAYS + 1)
+        ended_recent = (self.now - timedelta(days=studio_mcp.RETENTION_DAYS - 1)).isoformat()
+        ended_old = (self.now - timedelta(days=studio_mcp.RETENTION_DAYS + 1)).isoformat()
+        kept_user, gone_user = user, user_id_for("t", "bob")
+        kept = self.put(kept_user, f"{'a' * 32}.png", 30)
+        gone = self.put(gone_user, f"{'b' * 32}.png", 1)
+        connector_auth._write_session(self.store, kept_user, {"last_active": ended_recent, "ended_at": ended_recent})
+        connector_auth._write_session(self.store, gone_user, {"last_active": ended_old, "ended_at": ended_old})
         with patch("studio_mcp.storage", return_value=self.store):
-            self.assertEqual(studio_mcp.delete_expired_files(), 1)
+            self.assertEqual(studio_mcp.delete_expired_files(), 2)
         self.assertTrue(kept.exists())
         self.assertFalse(gone.exists())
 
-    def test_s3_storage_deletes_only_old_media_keys(self):
+    def test_s3_delete_user_removes_only_that_prefix(self):
         from media_storage import S3Storage
 
-        now = datetime.now(timezone.utc)
         user = user_id_for("t", "alice")
-        objects = [
-            {"Key": f"users/{user}/media/{'a' * 32}.png", "LastModified": now - timedelta(days=8)},
-            {"Key": f"users/{user}/media/{'b' * 32}.png", "LastModified": now - timedelta(days=1)},
-            {"Key": f"users/{user}/other/{'c' * 32}.png", "LastModified": now - timedelta(days=30)},
-            {"Key": f"users/not-a-user/media/{'d' * 32}.png", "LastModified": now - timedelta(days=30)},
+        other = user_id_for("t", "bob")
+        keys = [
+            f"users/{user}/media/{'a' * 32}.png",
+            f"users/{user}/grant/exchanged-token",
+            f"users/{other}/media/{'b' * 32}.png",
+            "users/not-a-user/media/nope.png",
         ]
 
         class FakeClient:
-            deleted = []
+            def __init__(self):
+                self.deleted = []
 
             def get_paginator(self, _name):
                 return self
 
             def paginate(self, Bucket, Prefix):
-                return [{"Contents": [o for o in objects if o["Key"].startswith(Prefix)]}]
+                return [{"Contents": [{"Key": key} for key in keys if key.startswith(Prefix)]}]
 
             def delete_object(self, Bucket, Key):
                 self.deleted.append(Key)
 
         store = S3Storage.__new__(S3Storage)
         store.bucket, store.client = "b", FakeClient()
-        self.assertEqual(store.delete_older_than(now - timedelta(days=7)), 1)
-        self.assertEqual(store.client.deleted, [objects[0]["Key"]])
+        self.assertEqual(store.delete_user(user), 2)
+        self.assertEqual(store.client.deleted, keys[:2])
 
 
 if __name__ == "__main__":

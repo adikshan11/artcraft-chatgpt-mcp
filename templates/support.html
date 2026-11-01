@@ -10,7 +10,11 @@
   <li><strong>ChatGPT:</strong> turn on developer mode (Settings → Apps &amp; Connectors
     → Advanced), add a connector with the same address, and sign in.</li>
 </ul>
-<p>Then ask your assistant to list your Studio files, or to import one.</p>
+<p>Then ask your assistant to list your Studio files, or to import one.
+  Asking it to disconnect, or to close your account, deletes your files and your
+  ArtCraft grant immediately. The same actions are
+  <code>POST /account/disconnect</code> and <code>POST /account/close</code> with
+  your connector token.</p>
 
 <h2>Get help</h2>
 <ul>

@@ -625,10 +625,17 @@ options (`mcp_args`) to the manifest.
 ### Deploy
 
 1. **OAuth (Auth0 shown; Clerk works the same way).** Create an API with
-   identifier `https://bridgecraft.onrender.com/studio` and RS256
-   signing. Enable *Dynamic Client Registration* and the *Resource Parameter
-   Compatibility Profile* so ChatGPT and Claude can register themselves, and
-   promote a login connection (e.g. Google, email) to a domain-level connection.
+   identifier `https://connect.getartcraft.com/mcp` and RS256 signing. Studio
+   accepts a token only when the issuer, signature, expiry, audience and the
+   `connector` scope all check out, and the audience has to be that identifier
+   exactly. Any other audience is rejected. Enable *Dynamic Client Registration*
+   and the *Resource Parameter Compatibility Profile* so ChatGPT and Claude can
+   register themselves, and promote a login connection (e.g. Google, email) to a
+   domain-level connection. The connector token is not sent to ArtCraft.
+   Generation and library reads exchange it, at the issuer only, for a separate
+   token scoped to `generation` and `library:read`. Studio stores that token
+   encrypted with `GRANT_KEY` under the user's own prefix, and deletes it on
+   disconnect, account close, or revocation.
 2. **Storage.** Either provider works; Backblaze B2 needs no card for its free
    10 GB.
    - *Backblaze B2:* create a **private** bucket, then an application key
@@ -641,14 +648,17 @@ options (`mcp_args`) to the manifest.
      `R2_SECRET_ACCESS_KEY`, and `R2_BUCKET`.
 
    Allow `GET` and `PUT` from any origin in the bucket's CORS rules (presigned
-   URLs carry their own authorization). Studio deletes files older than
-   `STUDIO_FILE_RETENTION_DAYS` (default 7) itself, at startup and every hour;
-   a bucket lifecycle rule with the same age is a good backstop.
+   URLs carry their own authorization). Studio deletes everything under
+   `users/<id>/` 7 days after the session ends (the session ends after
+   `CRAFT_IDLE_MINUTES`, default 10, without a request). Deleting a file,
+   disconnecting, or closing the account deletes immediately. The sweep runs at
+   startup and every hour. A bucket lifecycle rule of the same age is a backstop
+   for media objects.
 3. **Render.** The service builds from `Dockerfile` (includes FFmpeg). Set
    `OAUTH_ISSUER` (e.g. `https://<tenant>.us.auth0.com/`; it must match exactly, including the
-   trailing slash), `OAUTH_AUDIENCE` (the API identifier above), and the storage
-   variables in the dashboard. Long videos need more than the free plan's
-   512 MB of memory.
+   trailing slash), `GRANT_KEY` (a Fernet key; see `render.yaml`), and the storage
+   variables in the dashboard. `GRANT_KEY` is required on Render. Long videos need
+   more than the free plan's 512 MB of memory.
 4. **Connect.** In ChatGPT developer mode or Claude's custom connectors, add
    `https://bridgecraft.onrender.com/studio` and sign in.
 

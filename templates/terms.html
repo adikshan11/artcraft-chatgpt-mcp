@@ -20,8 +20,9 @@
   <li>Your files stay yours. We use them only to do what you ask; see the
     <a href="{{ url_for('privacy') }}">privacy policy</a>.</li>
   <li>Upload only files you have the right to use.</li>
-  <li>Studio is a workspace, not backup storage. Files are deleted after
-    {{ retention_days }} days, so keep your own copies.</li>
+  <li>Studio is a workspace, not backup storage. Files are deleted
+    {{ retention_days }} days after your session ends, and immediately if you delete
+    them, disconnect, or close your account. Keep your own copies.</li>
   <li>Limits: {{ max_file_mb }} MB per file and {{ quota_mb }} MB per account.</li>
 </ul>
 

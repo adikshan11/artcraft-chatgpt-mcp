@@ -13,7 +13,7 @@ import logging
 import mimetypes
 import os
 import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
@@ -27,9 +27,13 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import CallToolResult, Icon, ImageContent, TextContent, ToolAnnotations
 from pydantic import BaseModel, ConfigDict, Field
 
+import connector_auth
 import craft_sessions
+import log_redaction
 import media_engine as engine
 import usage
+
+log_redaction.install()
 from media_storage import (
     StorageError,
     media_kind,
@@ -44,11 +48,19 @@ STUDIO_PATH = "/studio"
 SITE_URL = os.environ.get("PUBLIC_BASE_URL", "https://bridgecraft.onrender.com").rstrip("/")
 MAX_FILE_BYTES = int(os.environ.get("STUDIO_MAX_FILE_MB", "500")) * 1_000_000
 USER_QUOTA_BYTES = int(os.environ.get("STUDIO_USER_QUOTA_MB", "5000")) * 1_000_000
-# The privacy policy promises this, so the server enforces it instead of relying on
-# a bucket lifecycle rule someone has to remember to set.
-RETENTION_DAYS = int(os.environ.get("STUDIO_FILE_RETENTION_DAYS", "7"))
-SWEEP_INTERVAL_SECONDS = 3600
 log = logging.getLogger(__name__)
+# Files under users/<id>/ are deleted this many days after the session ends.
+# STUDIO_FILE_RETENTION_DAYS on the host is 7. Any other value is ignored so the
+# privacy policy and the sweep stay on the same period.
+def _retention_days() -> int:
+    configured = os.environ.get("STUDIO_FILE_RETENTION_DAYS", "7").strip()
+    if configured != "7":
+        log.warning("STUDIO_FILE_RETENTION_DAYS is not 7; files are kept 7 days after the session ends.")
+    return 7
+
+
+RETENTION_DAYS = _retention_days()
+SWEEP_INTERVAL_SECONDS = 3600
 STUDIO_INSTRUCTIONS = (
     "BridgeCraft Studio edits the signed-in user's own media. Start by importing a file "
     "with import_chat_files (files attached in the chat), import_media_from_url, or "
@@ -59,61 +71,54 @@ STUDIO_INSTRUCTIONS = (
     "open_craft_session with the app and media_ids (describe_craft_tools gives full schemas "
     "when the session lists only tool names), call run_craft_tool with the app's own "
     "tools (save with the app's save tool, e.g. save_document to a new filename), then "
-    "save_craft_files to store the results and close_craft_session when done."
+    "save_craft_files to store the results and close_craft_session when done. "
+    "ArtCraft generation and library reads use the signed-in user's ArtCraft grant, "
+    "not the connector sign-in token. A paid generation starts only after the user "
+    "agrees to the price, passed as max_credits. disconnect_account and close_account "
+    "delete the user's files and that grant immediately."
 )
 
 
 class JwtTokenVerifier:
-    """Verifies OAuth JWT access tokens against the provider's JWKS."""
+    """Verifies OAuth JWT access tokens against the provider's JWKS.
 
-    def __init__(self, issuer: str, audience: str, jwks_url: str | None = None):
+    The audience is always the connector resource. A token for any other audience
+    is rejected, including when ``OAUTH_AUDIENCE`` names something else.
+    """
+
+    def __init__(self, issuer: str, jwks_url: str | None = None):
         import jwt
 
         self.issuer = issuer
-        self.audience = audience
+        self.audience = connector_auth.CONNECTOR_AUDIENCE
         self._jwks = jwt.PyJWKClient(
             jwks_url or f"{issuer.rstrip('/')}/.well-known/jwks.json", cache_keys=True, lifespan=3600
         )
 
+    def verify_connector_token(self, token: str) -> AccessToken | None:
+        try:
+            signing_key = self._jwks.get_signing_key_from_jwt(token)
+        except Exception:
+            return None
+        return connector_auth.access_token_from_jwt(token, signing_key.key, self.issuer)
+
     async def verify_token(self, token: str) -> AccessToken | None:
         import anyio.to_thread
-        import jwt
 
-        try:
-            signing_key = await anyio.to_thread.run_sync(self._jwks.get_signing_key_from_jwt, token)
-            claims = jwt.decode(
-                token,
-                signing_key.key,
-                algorithms=["RS256", "ES256", "PS256"],
-                audience=self.audience,
-                issuer=self.issuer,
-                options={"require": ["exp", "iss", "sub"]},
-            )
-        except jwt.PyJWTError:
-            return None
-        scope = claims.get("scope") or ""
-        scopes = scope.split() if isinstance(scope, str) else list(scope)
-        return AccessToken(
-            token=token,
-            client_id=str(claims.get("azp") or claims.get("client_id") or ""),
-            scopes=scopes,
-            expires_at=int(claims["exp"]),
-            subject=str(claims["sub"]),
-            claims={"iss": claims["iss"]},
-        )
+        return await anyio.to_thread.run_sync(self.verify_connector_token, token)
 
 
 def _auth_config():
     issuer = os.environ.get("OAUTH_ISSUER")
     if not issuer:
         return None, None
-    audience = os.environ.get("OAUTH_AUDIENCE", f"{SITE_URL}{STUDIO_PATH}")
-    verifier = JwtTokenVerifier(issuer, audience, os.environ.get("OAUTH_JWKS_URL"))
+    verifier = JwtTokenVerifier(issuer, os.environ.get("OAUTH_JWKS_URL"))
     settings = AuthSettings(
         issuer_url=issuer,
-        resource_server_url=f"{SITE_URL}{STUDIO_PATH}",
+        resource_server_url=connector_auth.CONNECTOR_AUDIENCE,
         service_documentation_url=SITE_URL,
-        validate_token_resource=False,
+        required_scopes=[connector_auth.CONNECTOR_SCOPE],
+        validate_token_resource=True,
     )
     return verifier, settings
 
@@ -144,11 +149,14 @@ studio = MCPServer(
 def current_user() -> str:
     token = get_access_token()
     if token is not None and token.subject:
-        return user_id_for((token.claims or {}).get("iss", ""), token.subject)
-    dev_user = os.environ.get("STUDIO_DEV_USER")
-    if dev_user and not os.environ.get("RENDER"):
-        return user_id_for("local-dev", dev_user)
-    raise ToolError("Sign in to BridgeCraft Studio to use this tool.")
+        user = user_id_for((token.claims or {}).get("iss", ""), token.subject)
+    else:
+        dev_user = os.environ.get("STUDIO_DEV_USER")
+        if not (dev_user and not os.environ.get("RENDER")):
+            raise ToolError("Sign in to BridgeCraft Studio to use this tool.")
+        user = user_id_for("local-dev", dev_user)
+    connector_auth.note_activity(storage(), user)
+    return user
 
 
 @lru_cache(maxsize=1)
@@ -157,8 +165,12 @@ def storage():
 
 
 def delete_expired_files() -> int:
-    """Delete files older than RETENTION_DAYS for every user."""
-    return storage().delete_older_than(datetime.now(timezone.utc) - timedelta(days=RETENTION_DAYS))
+    """Delete files under users/<id>/ whose session ended at least RETENTION_DAYS ago."""
+    store = storage()
+    now = datetime.now(timezone.utc)
+    deleted = connector_auth.expire_stored_files(store, now, RETENTION_DAYS, craft_sessions.IDLE_SECONDS)
+    connector_auth.sweep_expired_grants(store, now)
+    return deleted
 
 
 # The last sweep's time and outcome, for the /status page.
@@ -172,7 +184,7 @@ async def sweep_expired_files_forever():
             deleted = await asyncio.to_thread(delete_expired_files)
             last_sweep.update(at=datetime.now(timezone.utc), ok=True, deleted=deleted)
             if deleted:
-                log.info("Deleted %d files older than %d days.", deleted, RETENTION_DAYS)
+                log.info("Deleted %d files whose session ended at least %d days ago.", deleted, RETENTION_DAYS)
         except Exception:
             last_sweep.update(at=datetime.now(timezone.utc), ok=False, deleted=0)
             log.exception("Deleting expired files failed.")
@@ -1008,3 +1020,8 @@ def create_studio_app(allowed_hosts: list[str]):
         streamable_http_path=STUDIO_PATH,
         transport_security=TransportSecuritySettings(allowed_hosts=allowed_hosts),
     )
+
+
+import studio_artcraft
+
+studio_artcraft.register_artcraft_tools(studio)

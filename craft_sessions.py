@@ -392,6 +392,30 @@ class SessionManager:
             await session.client.kill()
         session.folder.cleanup()
 
+    async def close_user(self, user_id: str):
+        for session in list(self.user_sessions(user_id)):
+            await self._close(session)
+
+    def close_user_now(self, user_id: str) -> None:
+        """Stop this user's Craft apps without waiting on the server's event loop.
+
+        Disconnect and account close run from a request thread. The session lock
+        belongs to the server loop, so this only removes the sessions and kills
+        the processes.
+        """
+        for session in list(self.user_sessions(user_id)):
+            self.sessions.pop(session.id, None)
+            client = session.client
+            if client is not None and client.process.returncode is None:
+                try:
+                    os.killpg(client.process.pid, signal.SIGKILL)
+                except (ProcessLookupError, PermissionError, OSError):
+                    pass
+            try:
+                session.folder.cleanup()
+            except OSError:
+                pass
+
     async def close_all(self):
         for session in list(self.sessions.values()):
             await self._close(session)
