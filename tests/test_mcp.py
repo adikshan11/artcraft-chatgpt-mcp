@@ -165,7 +165,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.data.count(b'<li style="--i: '), 13)
         self.assertEqual(response.data.count(b'class="is-off"'), 5)
         self.assertIn(b"<h3 class=\"app-group-title\">Not hosted yet</h3>", response.data)
-        self.assertIn(b"My fix is in review", response.data)
+        self.assertIn(b"Merged, not in 0.19.0", response.data)
         self.assertIn(b'href="https://github.com/storytold/lightcraft"', response.data)
         # Privacy is a footer link, not a homepage section; footer links carry no arrows.
         self.assertNotIn(b'id="privacy"', response.data)
@@ -255,7 +255,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn(text, response.data)
         for app in (b"WordCraft", b"SoundCraft", b"EffectCraft", b"LightCraft"):
             self.assertIn(app, response.data)
-        self.assertIn(b"Not hosted. A project can still read footage", response.data)
+        self.assertIn(b"Not hosted. storytold/effectcraft#2719 is merged.", response.data)
         self.assertIn(b'href="https://github.com/storytold/cadcraft/pull/1904"', response.data)
         self.assertIn(b'data-theme-toggle', response.data)
 

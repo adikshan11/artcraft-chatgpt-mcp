@@ -579,7 +579,8 @@ shared server:
   trust.
 - **EffectCraft 0.19.0** refuses every path outside the folder that it's given,
   but a project inside the folder can still name footage outside it, and
-  rendering shows that footage. The fix is storytold/effectcraft#2719.
+  rendering shows that footage. storytold/effectcraft#2719 fixes that on main
+  and is not in the 0.19.0 release, so Studio does not host this build.
 - A shared folder lock and escape tests for every app are proposed in
   [storytold/craft-contrib#22](https://github.com/storytold/craft-contrib/pull/22).
 - **AniCraft** has no command-line or MCP server yet.

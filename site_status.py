@@ -19,8 +19,8 @@ from media_storage import S3Storage, StorageError
 # upstream pull requests that would let me host them.
 _NO_LOCK = "Its command-line build can't be locked to one user's folder yet. The open pull requests below add that lock."
 NOT_HOSTED_APPS = [
-    {"name": "effectcraft", "title": "EffectCraft", "short": "My fix is in review",
-     "reason": "A project can still read footage from outside the user's folder. My fix is in review upstream.",
+    {"name": "effectcraft", "title": "EffectCraft", "short": "Merged, not in 0.19.0",
+     "reason": "storytold/effectcraft#2719 is merged. The 0.19.0 download can still show footage from outside the folder, so Studio does not host it yet.",
      "prs": [2719]},
     {"name": "filmcraft", "title": "FilmCraft", "short": "Folder lock in review", "reason": _NO_LOCK, "prs": [1657]},
     {"name": "cadcraft", "title": "CADCraft", "short": "Folder lock in review", "reason": _NO_LOCK, "prs": [1904]},
