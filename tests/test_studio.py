@@ -228,6 +228,7 @@ class VideoTests(StudioTestCase):
             engine.probe(playlist)
 
 
+
 class ChatFileTests(StudioTestCase):
     def fake_fetch(self, content: bytes):
         def fetch(url, target, max_bytes):
