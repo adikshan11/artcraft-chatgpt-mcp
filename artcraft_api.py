@@ -37,6 +37,10 @@ class ArtCraftAPIError(RuntimeError):
     """The ArtCraft API request failed or returned an invalid response."""
 
 
+class ArtCraftRevoked(ArtCraftAPIError):
+    """ArtCraft rejected the exchanged grant. The connector token was not sent."""
+
+
 class _NoRedirectHandler(request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         raise error.HTTPError(req.full_url, code, msg, headers, fp)
@@ -130,7 +134,18 @@ def _macos_keychain_password(account: str) -> str | None:
     return None
 
 
-def _http_error_message(exc: error.HTTPError) -> str:
+def _reject_connector_token(bearer: str) -> None:
+    """The MCP client token authenticates the connector only. It is not an ArtCraft credential."""
+    from connector_auth import GrantError, client_token_in_context
+
+    client = client_token_in_context()
+    if client and bearer == client:
+        raise GrantError("Refusing to send the connector token to ArtCraft.")
+
+
+def _http_error_message(exc: error.HTTPError, *, exchanged: bool) -> str:
+    if exc.code == 401 and exchanged:
+        raise ArtCraftRevoked("ArtCraft rejected the grant. Sign in again.")
     if exc.code == 401:
         return "ArtCraft rejected the API key. Check that it is valid and enabled."
     if exc.code == 402:
@@ -154,11 +169,19 @@ def _http_error_message(exc: error.HTTPError) -> str:
     return f"ArtCraft API request failed with HTTP {exc.code}."
 
 
-def _request_json(path: str, method: str, payload: dict | None = None, auth: bool = True) -> dict:
+def _request_json(path: str, method: str, payload: dict | None = None, auth: bool = True, *,
+                  bearer: str | None = None) -> dict:
     data = json.dumps(payload).encode("utf-8") if payload is not None else None
     headers = {"Accept": "application/json", "User-Agent": USER_AGENT}
     if auth:
-        headers["Authorization"] = f"Bearer {get_api_key()}"
+        from connector_auth import GrantError
+
+        token = bearer if bearer is not None else get_api_key()
+        try:
+            _reject_connector_token(token)
+        except GrantError as exc:
+            raise ArtCraftAPIError(str(exc)) from None
+        headers["Authorization"] = f"Bearer {token}"
     if data is not None:
         headers["Content-Type"] = "application/json"
     req = request.Request(
@@ -168,8 +191,10 @@ def _request_json(path: str, method: str, payload: dict | None = None, auth: boo
         opener = request.build_opener(_NoRedirectHandler())
         with opener.open(req, timeout=30) as response:
             result = json.loads(response.read())
+    except ArtCraftRevoked:
+        raise
     except error.HTTPError as exc:
-        raise ArtCraftAPIError(_http_error_message(exc)) from exc
+        raise ArtCraftAPIError(_http_error_message(exc, exchanged=bearer is not None)) from exc
     except (error.URLError, TimeoutError) as exc:
         raise ArtCraftAPIError("Could not reach the ArtCraft API.") from exc
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
@@ -197,6 +222,27 @@ def _check_option(name: str, value: str | None) -> str | None:
     if value is not None and not OPTION_PATTERN.fullmatch(value):
         raise ArtCraftAPIError(f"{name} must be one of the option names from list_artcraft_models.")
     return value
+
+
+def list_library(bearer: str) -> dict:
+    """The signed-in user's saved ArtCraft projects. Uses the exchanged token only."""
+    result = _request_json("/v1/media_files/project/list", "GET", bearer=bearer)
+    rows = result.get("results")
+    if result.get("success") is not True or not isinstance(rows, list):
+        raise ArtCraftAPIError("ArtCraft did not return a library list.")
+    items = []
+    for entry in rows[:50]:
+        if not isinstance(entry, dict):
+            continue
+        title = entry.get("maybe_title") if isinstance(entry.get("maybe_title"), str) else ""
+        items.append({
+            "media_token": entry.get("token") if isinstance(entry.get("token"), str) else "",
+            "title": title[:200],
+            "project_type": entry.get("project_type") if isinstance(entry.get("project_type"), str) else "",
+            "media_class": entry.get("media_class") if isinstance(entry.get("media_class"), str) else "",
+            "created_at": entry.get("created_at") if isinstance(entry.get("created_at"), str) else "",
+        })
+    return {"items": items}
 
 
 def list_models(kind: str) -> dict:
@@ -328,6 +374,8 @@ def submit_image_generation(
     image_batch_count: int = 1,
     aspect_ratio: str | None = None,
     max_credits: int | None = None,
+    *,
+    bearer: str | None = None,
 ) -> dict:
     prompt = prompt.strip()
     model = _check_model(model, "image")
@@ -350,7 +398,7 @@ def submit_image_generation(
     }
     if aspect_ratio:
         payload["aspect_ratio"] = aspect_ratio
-    result = _request_json("/v1/omni_api/generate/image", "POST", payload)
+    result = _request_json("/v1/omni_api/generate/image", "POST", payload, bearer=bearer)
     return _submitted(result, "image", model, estimate)
 
 
@@ -363,6 +411,8 @@ def submit_video_generation(
     generate_audio: bool | None = None,
     start_frame_image_url: str | None = None,
     max_credits: int | None = None,
+    *,
+    bearer: str | None = None,
 ) -> dict:
     prompt = prompt.strip()
     model = _check_model(model, "video")
@@ -398,17 +448,19 @@ def submit_video_generation(
         "/v1/omni_api/generate/video",
         "POST",
         {key: value for key, value in payload.items() if value is not None},
+        bearer=bearer,
     )
     return _submitted(result, "video", model, estimate)
 
 
-def get_job(job_token: str) -> dict:
+def get_job(job_token: str, *, bearer: str | None = None) -> dict:
     if not JOB_TOKEN_PATTERN.fullmatch(job_token):
         raise ArtCraftAPIError("Provide a valid ArtCraft job token beginning with jinf_.")
 
     result = _request_json(
         f"/v1/omni_api/job_status/job/{parse.quote(job_token, safe='')}",
         "GET",
+        bearer=bearer,
     )
     state = result.get("state")
     if result.get("success") is not True or not isinstance(state, dict):
