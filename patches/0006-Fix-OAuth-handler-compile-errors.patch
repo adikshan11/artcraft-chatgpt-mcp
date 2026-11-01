@@ -1,0 +1,70 @@
+From 7154da1d3e3bc9fd1cc8ac5b3773c6eea4f99897 Mon Sep 17 00:00:00 2001
+From: Cursor Agent <cursoragent@cursor.com>
+Date: Sun, 1 Nov 2026 15:53:53 +0000
+Subject: [PATCH] Fix OAuth handler compile errors (Acquire import, transaction
+ deref, public request types)
+
+---
+ .../src/http_server/endpoints/oauth/handlers.rs       | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/crates/service/web/storyteller_web/src/http_server/endpoints/oauth/handlers.rs b/crates/service/web/storyteller_web/src/http_server/endpoints/oauth/handlers.rs
+index bcf0bf12..a1b1ffa0 100644
+--- a/crates/service/web/storyteller_web/src/http_server/endpoints/oauth/handlers.rs
++++ b/crates/service/web/storyteller_web/src/http_server/endpoints/oauth/handlers.rs
+@@ -6,6 +6,7 @@ use actix_web::web::{Bytes, Data, Form, Json, Query};
+ use actix_web::{HttpRequest, HttpResponse};
+ use log::warn;
+ use serde::Deserialize;
++use sqlx::Acquire;
+ 
+ use mysql_queries::queries::oauth::{
+   count_oauth_clients_since, find_revoked_oauth_refresh_grant, get_oauth_client_by_token, insert_oauth_access_token, insert_oauth_authorization_code,
+@@ -27,7 +28,7 @@ use crate::http_server::user_lookup::user_session::require_user_session::require
+ use crate::state::server_state::ServerState;
+ 
+ #[derive(Deserialize)]
+-struct RegisterBody {
++pub struct RegisterBody {
+   client_name: String,
+   redirect_uris: Vec<String>,
+   token_endpoint_auth_method: Option<String>,
+@@ -37,7 +38,7 @@ struct RegisterBody {
+ }
+ 
+ #[derive(Deserialize)]
+-struct AuthorizeQuery {
++pub struct AuthorizeQuery {
+   response_type: String,
+   client_id: String,
+   redirect_uri: String,
+@@ -48,7 +49,7 @@ struct AuthorizeQuery {
+ }
+ 
+ #[derive(Deserialize)]
+-struct AuthorizeForm {
++pub struct AuthorizeForm {
+   client_id: String,
+   redirect_uri: String,
+   scope: String,
+@@ -505,7 +506,7 @@ async fn authorization_code_grant(
+     let _ = tx.commit().await;
+     return oauth_error(400, "invalid_grant", "code does not match this client");
+   }
+-  match mint_token_pair(&record.user_token, &client.token, &record.scopes, &mut tx).await {
++  match mint_token_pair(&record.user_token, &client.token, &record.scopes, &mut *tx).await {
+     Ok(response) => {
+       if let Err(err) = tx.commit().await {
+         warn!("OAuth code commit error: {:?}", err);
+@@ -570,7 +571,7 @@ async fn refresh_grant(
+   }
+   let scopes = locked.session.scopes.clone();
+   let user_token = locked.session.record.user_token.as_str().to_string();
+-  match mint_token_pair(&user_token, &client.token, &scopes, &mut tx).await {
++  match mint_token_pair(&user_token, &client.token, &scopes, &mut *tx).await {
+     Ok(response) => {
+       if let Err(err) = tx.commit().await {
+         warn!("OAuth refresh commit error: {:?}", err);
+-- 
+2.43.0
+

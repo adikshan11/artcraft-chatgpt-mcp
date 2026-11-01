@@ -6,3 +6,7 @@ This branch is not a pull request. The token cannot fork or push to those Storyt
 - `0005` applies on a fork of storytold/artcraft. It documents the Cloudflare user-agent block. It does not change the Cloudflare rule.
 - `pr-2676-library-reads.md` and `pr-196-oauth-connector.md` hold the PR titles and bodies. They follow the storytold/soundcraft#1225 format: `Fix #N: title`, then an `## Issue` section with `Closes owner/repo#N`.
 - `issue-oauth-followup.md` is the follow-up issue for the OpenAPI listing and the fixed issuer host. Open it on storytold/artcraft-services.
+
+## Build check
+
+0006 fixes four compile errors found by a real build of the series. With 0001-0006 applied, `SQLX_OFFLINE=true cargo check -p storyteller-web` passes and the 12 OAuth unit tests pass (stable Rust 1.99, `libstdc++-14-dev`, `libmysqlclient-dev`). Database migrations and the HTTP flow were not exercised against a live MySQL.
