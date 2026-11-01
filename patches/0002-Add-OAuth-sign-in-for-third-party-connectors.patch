@@ -1,0 +1,2603 @@
+From 3024778e585ea649279b71970d653106d0f92c07 Mon Sep 17 00:00:00 2001
+From: Cursor Agent <cursoragent@cursor.com>
+Date: Sun, 1 Nov 2026 14:59:56 +0000
+Subject: [PATCH] Add OAuth sign-in for third-party connectors
+
+Authorization code with PKCE, dynamic client registration, a consent page, and a page to revoke an app. Access and refresh tokens are opaque and stored as SHA-256 hashes. Generation, upload, library list, and job history accept an artcraft_oauth_at_ token when it has the scope that route needs. API keys stay unscoped. A present Authorization header does not fall through to the website cookie.
+---
+ .../down.sql                                  |   3 +
+ .../up.sql                                    |  84 ++
+ .../migrations_squashed/oauth_connector.sql   |  84 ++
+ .../database/mysql_queries/src/queries/mod.rs |   1 +
+ .../mysql_queries/src/queries/oauth/mod.rs    |   3 +
+ .../mysql_queries/src/queries/oauth/store.rs  | 478 +++++++++++
+ .../list/list_session_jobs_handler.rs         |  29 +-
+ .../by_type/common/list_session_common.rs     |  11 +-
+ ...ist_session_project_media_files_handler.rs |  12 +-
+ .../src/http_server/endpoints/mod.rs          |   1 +
+ .../http_server/endpoints/oauth/handlers.rs   | 747 ++++++++++++++++++
+ .../src/http_server/endpoints/oauth/mod.rs    |   3 +
+ .../image/omni_api_image_generate_handler.rs  |   5 +-
+ .../video/omni_api_video_generate_handler.rs  |   5 +-
+ .../batch_get_job_status_handler.rs           |   5 +-
+ .../job_status/get_job_status_handler.rs      |   5 +-
+ .../omni_upload_audio_media_file_handler.rs   |   8 +-
+ .../omni_upload_image_media_file_handler.rs   |   8 +-
+ .../omni_upload_video_media_file_handler.rs   |   8 +-
+ .../audio/omni_gen_audio_generate_handler.rs  |   2 +-
+ .../image/omni_gen_image_generate_handler.rs  |   2 +-
+ .../mesh/omni_gen_mesh_generate_handler.rs    |   2 +-
+ .../splat/omni_gen_splat_generate_handler.rs  |   2 +-
+ .../video/omni_gen_video_generate_handler.rs  |   2 +-
+ .../storyteller_web/src/http_server/mod.rs    |   1 +
+ .../src/http_server/oauth/mod.rs              |   1 +
+ .../src/http_server/oauth/protocol.rs         | 380 +++++++++
+ .../add_application_routes.rs                 |   2 +
+ .../routes/application_routes/mod.rs          |   1 +
+ .../routes/application_routes/oauth_routes.rs |  42 +
+ .../require_any_session_or_key.rs             |  40 +-
+ .../src/http_server/user_lookup/mod.rs        |   1 +
+ .../http_server/user_lookup/oauth_access.rs   | 109 +++
+ 33 files changed, 2048 insertions(+), 39 deletions(-)
+ create mode 100644 _database/sql/migrations/2026-11-01-150000-0000_create_oauth_connector/down.sql
+ create mode 100644 _database/sql/migrations/2026-11-01-150000-0000_create_oauth_connector/up.sql
+ create mode 100644 _database/sql/migrations_squashed/oauth_connector.sql
+ create mode 100644 crates/schema/database/mysql_queries/src/queries/oauth/mod.rs
+ create mode 100644 crates/schema/database/mysql_queries/src/queries/oauth/store.rs
+ create mode 100644 crates/service/web/storyteller_web/src/http_server/endpoints/oauth/handlers.rs
+ create mode 100644 crates/service/web/storyteller_web/src/http_server/endpoints/oauth/mod.rs
+ create mode 100644 crates/service/web/storyteller_web/src/http_server/oauth/mod.rs
+ create mode 100644 crates/service/web/storyteller_web/src/http_server/oauth/protocol.rs
+ create mode 100644 crates/service/web/storyteller_web/src/http_server/routes/application_routes/oauth_routes.rs
+ create mode 100644 crates/service/web/storyteller_web/src/http_server/user_lookup/oauth_access.rs
+
+diff --git a/_database/sql/migrations/2026-11-01-150000-0000_create_oauth_connector/down.sql b/_database/sql/migrations/2026-11-01-150000-0000_create_oauth_connector/down.sql
+new file mode 100644
+index 0000000..1cfa875
+--- /dev/null
++++ b/_database/sql/migrations/2026-11-01-150000-0000_create_oauth_connector/down.sql
+@@ -0,0 +1,3 @@
++DROP TABLE IF EXISTS oauth_access_tokens;
++DROP TABLE IF EXISTS oauth_authorization_codes;
++DROP TABLE IF EXISTS oauth_clients;
+diff --git a/_database/sql/migrations/2026-11-01-150000-0000_create_oauth_connector/up.sql b/_database/sql/migrations/2026-11-01-150000-0000_create_oauth_connector/up.sql
+new file mode 100644
+index 0000000..ed6bf6e
+--- /dev/null
++++ b/_database/sql/migrations/2026-11-01-150000-0000_create_oauth_connector/up.sql
+@@ -0,0 +1,84 @@
++-- noinspection SqlDialectInspectionForFile
++-- noinspection SqlNoDataSourceInspectionForFile
++-- noinspection SqlResolveForFile
++
++-- OAuth 2.1 clients, authorization codes, and access tokens for third-party
++-- connectors (ChatGPT, Claude, and other MCP clients). Secrets are stored as
++-- SHA-256 hex digests. The raw secret is returned once, at creation.
++
++CREATE TABLE oauth_clients (
++  id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
++
++  -- Public client_id. Prefix artcraft_oauth_cl_.
++  token VARCHAR(64) NOT NULL,
++
++  -- SHA-256 hex of the client secret. NULL for a public client (token_endpoint_auth_method = none).
++  client_secret_hash CHAR(64) DEFAULT NULL,
++
++  client_name VARCHAR(255) NOT NULL,
++
++  -- Exact redirect URIs, separated by newlines. No wildcards.
++  redirect_uris TEXT NOT NULL,
++
++  -- none, client_secret_post, or client_secret_basic.
++  token_endpoint_auth_method VARCHAR(32) NOT NULL,
++
++  -- Space-separated scopes this client is allowed to request.
++  allowed_scopes VARCHAR(255) NOT NULL,
++
++  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
++  maybe_revoked_at TIMESTAMP NULL,
++
++  PRIMARY KEY (id),
++  UNIQUE KEY (token),
++  KEY index_maybe_revoked_at (maybe_revoked_at)
++) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
++
++CREATE TABLE oauth_authorization_codes (
++  id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
++
++  -- SHA-256 hex of the authorization code.
++  code_hash CHAR(64) NOT NULL,
++
++  client_token VARCHAR(64) NOT NULL,
++  user_token VARCHAR(32) NOT NULL,
++  redirect_uri VARCHAR(2048) NOT NULL,
++  scopes VARCHAR(255) NOT NULL,
++  code_challenge VARCHAR(128) NOT NULL,
++  code_challenge_method VARCHAR(8) NOT NULL,
++
++  expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
++  maybe_used_at TIMESTAMP NULL,
++  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
++
++  PRIMARY KEY (id),
++  UNIQUE KEY (code_hash),
++  KEY index_client_token (client_token),
++  KEY index_user_token (user_token)
++) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
++
++CREATE TABLE oauth_access_tokens (
++  id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
++
++  -- SHA-256 hex of the access token (prefix artcraft_oauth_at_).
++  access_token_hash CHAR(64) NOT NULL,
++
++  -- SHA-256 hex of the refresh token (prefix artcraft_oauth_rt_).
++  refresh_token_hash CHAR(64) NOT NULL,
++
++  client_token VARCHAR(64) NOT NULL,
++  user_token VARCHAR(32) NOT NULL,
++  scopes VARCHAR(255) NOT NULL,
++
++  expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
++  refresh_expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
++  maybe_revoked_at TIMESTAMP NULL,
++  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
++
++  PRIMARY KEY (id),
++  UNIQUE KEY (access_token_hash),
++  UNIQUE KEY (refresh_token_hash),
++  KEY index_user_token (user_token),
++  KEY index_client_token (client_token),
++  KEY index_maybe_revoked_at (maybe_revoked_at)
++) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+diff --git a/_database/sql/migrations_squashed/oauth_connector.sql b/_database/sql/migrations_squashed/oauth_connector.sql
+new file mode 100644
+index 0000000..ed6bf6e
+--- /dev/null
++++ b/_database/sql/migrations_squashed/oauth_connector.sql
+@@ -0,0 +1,84 @@
++-- noinspection SqlDialectInspectionForFile
++-- noinspection SqlNoDataSourceInspectionForFile
++-- noinspection SqlResolveForFile
++
++-- OAuth 2.1 clients, authorization codes, and access tokens for third-party
++-- connectors (ChatGPT, Claude, and other MCP clients). Secrets are stored as
++-- SHA-256 hex digests. The raw secret is returned once, at creation.
++
++CREATE TABLE oauth_clients (
++  id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
++
++  -- Public client_id. Prefix artcraft_oauth_cl_.
++  token VARCHAR(64) NOT NULL,
++
++  -- SHA-256 hex of the client secret. NULL for a public client (token_endpoint_auth_method = none).
++  client_secret_hash CHAR(64) DEFAULT NULL,
++
++  client_name VARCHAR(255) NOT NULL,
++
++  -- Exact redirect URIs, separated by newlines. No wildcards.
++  redirect_uris TEXT NOT NULL,
++
++  -- none, client_secret_post, or client_secret_basic.
++  token_endpoint_auth_method VARCHAR(32) NOT NULL,
++
++  -- Space-separated scopes this client is allowed to request.
++  allowed_scopes VARCHAR(255) NOT NULL,
++
++  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
++  maybe_revoked_at TIMESTAMP NULL,
++
++  PRIMARY KEY (id),
++  UNIQUE KEY (token),
++  KEY index_maybe_revoked_at (maybe_revoked_at)
++) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
++
++CREATE TABLE oauth_authorization_codes (
++  id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
++
++  -- SHA-256 hex of the authorization code.
++  code_hash CHAR(64) NOT NULL,
++
++  client_token VARCHAR(64) NOT NULL,
++  user_token VARCHAR(32) NOT NULL,
++  redirect_uri VARCHAR(2048) NOT NULL,
++  scopes VARCHAR(255) NOT NULL,
++  code_challenge VARCHAR(128) NOT NULL,
++  code_challenge_method VARCHAR(8) NOT NULL,
++
++  expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
++  maybe_used_at TIMESTAMP NULL,
++  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
++
++  PRIMARY KEY (id),
++  UNIQUE KEY (code_hash),
++  KEY index_client_token (client_token),
++  KEY index_user_token (user_token)
++) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
++
++CREATE TABLE oauth_access_tokens (
++  id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
++
++  -- SHA-256 hex of the access token (prefix artcraft_oauth_at_).
++  access_token_hash CHAR(64) NOT NULL,
++
++  -- SHA-256 hex of the refresh token (prefix artcraft_oauth_rt_).
++  refresh_token_hash CHAR(64) NOT NULL,
++
++  client_token VARCHAR(64) NOT NULL,
++  user_token VARCHAR(32) NOT NULL,
++  scopes VARCHAR(255) NOT NULL,
++
++  expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
++  refresh_expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
++  maybe_revoked_at TIMESTAMP NULL,
++  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
++
++  PRIMARY KEY (id),
++  UNIQUE KEY (access_token_hash),
++  UNIQUE KEY (refresh_token_hash),
++  KEY index_user_token (user_token),
++  KEY index_client_token (client_token),
++  KEY index_maybe_revoked_at (maybe_revoked_at)
++) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+diff --git a/crates/schema/database/mysql_queries/src/queries/mod.rs b/crates/schema/database/mysql_queries/src/queries/mod.rs
+index 608b110..7f19e8b 100644
+--- a/crates/schema/database/mysql_queries/src/queries/mod.rs
++++ b/crates/schema/database/mysql_queries/src/queries/mod.rs
+@@ -23,6 +23,7 @@ pub mod health_check;
+ pub mod idepotency_tokens;
+ pub mod ip_bans;
+ pub mod mcp_sessions;
++pub mod oauth;
+ pub mod media_files;
+ pub mod media_uploads;
+ pub mod model_categories;
+diff --git a/crates/schema/database/mysql_queries/src/queries/oauth/mod.rs b/crates/schema/database/mysql_queries/src/queries/oauth/mod.rs
+new file mode 100644
+index 0000000..fca730d
+--- /dev/null
++++ b/crates/schema/database/mysql_queries/src/queries/oauth/mod.rs
+@@ -0,0 +1,3 @@
++mod store;
++
++pub use store::*;
+diff --git a/crates/schema/database/mysql_queries/src/queries/oauth/store.rs b/crates/schema/database/mysql_queries/src/queries/oauth/store.rs
+new file mode 100644
+index 0000000..cf5863c
+--- /dev/null
++++ b/crates/schema/database/mysql_queries/src/queries/oauth/store.rs
+@@ -0,0 +1,478 @@
++use sqlx::{Executor, MySql, Row};
++
++use tokens::tokens::users::UserToken;
++
++use crate::helpers::boolean_converters::{i8_to_bool, nullable_i8_to_bool_default_false};
++use crate::queries::users::api_or_web_sessions::api_or_web_session_user_record::ApiOrWebSessionUserRecord;
++
++pub struct InsertOauthClientArgs<'a> {
++  pub token: &'a str,
++  pub client_secret_hash: Option<&'a str>,
++  pub client_name: &'a str,
++  pub redirect_uris: &'a str,
++  pub token_endpoint_auth_method: &'a str,
++  pub allowed_scopes: &'a str,
++}
++
++pub struct OauthClientRecord {
++  pub token: String,
++  pub client_secret_hash: Option<String>,
++  pub client_name: String,
++  pub redirect_uris: String,
++  pub token_endpoint_auth_method: String,
++  pub allowed_scopes: String,
++}
++
++fn client_from_row(row: sqlx::mysql::MySqlRow) -> Result<OauthClientRecord, sqlx::Error> {
++  Ok(OauthClientRecord {
++    token: row.try_get("token")?,
++    client_secret_hash: row.try_get("client_secret_hash")?,
++    client_name: row.try_get("client_name")?,
++    redirect_uris: row.try_get("redirect_uris")?,
++    token_endpoint_auth_method: row.try_get("token_endpoint_auth_method")?,
++    allowed_scopes: row.try_get("allowed_scopes")?,
++  })
++}
++
++pub async fn insert_oauth_client<'c, E>(
++  args: InsertOauthClientArgs<'_>,
++  mysql_executor: E,
++) -> Result<(), sqlx::Error>
++where
++  E: Executor<'c, Database = MySql>,
++{
++  sqlx::query(
++    r#"
++INSERT INTO oauth_clients
++SET
++  token = ?,
++  client_secret_hash = ?,
++  client_name = ?,
++  redirect_uris = ?,
++  token_endpoint_auth_method = ?,
++  allowed_scopes = ?
++    "#,
++  )
++  .bind(args.token)
++  .bind(args.client_secret_hash)
++  .bind(args.client_name)
++  .bind(args.redirect_uris)
++  .bind(args.token_endpoint_auth_method)
++  .bind(args.allowed_scopes)
++  .execute(mysql_executor)
++  .await?;
++  Ok(())
++}
++
++pub async fn get_oauth_client_by_token<'c, E>(
++  token: &str,
++  mysql_executor: E,
++) -> Result<Option<OauthClientRecord>, sqlx::Error>
++where
++  E: Executor<'c, Database = MySql>,
++{
++  let row = sqlx::query(
++    r#"
++SELECT
++  token,
++  client_secret_hash,
++  client_name,
++  redirect_uris,
++  token_endpoint_auth_method,
++  allowed_scopes
++FROM oauth_clients
++WHERE token = ?
++  AND maybe_revoked_at IS NULL
++LIMIT 1
++    "#,
++  )
++  .bind(token)
++  .fetch_optional(mysql_executor)
++  .await?;
++  match row {
++    None => Ok(None),
++    Some(row) => Ok(Some(client_from_row(row)?)),
++  }
++}
++
++pub struct InsertOauthAuthorizationCodeArgs<'a> {
++  pub code_hash: &'a str,
++  pub client_token: &'a str,
++  pub user_token: &'a str,
++  pub redirect_uri: &'a str,
++  pub scopes: &'a str,
++  pub code_challenge: &'a str,
++  pub code_challenge_method: &'a str,
++  pub ttl_seconds: i64,
++}
++
++pub async fn insert_oauth_authorization_code<'c, E>(
++  args: InsertOauthAuthorizationCodeArgs<'_>,
++  mysql_executor: E,
++) -> Result<(), sqlx::Error>
++where
++  E: Executor<'c, Database = MySql>,
++{
++  sqlx::query(
++    r#"
++INSERT INTO oauth_authorization_codes
++SET
++  code_hash = ?,
++  client_token = ?,
++  user_token = ?,
++  redirect_uri = ?,
++  scopes = ?,
++  code_challenge = ?,
++  code_challenge_method = ?,
++  expires_at = DATE_ADD(NOW(), INTERVAL ? SECOND)
++    "#,
++  )
++  .bind(args.code_hash)
++  .bind(args.client_token)
++  .bind(args.user_token)
++  .bind(args.redirect_uri)
++  .bind(args.scopes)
++  .bind(args.code_challenge)
++  .bind(args.code_challenge_method)
++  .bind(args.ttl_seconds)
++  .execute(mysql_executor)
++  .await?;
++  Ok(())
++}
++
++pub struct OauthAuthorizationCodeRecord {
++  pub client_token: String,
++  pub user_token: String,
++  pub redirect_uri: String,
++  pub scopes: String,
++  pub code_challenge: String,
++  pub code_challenge_method: String,
++}
++
++/// Lock one unused, unexpired authorization code. Must run inside a transaction.
++pub async fn lock_oauth_authorization_code<'c, E>(
++  code_hash: &str,
++  mysql_executor: E,
++) -> Result<Option<OauthAuthorizationCodeRecord>, sqlx::Error>
++where
++  E: Executor<'c, Database = MySql>,
++{
++  let row = sqlx::query(
++    r#"
++SELECT
++  client_token,
++  user_token,
++  redirect_uri,
++  scopes,
++  code_challenge,
++  code_challenge_method
++FROM oauth_authorization_codes
++WHERE code_hash = ?
++  AND maybe_used_at IS NULL
++  AND expires_at > NOW()
++LIMIT 1
++FOR UPDATE
++    "#,
++  )
++  .bind(code_hash)
++  .fetch_optional(mysql_executor)
++  .await?;
++  match row {
++    None => Ok(None),
++    Some(row) => Ok(Some(OauthAuthorizationCodeRecord {
++      client_token: row.try_get("client_token")?,
++      user_token: row.try_get("user_token")?,
++      redirect_uri: row.try_get("redirect_uri")?,
++      scopes: row.try_get("scopes")?,
++      code_challenge: row.try_get("code_challenge")?,
++      code_challenge_method: row.try_get("code_challenge_method")?,
++    })),
++  }
++}
++
++pub async fn mark_oauth_authorization_code_used<'c, E>(
++  code_hash: &str,
++  mysql_executor: E,
++) -> Result<bool, sqlx::Error>
++where
++  E: Executor<'c, Database = MySql>,
++{
++  let result = sqlx::query(
++    r#"
++UPDATE oauth_authorization_codes
++SET maybe_used_at = NOW()
++WHERE code_hash = ?
++  AND maybe_used_at IS NULL
++    "#,
++  )
++  .bind(code_hash)
++  .execute(mysql_executor)
++  .await?;
++  Ok(result.rows_affected() == 1)
++}
++
++pub struct InsertOauthAccessTokenArgs<'a> {
++  pub access_token_hash: &'a str,
++  pub refresh_token_hash: &'a str,
++  pub client_token: &'a str,
++  pub user_token: &'a str,
++  pub scopes: &'a str,
++  pub access_ttl_seconds: i64,
++  pub refresh_ttl_seconds: i64,
++}
++
++pub async fn insert_oauth_access_token<'c, E>(
++  args: InsertOauthAccessTokenArgs<'_>,
++  mysql_executor: E,
++) -> Result<(), sqlx::Error>
++where
++  E: Executor<'c, Database = MySql>,
++{
++  sqlx::query(
++    r#"
++INSERT INTO oauth_access_tokens
++SET
++  access_token_hash = ?,
++  refresh_token_hash = ?,
++  client_token = ?,
++  user_token = ?,
++  scopes = ?,
++  expires_at = DATE_ADD(NOW(), INTERVAL ? SECOND),
++  refresh_expires_at = DATE_ADD(NOW(), INTERVAL ? SECOND)
++    "#,
++  )
++  .bind(args.access_token_hash)
++  .bind(args.refresh_token_hash)
++  .bind(args.client_token)
++  .bind(args.user_token)
++  .bind(args.scopes)
++  .bind(args.access_ttl_seconds)
++  .bind(args.refresh_ttl_seconds)
++  .execute(mysql_executor)
++  .await?;
++  Ok(())
++}
++
++pub struct OauthAccessSession {
++  pub record: ApiOrWebSessionUserRecord,
++  pub scopes: String,
++  pub client_token: String,
++}
++
++fn access_row_to_session(row: &sqlx::mysql::MySqlRow) -> Result<OauthAccessSession, sqlx::Error> {
++  let user_token: String = row.try_get("user_token")?;
++  Ok(OauthAccessSession {
++    record: ApiOrWebSessionUserRecord {
++      user_token: UserToken::new_from_str(&user_token),
++      username: row.try_get("username")?,
++      display_name: row.try_get("display_name")?,
++      email_address: row.try_get("email_address")?,
++      user_role_slug: row.try_get("user_role_slug")?,
++      is_banned: i8_to_bool(row.try_get("is_banned")?),
++      can_ban_users: nullable_i8_to_bool_default_false(row.try_get("can_ban_users")?),
++      maybe_feature_flags: row.try_get("maybe_feature_flags")?,
++      maybe_api_key_token: None,
++      maybe_mcp_session_token: None,
++    },
++    scopes: row.try_get("scopes")?,
++    client_token: row.try_get("client_token")?,
++  })
++}
++
++const ACCESS_COLUMNS: &str = "
++  users.token AS user_token,
++  users.username,
++  users.display_name,
++  users.email_address,
++  users.user_role_slug,
++  users.is_banned,
++  user_roles.can_ban_users,
++  users.maybe_feature_flags,
++  oauth_access_tokens.scopes,
++  oauth_access_tokens.client_token";
++
++const ACCESS_FROM: &str = "
++FROM oauth_access_tokens
++INNER JOIN users
++  ON users.token = oauth_access_tokens.user_token
++LEFT OUTER JOIN user_roles
++  ON users.user_role_slug = user_roles.slug";
++
++pub async fn get_oauth_access_session_by_hash<'c, E>(
++  access_token_hash: &str,
++  mysql_executor: E,
++) -> Result<Option<OauthAccessSession>, sqlx::Error>
++where
++  E: Executor<'c, Database = MySql>,
++{
++  let sql = format!(
++    "SELECT {ACCESS_COLUMNS}
++{ACCESS_FROM}
++WHERE oauth_access_tokens.access_token_hash = ?
++  AND oauth_access_tokens.maybe_revoked_at IS NULL
++  AND oauth_access_tokens.expires_at > NOW()
++  AND users.user_deleted_at IS NULL
++  AND users.mod_deleted_at IS NULL
++LIMIT 1"
++  );
++  let row = sqlx::query(&sql)
++    .bind(access_token_hash)
++    .fetch_optional(mysql_executor)
++    .await?;
++  match row {
++    None => Ok(None),
++    Some(row) => Ok(Some(access_row_to_session(&row)?)),
++  }
++}
++
++pub struct OauthRefreshSession {
++  pub session: OauthAccessSession,
++  pub refresh_token_hash: String,
++}
++
++pub async fn lock_oauth_refresh_session<'c, E>(
++  refresh_token_hash: &str,
++  mysql_executor: E,
++) -> Result<Option<OauthRefreshSession>, sqlx::Error>
++where
++  E: Executor<'c, Database = MySql>,
++{
++  let sql = format!(
++    "SELECT {ACCESS_COLUMNS},
++  oauth_access_tokens.refresh_token_hash
++{ACCESS_FROM}
++WHERE oauth_access_tokens.refresh_token_hash = ?
++  AND oauth_access_tokens.maybe_revoked_at IS NULL
++  AND oauth_access_tokens.refresh_expires_at > NOW()
++  AND users.user_deleted_at IS NULL
++  AND users.mod_deleted_at IS NULL
++LIMIT 1
++FOR UPDATE"
++  );
++  let row = sqlx::query(&sql)
++    .bind(refresh_token_hash)
++    .fetch_optional(mysql_executor)
++    .await?;
++  match row {
++    None => Ok(None),
++    Some(row) => Ok(Some(OauthRefreshSession {
++      refresh_token_hash: row.try_get("refresh_token_hash")?,
++      session: access_row_to_session(&row)?,
++    })),
++  }
++}
++
++pub async fn revoke_oauth_refresh_hash<'c, E>(
++  refresh_token_hash: &str,
++  mysql_executor: E,
++) -> Result<(), sqlx::Error>
++where
++  E: Executor<'c, Database = MySql>,
++{
++  sqlx::query(
++    r#"
++UPDATE oauth_access_tokens
++SET maybe_revoked_at = NOW()
++WHERE refresh_token_hash = ?
++  AND maybe_revoked_at IS NULL
++    "#,
++  )
++  .bind(refresh_token_hash)
++  .execute(mysql_executor)
++  .await?;
++  Ok(())
++}
++
++/// Revoke by either secret hash. Unknown tokens are a no-op.
++pub async fn revoke_oauth_token_hash<'c, E>(
++  token_hash: &str,
++  mysql_executor: E,
++) -> Result<(), sqlx::Error>
++where
++  E: Executor<'c, Database = MySql>,
++{
++  sqlx::query(
++    r#"
++UPDATE oauth_access_tokens
++SET maybe_revoked_at = NOW()
++WHERE maybe_revoked_at IS NULL
++  AND (access_token_hash = ? OR refresh_token_hash = ?)
++    "#,
++  )
++  .bind(token_hash)
++  .bind(token_hash)
++  .execute(mysql_executor)
++  .await?;
++  Ok(())
++}
++
++pub struct OauthGrantRecord {
++  pub client_token: String,
++  pub client_name: String,
++  pub scopes: String,
++}
++
++pub async fn list_oauth_grants_for_user<'c, E>(
++  user_token: &str,
++  mysql_executor: E,
++) -> Result<Vec<OauthGrantRecord>, sqlx::Error>
++where
++  E: Executor<'c, Database = MySql>,
++{
++  let rows = sqlx::query(
++    r#"
++SELECT
++  oauth_clients.token AS client_token,
++  oauth_clients.client_name,
++  oauth_access_tokens.scopes
++FROM oauth_access_tokens
++INNER JOIN oauth_clients
++  ON oauth_clients.token = oauth_access_tokens.client_token
++WHERE oauth_access_tokens.user_token = ?
++  AND oauth_access_tokens.maybe_revoked_at IS NULL
++  AND oauth_access_tokens.refresh_expires_at > NOW()
++ORDER BY oauth_access_tokens.id DESC
++    "#,
++  )
++  .bind(user_token)
++  .fetch_all(mysql_executor)
++  .await?;
++
++  let mut grants = Vec::new();
++  for row in rows {
++    let client_token: String = row.try_get("client_token")?;
++    if grants.iter().any(|grant: &OauthGrantRecord| grant.client_token == client_token) {
++      continue;
++    }
++    grants.push(OauthGrantRecord {
++      client_token,
++      client_name: row.try_get("client_name")?,
++      scopes: row.try_get("scopes")?,
++    });
++  }
++  Ok(grants)
++}
++
++pub async fn revoke_oauth_grants_for_client<'c, E>(
++  user_token: &str,
++  client_token: &str,
++  mysql_executor: E,
++) -> Result<(), sqlx::Error>
++where
++  E: Executor<'c, Database = MySql>,
++{
++  sqlx::query(
++    r#"
++UPDATE oauth_access_tokens
++SET maybe_revoked_at = NOW()
++WHERE user_token = ?
++  AND client_token = ?
++  AND maybe_revoked_at IS NULL
++    "#,
++  )
++  .bind(user_token)
++  .bind(client_token)
++  .execute(mysql_executor)
++  .await?;
++  Ok(())
++}
+diff --git a/crates/service/web/storyteller_web/src/http_server/endpoints/inference_job/list/list_session_jobs_handler.rs b/crates/service/web/storyteller_web/src/http_server/endpoints/inference_job/list/list_session_jobs_handler.rs
+index 446cd19..e48a1bb 100644
+--- a/crates/service/web/storyteller_web/src/http_server/endpoints/inference_job/list/list_session_jobs_handler.rs
++++ b/crates/service/web/storyteller_web/src/http_server/endpoints/inference_job/list/list_session_jobs_handler.rs
+@@ -10,6 +10,10 @@ use crate::http_server::endpoints::inference_job::utils::extractors::extract_lip
+ use crate::http_server::endpoints::inference_job::utils::extractors::extract_live_portrait_details::extract_live_portrait_details;
+ use crate::http_server::endpoints::inference_job::utils::extractors::extract_polymorphic_inference_args::extract_polymorphic_inference_args;
+ use crate::http_server::endpoints::media_files::helpers::get_media_domain::get_media_domain;
++use crate::http_server::oauth::protocol::{SCOPE_GENERATE, SCOPE_LIBRARY_READ};
++use crate::http_server::user_lookup::oauth_access::{
++  present_oauth_access, reject_unless_scope, user_api_session_from_oauth, OauthPresentation,
++};
+ use crate::http_server::user_lookup::api_keys::require_api_key_user::require_api_key_user;
+ use crate::http_server::web_utils::filter_model_name::maybe_filter_model_name;
+ use crate::http_server::web_utils::job_keepalives::write_job_keepalives;
+@@ -37,8 +41,9 @@ use utoipa::IntoParams;
+ /// List job statuses for jobs that belong to the caller.
+ ///
+ /// Accepts the website session cookie, an anonymous visitor cookie when no
+-/// `Authorization` header is present, or an ArtCraft API key. A present
+-/// `Authorization` header is only tried as an API key. This endpoint returns
++/// `Authorization` header is present, an ArtCraft API key, or an OAuth access
++/// token with `library:read` or `generate`. A present `Authorization` header
++/// does not fall through to the cookie. This endpoint returns
+ /// the last 36 hours of jobs. Jobs the user dismissed are left out.
+ ///
+ /// This returns jobs of all states: pending, started, attempt_failed,
+@@ -64,12 +69,22 @@ pub async fn list_session_jobs_handler(
+ 
+   let mut mysql_connection = server_state.mysql_pool.acquire().await?;
+ 
+-  // An Authorization header is an API key. Do not fall through to the cookie or the
+-  // anonymous visitor token: a bad key must stay a 401.
+-  let api_user = if http_request.headers().contains_key(header::AUTHORIZATION) {
+-    Some(require_api_key_user(&http_request, &mut mysql_connection).await?)
+-  } else {
++  // An Authorization header is an API key or an OAuth access token. Do not fall
++  // through to the cookie or the anonymous visitor token.
++  let authorization = http_request.headers().get(header::AUTHORIZATION).and_then(|value| value.to_str().ok());
++  let api_user = if authorization.is_none() {
+     None
++  } else {
++    match present_oauth_access(authorization, &mut mysql_connection).await? {
++      OauthPresentation::Accepted(session) => {
++        reject_unless_scope(&session, &[SCOPE_LIBRARY_READ, SCOPE_GENERATE])?;
++        Some(user_api_session_from_oauth(session))
++      }
++      OauthPresentation::Rejected => return Err(CommonWebError::NotAuthorized),
++      OauthPresentation::NotAnOauthToken => {
++        Some(require_api_key_user(&http_request, &mut mysql_connection).await?)
++      }
++    }
+   };
+ 
+   let maybe_avt_token = if api_user.is_some() {
+diff --git a/crates/service/web/storyteller_web/src/http_server/endpoints/media_files/list/by_type/common/list_session_common.rs b/crates/service/web/storyteller_web/src/http_server/endpoints/media_files/list/by_type/common/list_session_common.rs
+index 0b5af3b..92814c2 100644
+--- a/crates/service/web/storyteller_web/src/http_server/endpoints/media_files/list/by_type/common/list_session_common.rs
++++ b/crates/service/web/storyteller_web/src/http_server/endpoints/media_files/list/by_type/common/list_session_common.rs
+@@ -19,7 +19,7 @@ use crate::http_server::common_responses::media::media_links_builder::MediaLinks
+ use crate::http_server::common_responses::media::media_links_builder::VideoThumbnailInfo;
+ use crate::http_server::common_responses::user_details_lite_builder::UserDetailsLightBuilder;
+ use crate::http_server::endpoints::media_files::helpers::get_media_domain::get_media_domain;
+-use crate::http_server::user_lookup::api_or_web_session::require_api_or_web_session::require_api_or_web_session;
++use crate::http_server::user_lookup::oauth_access::require_library_user;
+ use crate::state::server_state::ServerState;
+ 
+ const DEFAULT_PAGE_SIZE: usize = 100;
+@@ -28,8 +28,9 @@ const MAX_PAGE_SIZE: usize = 1000;
+ /// List the signed-in user's media files of a single class (paginated).
+ /// The shared core of the mesh and splat list handlers.
+ ///
+-/// Accepts the website session cookie or an `Authorization` API key. A present
+-/// `Authorization` header is only tried as an API key.
++/// Accepts the website session cookie, an ArtCraft API key, or an OAuth access
++/// token with `library:read`. A present `Authorization` header does not fall
++/// through to the cookie.
+ pub async fn list_session_media_files_of_class(
+   http_request: &HttpRequest,
+   query: &ListSessionMediaFilesByTypeQueryParams,
+@@ -45,7 +46,7 @@ pub async fn list_session_media_files_of_class(
+         CommonWebError::from_error(err)
+       })?;
+ 
+-  let user_session = require_api_or_web_session(
++  let library_user = require_library_user(
+     http_request,
+     &server_state.session_checker,
+     &server_state.avt_cookie_manager,
+@@ -66,7 +67,7 @@ pub async fn list_session_media_files_of_class(
+   };
+ 
+   let results_page = list_session_media_files_by_class(ListSessionMediaFilesByClassArgs {
+-    user_token: &user_session.user_token,
++    user_token: &library_user,
+     media_class,
+     limit,
+     maybe_cursor_id,
+diff --git a/crates/service/web/storyteller_web/src/http_server/endpoints/media_files/list/list_session_project_media_files_handler.rs b/crates/service/web/storyteller_web/src/http_server/endpoints/media_files/list/list_session_project_media_files_handler.rs
+index f8e3fa6..7cae0ca 100644
+--- a/crates/service/web/storyteller_web/src/http_server/endpoints/media_files/list/list_session_project_media_files_handler.rs
++++ b/crates/service/web/storyteller_web/src/http_server/endpoints/media_files/list/list_session_project_media_files_handler.rs
+@@ -16,7 +16,7 @@ use crate::http_server::common_responses::media::media_links_builder::MediaLinks
+ use crate::http_server::common_responses::media::media_links_builder::VideoThumbnailInfo;
+ use crate::http_server::common_responses::user_details_lite_builder::UserDetailsLightBuilder;
+ use crate::http_server::endpoints::media_files::helpers::get_media_domain::get_media_domain;
+-use crate::http_server::user_lookup::api_or_web_session::require_api_or_web_session::require_api_or_web_session;
++use crate::http_server::user_lookup::oauth_access::require_library_user;
+ use crate::state::server_state::ServerState;
+ 
+ const DEFAULT_PAGE_SIZE: usize = 100;
+@@ -25,9 +25,9 @@ const MAX_PAGE_SIZE: usize = 1000;
+ /// List the signed-in user's project files (`media_class = 'project'`), such as
+ /// 3D scenes, mood boards, workflows, and video timelines (paginated).
+ ///
+-/// Accepts the website session cookie or an `Authorization` API key. A present
+-/// `Authorization` header is only tried as an API key: an unknown key is 401
+-/// and does not fall through to the cookie.
++/// Accepts the website session cookie, an ArtCraft API key, or an OAuth access
++/// token with `library:read`. A present `Authorization` header does not fall
++/// through to the cookie.
+ ///
+ /// Use `filter_project_type` to scope the results to a single project type.
+ #[utoipa::path(
+@@ -55,7 +55,7 @@ pub async fn list_session_project_media_files_handler(
+         CommonWebError::from_error(err)
+       })?;
+ 
+-  let user_session = require_api_or_web_session(
++  let library_user = require_library_user(
+     &http_request,
+     &server_state.session_checker,
+     &server_state.avt_cookie_manager,
+@@ -76,7 +76,7 @@ pub async fn list_session_project_media_files_handler(
+   };
+ 
+   let results_page = list_session_project_media_files(ListSessionProjectMediaFilesArgs {
+-    user_token: &user_session.user_token,
++    user_token: &library_user,
+     maybe_filter_project_type: query.filter_project_type,
+     limit,
+     maybe_cursor_id,
+diff --git a/crates/service/web/storyteller_web/src/http_server/endpoints/mod.rs b/crates/service/web/storyteller_web/src/http_server/endpoints/mod.rs
+index 8357e10..8dbf60b 100644
+--- a/crates/service/web/storyteller_web/src/http_server/endpoints/mod.rs
++++ b/crates/service/web/storyteller_web/src/http_server/endpoints/mod.rs
+@@ -21,6 +21,7 @@ pub mod media_files;
+ pub mod misc;
+ pub mod model_download;
+ pub mod moderation;
++pub mod oauth;
+ pub mod omni_api;
+ pub mod omni_gen;
+ pub mod prompts;
+diff --git a/crates/service/web/storyteller_web/src/http_server/endpoints/oauth/handlers.rs b/crates/service/web/storyteller_web/src/http_server/endpoints/oauth/handlers.rs
+new file mode 100644
+index 0000000..c56e3b9
+--- /dev/null
++++ b/crates/service/web/storyteller_web/src/http_server/endpoints/oauth/handlers.rs
+@@ -0,0 +1,747 @@
++use std::collections::HashMap;
++use std::sync::Arc;
++
++use actix_web::http::header;
++use actix_web::web::{Bytes, Data, Form, Json, Query};
++use actix_web::{HttpRequest, HttpResponse};
++use log::warn;
++use serde::Deserialize;
++
++use mysql_queries::queries::oauth::{
++  get_oauth_client_by_token, insert_oauth_access_token, insert_oauth_authorization_code,
++  insert_oauth_client, list_oauth_grants_for_user, lock_oauth_authorization_code,
++  lock_oauth_refresh_session, mark_oauth_authorization_code_used, revoke_oauth_grants_for_client,
++  revoke_oauth_refresh_hash, revoke_oauth_token_hash, InsertOauthAccessTokenArgs,
++  InsertOauthAuthorizationCodeArgs, InsertOauthClientArgs,
++};
++
++use crate::http_server::common_responses::common_web_error::CommonWebError;
++use crate::http_server::oauth::protocol::{
++  code_challenge_ok, html_escape, normalize_scopes, origin_matches_host, parse_basic_client,
++  pkce_s256_challenge, pkce_verifier_ok, random_token, redirect_matches, redirect_uri_allowed,
++  scopes_within, secrets_match, sha256_hex, ACCESS_TOKEN_PREFIX, ACCESS_TOKEN_TTL_SECONDS,
++  AUTH_CODE_PREFIX, AUTH_CODE_TTL_SECONDS, CLIENT_ID_PREFIX, REFRESH_TOKEN_PREFIX,
++  REFRESH_TOKEN_TTL_SECONDS,
++};
++use crate::http_server::user_lookup::user_session::require_user_session::require_user_session;
++use crate::state::server_state::ServerState;
++
++#[derive(Deserialize)]
++struct RegisterBody {
++  client_name: String,
++  redirect_uris: Vec<String>,
++  token_endpoint_auth_method: Option<String>,
++  scope: Option<String>,
++  grant_types: Option<Vec<String>>,
++  response_types: Option<Vec<String>>,
++}
++
++#[derive(Deserialize)]
++struct AuthorizeQuery {
++  response_type: String,
++  client_id: String,
++  redirect_uri: String,
++  scope: Option<String>,
++  state: Option<String>,
++  code_challenge: Option<String>,
++  code_challenge_method: Option<String>,
++}
++
++#[derive(Deserialize)]
++struct AuthorizeForm {
++  client_id: String,
++  redirect_uri: String,
++  scope: String,
++  state: String,
++  code_challenge: String,
++  code_challenge_method: String,
++  decision: String,
++}
++
++pub async fn oauth_discovery(request: HttpRequest) -> HttpResponse {
++  let origin = external_origin(&request);
++  HttpResponse::Ok().json(serde_json::json!({
++    "issuer": origin,
++    "authorization_endpoint": format!("{origin}/oauth/authorize"),
++    "token_endpoint": format!("{origin}/oauth/token"),
++    "registration_endpoint": format!("{origin}/oauth/register"),
++    "revocation_endpoint": format!("{origin}/oauth/revoke"),
++    "response_types_supported": ["code"],
++    "grant_types_supported": ["authorization_code", "refresh_token"],
++    "code_challenge_methods_supported": ["S256"],
++    "token_endpoint_auth_methods_supported": ["none", "client_secret_post", "client_secret_basic"],
++    "scopes_supported": ["generate", "library:read", "library:write"],
++  }))
++}
++
++pub async fn oauth_register(
++  body: Json<RegisterBody>,
++  server_state: Data<Arc<ServerState>>,
++) -> HttpResponse {
++  let method = body.token_endpoint_auth_method.as_deref().unwrap_or("none");
++  if !matches!(method, "none" | "client_secret_post" | "client_secret_basic") {
++    return oauth_error(400, "invalid_client_metadata", "unsupported token_endpoint_auth_method");
++  }
++  if let Some(grants) = &body.grant_types {
++    if grants.iter().any(|grant| grant != "authorization_code" && grant != "refresh_token") {
++      return oauth_error(400, "invalid_client_metadata", "unsupported grant_type");
++    }
++  }
++  if let Some(responses) = &body.response_types {
++    if responses.iter().any(|response| response != "code") {
++      return oauth_error(400, "invalid_client_metadata", "unsupported response_type");
++    }
++  }
++  let name = body.client_name.trim();
++  if name.is_empty() || name.len() > 255 {
++    return oauth_error(400, "invalid_client_metadata", "client_name is required");
++  }
++  if body.redirect_uris.is_empty() || body.redirect_uris.len() > 10 {
++    return oauth_error(400, "invalid_redirect_uri", "provide 1 to 10 redirect URIs");
++  }
++  if body.redirect_uris.iter().any(|uri| !redirect_uri_allowed(uri)) {
++    return oauth_error(400, "invalid_redirect_uri", "redirect URIs must be https, or http on localhost");
++  }
++  let scopes = match normalize_scopes(body.scope.as_deref().unwrap_or("generate library:read library:write")) {
++    Ok(scopes) => scopes,
++    Err(_) => return oauth_error(400, "invalid_client_metadata", "unknown scope"),
++  };
++
++  let client_id = random_token(CLIENT_ID_PREFIX, 26);
++  let (client_secret, client_secret_hash) = if method == "none" {
++    (None, None)
++  } else {
++    let secret = random_token("artcraft_oauth_cs_", 43);
++    let hash = sha256_hex(&secret);
++    (Some(secret), Some(hash))
++  };
++  let redirect_uris = body.redirect_uris.join("\n");
++
++  let mut connection = match server_state.mysql_pool.acquire().await {
++    Ok(connection) => connection,
++    Err(err) => {
++      warn!("OAuth register pool error: {:?}", err);
++      return oauth_error(500, "server_error", "could not store the client");
++    }
++  };
++  if let Err(err) = insert_oauth_client(
++    InsertOauthClientArgs {
++      token: &client_id,
++      client_secret_hash: client_secret_hash.as_deref(),
++      client_name: name,
++      redirect_uris: &redirect_uris,
++      token_endpoint_auth_method: method,
++      allowed_scopes: &scopes,
++    },
++    &mut *connection,
++  ).await {
++    warn!("OAuth register insert error: {:?}", err);
++    return oauth_error(500, "server_error", "could not store the client");
++  }
++
++  let mut response = serde_json::json!({
++    "client_id": client_id,
++    "client_name": name,
++    "redirect_uris": body.redirect_uris,
++    "grant_types": ["authorization_code", "refresh_token"],
++    "response_types": ["code"],
++    "token_endpoint_auth_method": method,
++    "scope": scopes,
++  });
++  if let Some(secret) = client_secret {
++    response["client_secret"] = serde_json::Value::String(secret);
++  }
++  HttpResponse::Created().json(response)
++}
++
++pub async fn oauth_authorize_get(
++  request: HttpRequest,
++  query: Query<AuthorizeQuery>,
++  server_state: Data<Arc<ServerState>>,
++) -> HttpResponse {
++  let mut connection = match server_state.mysql_pool.acquire().await {
++    Ok(connection) => connection,
++    Err(err) => {
++      warn!("OAuth authorize pool error: {:?}", err);
++      return oauth_error(500, "server_error", "could not start authorization");
++    }
++  };
++  let client = match load_client(&query.client_id, &mut *connection).await {
++    Ok(client) => client,
++    Err(response) => return response,
++  };
++  if !redirect_matches(&client.redirect_uris, &query.redirect_uri) || !redirect_uri_allowed(&query.redirect_uri) {
++    return html_page("Sign-in stopped", "<p>That redirect address is not registered for this app.</p>");
++  }
++  let state = query.state.clone().unwrap_or_default();
++  if query.response_type != "code" {
++    return redirect_error(&query.redirect_uri, "unsupported_response_type", Some(&state));
++  }
++  if state.is_empty() {
++    return redirect_error(&query.redirect_uri, "invalid_request", None);
++  }
++  let challenge = query.code_challenge.clone().unwrap_or_default();
++  let method = query.code_challenge_method.clone().unwrap_or_default();
++  if method != "S256" || !code_challenge_ok(&challenge) {
++    return redirect_error(&query.redirect_uri, "invalid_request", Some(&state));
++  }
++  let scopes = match query.scope.as_deref() {
++    Some(scope) => match normalize_scopes(scope) {
++      Ok(scopes) if scopes_within(&scopes, &client.allowed_scopes) => scopes,
++      _ => return redirect_error(&query.redirect_uri, "invalid_scope", Some(&state)),
++    },
++    None => client.allowed_scopes.clone(),
++  };
++
++  let user = match require_user_session(&request, &server_state.session_checker, &mut *connection).await {
++    Ok(user) => user,
++    Err(CommonWebError::NotAuthorized) => {
++      return html_page(
++        "Sign in to ArtCraft",
++        "<p>Sign in to ArtCraft in this browser, then reload this page to approve the app.</p>",
++      );
++    }
++    Err(err) => {
++      warn!("OAuth authorize session error: {:?}", err);
++      return oauth_error(500, "server_error", "could not read the session");
++    }
++  };
++  let _ = user;
++
++  let scope_lines = scopes.split_whitespace().map(scope_line).collect::<String>();
++  let page = format!(
++    "<p><strong>{}</strong> is asking to use your ArtCraft account.</p><ul>{}</ul>\
++     <form method=\"post\" action=\"/oauth/authorize\">\
++     <input type=\"hidden\" name=\"client_id\" value=\"{}\">\
++     <input type=\"hidden\" name=\"redirect_uri\" value=\"{}\">\
++     <input type=\"hidden\" name=\"scope\" value=\"{}\">\
++     <input type=\"hidden\" name=\"state\" value=\"{}\">\
++     <input type=\"hidden\" name=\"code_challenge\" value=\"{}\">\
++     <input type=\"hidden\" name=\"code_challenge_method\" value=\"S256\">\
++     <button type=\"submit\" name=\"decision\" value=\"approve\">Allow</button>\
++     <button type=\"submit\" name=\"decision\" value=\"deny\">Deny</button>\
++     </form>",
++    html_escape(&client.client_name),
++    scope_lines,
++    html_escape(&query.client_id),
++    html_escape(&query.redirect_uri),
++    html_escape(&scopes),
++    html_escape(&state),
++    html_escape(&challenge),
++  );
++  html_page("Allow this app", &page)
++}
++
++pub async fn oauth_authorize_post(
++  request: HttpRequest,
++  form: Form<AuthorizeForm>,
++  server_state: Data<Arc<ServerState>>,
++) -> HttpResponse {
++  if let Some(origin) = request.headers().get(header::ORIGIN).and_then(|value| value.to_str().ok()) {
++    let host = request.connection_info().host().to_string();
++    if !origin_matches_host(origin, &host) {
++      return oauth_error(400, "invalid_request", "consent came from another site");
++    }
++  }
++  let mut connection = match server_state.mysql_pool.acquire().await {
++    Ok(connection) => connection,
++    Err(err) => {
++      warn!("OAuth consent pool error: {:?}", err);
++      return oauth_error(500, "server_error", "could not finish authorization");
++    }
++  };
++  let user = match require_user_session(&request, &server_state.session_checker, &mut *connection).await {
++    Ok(user) => user,
++    Err(CommonWebError::NotAuthorized) => {
++      return html_page("Sign in to ArtCraft", "<p>Sign in to ArtCraft in this browser, then try again.</p>");
++    }
++    Err(err) => {
++      warn!("OAuth consent session error: {:?}", err);
++      return oauth_error(500, "server_error", "could not read the session");
++    }
++  };
++  let client = match load_client(&form.client_id, &mut *connection).await {
++    Ok(client) => client,
++    Err(response) => return response,
++  };
++  if !redirect_matches(&client.redirect_uris, &form.redirect_uri) {
++    return html_page("Sign-in stopped", "<p>That redirect address is not registered for this app.</p>");
++  }
++  if form.decision != "approve" {
++    return redirect_error(&form.redirect_uri, "access_denied", Some(&form.state));
++  }
++  let scopes = match normalize_scopes(&form.scope) {
++    Ok(scopes) if scopes_within(&scopes, &client.allowed_scopes) => scopes,
++    _ => return redirect_error(&form.redirect_uri, "invalid_scope", Some(&form.state)),
++  };
++  if form.code_challenge_method != "S256" || !code_challenge_ok(&form.code_challenge) {
++    return redirect_error(&form.redirect_uri, "invalid_request", Some(&form.state));
++  }
++
++  let code = random_token(AUTH_CODE_PREFIX, 43);
++  let code_hash = sha256_hex(&code);
++  if let Err(err) = insert_oauth_authorization_code(
++    InsertOauthAuthorizationCodeArgs {
++      code_hash: &code_hash,
++      client_token: &client.token,
++      user_token: user.get_user_token().as_str(),
++      redirect_uri: &form.redirect_uri,
++      scopes: &scopes,
++      code_challenge: &form.code_challenge,
++      code_challenge_method: "S256",
++      ttl_seconds: AUTH_CODE_TTL_SECONDS as i64,
++    },
++    &mut *connection,
++  ).await {
++    warn!("OAuth code insert error: {:?}", err);
++    return oauth_error(500, "server_error", "could not finish authorization");
++  }
++  let location = format!(
++    "{}{}code={}&state={}",
++    form.redirect_uri,
++    if form.redirect_uri.contains('?') { '&' } else { '?' },
++    percent_encode(&code),
++    percent_encode(&form.state),
++  );
++  HttpResponse::Found().append_header((header::LOCATION, location)).finish()
++}
++
++pub async fn oauth_token(
++  request: HttpRequest,
++  body: Bytes,
++  server_state: Data<Arc<ServerState>>,
++) -> HttpResponse {
++  let fields = match form_or_json(&request, &body) {
++    Ok(fields) => fields,
++    Err(response) => return response,
++  };
++  let grant = fields.get("grant_type").map(String::as_str).unwrap_or("");
++  let mut connection = match server_state.mysql_pool.acquire().await {
++    Ok(connection) => connection,
++    Err(err) => {
++      warn!("OAuth token pool error: {:?}", err);
++      return oauth_error(500, "server_error", "could not issue a token");
++    }
++  };
++  let client = match authenticate_client(&request, &fields, &mut *connection).await {
++    Ok(client) => client,
++    Err(response) => return response,
++  };
++  match grant {
++    "authorization_code" => authorization_code_grant(&client, &fields, &mut *connection).await,
++    "refresh_token" => refresh_grant(&client, &fields, &mut *connection).await,
++    _ => oauth_error(400, "unsupported_grant_type", "use authorization_code or refresh_token"),
++  }
++}
++
++pub async fn oauth_revoke(request: HttpRequest, body: Bytes, server_state: Data<Arc<ServerState>>) -> HttpResponse {
++  let fields = match form_or_json(&request, &body) {
++    Ok(fields) => fields,
++    Err(response) => return response,
++  };
++  let Some(token) = fields.get("token") else {
++    return HttpResponse::Ok().finish();
++  };
++  // Refuse to treat an access-token-shaped string as something else, but still
++  // hash whatever was sent. Unknown hashes revoke nothing and still return 200.
++  if !token.is_empty() {
++    let hash = sha256_hex(token);
++    let mut connection = match server_state.mysql_pool.acquire().await {
++      Ok(connection) => connection,
++      Err(err) => {
++        warn!("OAuth revoke pool error: {:?}", err);
++        return oauth_error(500, "server_error", "could not revoke the token");
++      }
++    };
++    if let Err(err) = revoke_oauth_token_hash(&hash, &mut *connection).await {
++      warn!("OAuth revoke error: {:?}", err);
++      return oauth_error(500, "server_error", "could not revoke the token");
++    }
++  }
++  HttpResponse::Ok().finish()
++}
++
++pub async fn oauth_grants_page(request: HttpRequest, server_state: Data<Arc<ServerState>>) -> HttpResponse {
++  let mut connection = match server_state.mysql_pool.acquire().await {
++    Ok(connection) => connection,
++    Err(err) => {
++      warn!("OAuth grants pool error: {:?}", err);
++      return oauth_error(500, "server_error", "could not list apps");
++    }
++  };
++  let user = match require_user_session(&request, &server_state.session_checker, &mut *connection).await {
++    Ok(user) => user,
++    Err(CommonWebError::NotAuthorized) => {
++      return html_page("Sign in to ArtCraft", "<p>Sign in to ArtCraft in this browser to see connected apps.</p>");
++    }
++    Err(err) => {
++      warn!("OAuth grants session error: {:?}", err);
++      return oauth_error(500, "server_error", "could not list apps");
++    }
++  };
++  let grants = match list_oauth_grants_for_user(user.get_user_token().as_str(), &mut *connection).await {
++    Ok(grants) => grants,
++    Err(err) => {
++      warn!("OAuth grants query error: {:?}", err);
++      return oauth_error(500, "server_error", "could not list apps");
++    }
++  };
++  if grants.is_empty() {
++    return html_page("Connected apps", "<p>No app is connected to this account.</p>");
++  }
++  let mut items = String::new();
++  for grant in grants {
++    items.push_str(&format!(
++      "<li><strong>{}</strong> ({}) <form method=\"post\" action=\"/oauth/grants/{}/revoke\"><button type=\"submit\">Revoke</button></form></li>",
++      html_escape(&grant.client_name),
++      html_escape(&grant.scopes),
++      html_escape(&grant.client_token),
++    ));
++  }
++  html_page("Connected apps", &format!("<ul>{items}</ul>"))
++}
++
++pub async fn oauth_revoke_grant(
++  request: HttpRequest,
++  path: actix_web::web::Path<String>,
++  server_state: Data<Arc<ServerState>>,
++) -> HttpResponse {
++  if let Some(origin) = request.headers().get(header::ORIGIN).and_then(|value| value.to_str().ok()) {
++    let host = request.connection_info().host().to_string();
++    if !origin_matches_host(origin, &host) {
++      return oauth_error(400, "invalid_request", "revoke came from another site");
++    }
++  }
++  let mut connection = match server_state.mysql_pool.acquire().await {
++    Ok(connection) => connection,
++    Err(err) => {
++      warn!("OAuth grant revoke pool error: {:?}", err);
++      return oauth_error(500, "server_error", "could not revoke the app");
++    }
++  };
++  let user = match require_user_session(&request, &server_state.session_checker, &mut *connection).await {
++    Ok(user) => user,
++    Err(CommonWebError::NotAuthorized) => {
++      return html_page("Sign in to ArtCraft", "<p>Sign in to ArtCraft in this browser, then try again.</p>");
++    }
++    Err(err) => {
++      warn!("OAuth grant revoke session error: {:?}", err);
++      return oauth_error(500, "server_error", "could not revoke the app");
++    }
++  };
++  let client_token = path.into_inner();
++  if let Err(err) = revoke_oauth_grants_for_client(user.get_user_token().as_str(), &client_token, &mut *connection).await {
++    warn!("OAuth grant revoke error: {:?}", err);
++    return oauth_error(500, "server_error", "could not revoke the app");
++  }
++  HttpResponse::Found().append_header((header::LOCATION, "/oauth/grants")).finish()
++}
++
++async fn authorization_code_grant(
++  client: &mysql_queries::queries::oauth::OauthClientRecord,
++  fields: &HashMap<String, String>,
++  connection: &mut sqlx::MySqlConnection,
++) -> HttpResponse {
++  let Some(code) = fields.get("code") else {
++    return oauth_error(400, "invalid_request", "code is required");
++  };
++  let Some(redirect_uri) = fields.get("redirect_uri") else {
++    return oauth_error(400, "invalid_request", "redirect_uri is required");
++  };
++  let Some(verifier) = fields.get("code_verifier") else {
++    return oauth_error(400, "invalid_request", "code_verifier is required");
++  };
++  if !pkce_verifier_ok(verifier) {
++    return oauth_error(400, "invalid_grant", "code_verifier is not valid");
++  }
++  let mut tx = match connection.begin().await {
++    Ok(tx) => tx,
++    Err(err) => {
++      warn!("OAuth code transaction error: {:?}", err);
++      return oauth_error(500, "server_error", "could not issue a token");
++    }
++  };
++  let code_hash = sha256_hex(code);
++  let record = match lock_oauth_authorization_code(&code_hash, &mut *tx).await {
++    Ok(Some(record)) => record,
++    Ok(None) => return oauth_error(400, "invalid_grant", "code is expired or already used"),
++    Err(err) => {
++      warn!("OAuth code lock error: {:?}", err);
++      return oauth_error(500, "server_error", "could not issue a token");
++    }
++  };
++  let challenge = pkce_s256_challenge(verifier);
++  let matches = record.client_token == client.token
++    && record.redirect_uri == *redirect_uri
++    && record.code_challenge == challenge
++    && record.code_challenge_method == "S256";
++  if let Err(err) = mark_oauth_authorization_code_used(&code_hash, &mut *tx).await {
++    warn!("OAuth code consume error: {:?}", err);
++    return oauth_error(500, "server_error", "could not issue a token");
++  }
++  if !matches {
++    let _ = tx.commit().await;
++    return oauth_error(400, "invalid_grant", "code does not match this client");
++  }
++  match mint_token_pair(&record.user_token, &client.token, &record.scopes, &mut tx).await {
++    Ok(response) => {
++      if let Err(err) = tx.commit().await {
++        warn!("OAuth code commit error: {:?}", err);
++        return oauth_error(500, "server_error", "could not issue a token");
++      }
++      response
++    }
++    Err(response) => response,
++  }
++}
++
++async fn refresh_grant(
++  client: &mysql_queries::queries::oauth::OauthClientRecord,
++  fields: &HashMap<String, String>,
++  connection: &mut sqlx::MySqlConnection,
++) -> HttpResponse {
++  let Some(refresh_token) = fields.get("refresh_token") else {
++    return oauth_error(400, "invalid_request", "refresh_token is required");
++  };
++  if !refresh_token.starts_with(REFRESH_TOKEN_PREFIX) {
++    return oauth_error(400, "invalid_grant", "refresh token was not recognized");
++  }
++  let mut tx = match connection.begin().await {
++    Ok(tx) => tx,
++    Err(err) => {
++      warn!("OAuth refresh transaction error: {:?}", err);
++      return oauth_error(500, "server_error", "could not refresh the token");
++    }
++  };
++  let hash = sha256_hex(refresh_token);
++  let locked = match lock_oauth_refresh_session(&hash, &mut *tx).await {
++    Ok(Some(locked)) => locked,
++    Ok(None) => return oauth_error(400, "invalid_grant", "refresh token is expired or revoked"),
++    Err(err) => {
++      warn!("OAuth refresh lock error: {:?}", err);
++      return oauth_error(500, "server_error", "could not refresh the token");
++    }
++  };
++  if locked.session.client_token != client.token {
++    return oauth_error(400, "invalid_grant", "refresh token belongs to another client");
++  }
++  if locked.session.record.is_banned {
++    return oauth_error(400, "invalid_grant", "this account cannot sign in");
++  }
++  if let Err(err) = revoke_oauth_refresh_hash(&hash, &mut *tx).await {
++    warn!("OAuth refresh revoke error: {:?}", err);
++    return oauth_error(500, "server_error", "could not refresh the token");
++  }
++  let scopes = locked.session.scopes.clone();
++  let user_token = locked.session.record.user_token.as_str().to_string();
++  match mint_token_pair(&user_token, &client.token, &scopes, &mut tx).await {
++    Ok(response) => {
++      if let Err(err) = tx.commit().await {
++        warn!("OAuth refresh commit error: {:?}", err);
++        return oauth_error(500, "server_error", "could not refresh the token");
++      }
++      response
++    }
++    Err(response) => response,
++  }
++}
++
++async fn mint_token_pair<'c, E>(
++  user_token: &str,
++  client_token: &str,
++  scopes: &str,
++  mysql_executor: E,
++) -> Result<HttpResponse, HttpResponse>
++where
++  E: sqlx::Executor<'c, Database = sqlx::MySql>,
++{
++  let access_token = random_token(ACCESS_TOKEN_PREFIX, 43);
++  let refresh_token = random_token(REFRESH_TOKEN_PREFIX, 43);
++  if let Err(err) = insert_oauth_access_token(
++    InsertOauthAccessTokenArgs {
++      access_token_hash: &sha256_hex(&access_token),
++      refresh_token_hash: &sha256_hex(&refresh_token),
++      client_token,
++      user_token,
++      scopes,
++      access_ttl_seconds: ACCESS_TOKEN_TTL_SECONDS as i64,
++      refresh_ttl_seconds: REFRESH_TOKEN_TTL_SECONDS as i64,
++    },
++    mysql_executor,
++  ).await {
++    warn!("OAuth token insert error: {:?}", err);
++    return Err(oauth_error(500, "server_error", "could not issue a token"));
++  }
++  Ok(HttpResponse::Ok().json(serde_json::json!({
++    "access_token": access_token,
++    "token_type": "Bearer",
++    "expires_in": ACCESS_TOKEN_TTL_SECONDS,
++    "refresh_token": refresh_token,
++    "scope": scopes,
++  })))
++}
++
++async fn load_client(
++  client_id: &str,
++  connection: &mut sqlx::MySqlConnection,
++) -> Result<mysql_queries::queries::oauth::OauthClientRecord, HttpResponse> {
++  match get_oauth_client_by_token(client_id, &mut *connection).await {
++    Ok(Some(client)) => Ok(client),
++    Ok(None) => Err(oauth_error(401, "invalid_client", "unknown client")),
++    Err(err) => {
++      warn!("OAuth client lookup error: {:?}", err);
++      Err(oauth_error(500, "server_error", "could not read the client"))
++    }
++  }
++}
++
++async fn authenticate_client(
++  request: &HttpRequest,
++  fields: &HashMap<String, String>,
++  connection: &mut sqlx::MySqlConnection,
++) -> Result<mysql_queries::queries::oauth::OauthClientRecord, HttpResponse> {
++  let basic = request.headers().get(header::AUTHORIZATION).and_then(|value| value.to_str().ok()).and_then(parse_basic_client);
++  let (client_id, presented_secret) = if let Some((id, secret)) = basic {
++    (id, Some(secret))
++  } else {
++    let Some(id) = fields.get("client_id").cloned() else {
++      return Err(oauth_error(401, "invalid_client", "client_id is required"));
++    };
++    (id, fields.get("client_secret").cloned())
++  };
++  let client = load_client(&client_id, connection).await?;
++  match client.token_endpoint_auth_method.as_str() {
++    "none" => {
++      if presented_secret.is_some() {
++        return Err(oauth_error(401, "invalid_client", "this client has no secret"));
++      }
++    }
++    "client_secret_basic" | "client_secret_post" => {
++      let Some(secret) = presented_secret else {
++        return Err(oauth_error(401, "invalid_client", "client_secret is required"));
++      };
++      let Some(hash) = client.client_secret_hash.as_deref() else {
++        return Err(oauth_error(401, "invalid_client", "this client has no secret"));
++      };
++      if !secrets_match(&secret, hash) {
++        return Err(oauth_error(401, "invalid_client", "client_secret was not accepted"));
++      }
++    }
++    _ => return Err(oauth_error(401, "invalid_client", "unsupported client authentication")),
++  }
++  Ok(client)
++}
++
++fn form_or_json(request: &HttpRequest, body: &Bytes) -> Result<HashMap<String, String>, HttpResponse> {
++  let content_type = request
++    .headers()
++    .get(header::CONTENT_TYPE)
++    .and_then(|value| value.to_str().ok())
++    .unwrap_or("");
++  if content_type.starts_with("application/json") {
++    let value: serde_json::Value = serde_json::from_slice(body)
++      .map_err(|_| oauth_error(400, "invalid_request", "body is not JSON"))?;
++    let Some(object) = value.as_object() else {
++      return Err(oauth_error(400, "invalid_request", "body is not a JSON object"));
++    };
++    let mut fields = HashMap::new();
++    for (key, item) in object {
++      if let Some(text) = item.as_str() {
++        fields.insert(key.clone(), text.to_string());
++      }
++    }
++    return Ok(fields);
++  }
++  let text = std::str::from_utf8(body).map_err(|_| oauth_error(400, "invalid_request", "body is not text"))?;
++  Ok(parse_form(text))
++}
++
++fn parse_form(body: &str) -> HashMap<String, String> {
++  let mut fields = HashMap::new();
++  for pair in body.split('&') {
++    if pair.is_empty() {
++      continue;
++    }
++    let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
++    fields.insert(percent_decode(key), percent_decode(value));
++  }
++  fields
++}
++
++fn percent_decode(value: &str) -> String {
++  let value = value.replace('+', " ");
++  let bytes = value.as_bytes();
++  let mut out = Vec::new();
++  let mut i = 0;
++  while i < bytes.len() {
++    if bytes[i] == b'%' && i + 2 < bytes.len() {
++      if let Ok(byte) = u8::from_str_radix(&value[i + 1..i + 3], 16) {
++        out.push(byte);
++        i += 3;
++        continue;
++      }
++    }
++    out.push(bytes[i]);
++    i += 1;
++  }
++  String::from_utf8_lossy(&out).into_owned()
++}
++
++fn percent_encode(value: &str) -> String {
++  let mut out = String::new();
++  for byte in value.bytes() {
++    if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
++      out.push(byte as char);
++    } else {
++      out.push_str(&format!("%{byte:02X}"));
++    }
++  }
++  out
++}
++
++fn oauth_error(status: u16, error: &str, description: &str) -> HttpResponse {
++  let code = actix_web::http::StatusCode::from_u16(status).unwrap_or(actix_web::http::StatusCode::BAD_REQUEST);
++  HttpResponse::build(code).json(serde_json::json!({
++    "error": error,
++    "error_description": description,
++  }))
++}
++
++fn redirect_error(redirect_uri: &str, error: &str, state: Option<&str>) -> HttpResponse {
++  let mut location = format!(
++    "{redirect_uri}{}error={}",
++    if redirect_uri.contains('?') { '&' } else { '?' },
++    percent_encode(error),
++  );
++  if let Some(state) = state {
++    if !state.is_empty() {
++      location.push_str("&state=");
++      location.push_str(&percent_encode(state));
++    }
++  }
++  HttpResponse::Found().append_header((header::LOCATION, location)).finish()
++}
++
++fn html_page(title: &str, body: &str) -> HttpResponse {
++  let title = html_escape(title);
++  HttpResponse::Ok()
++    .content_type("text/html; charset=utf-8")
++    .body(format!(
++      "<!doctype html><html><head><meta charset=\"utf-8\"><title>{title}</title></head><body><h1>{title}</h1>{body}</body></html>"
++    ))
++}
++
++fn scope_line(scope: &str) -> String {
++  let text = match scope {
++    "generate" => "Spend your credits on generation.",
++    "library:read" => "Read your projects, meshes, splats, and jobs.",
++    "library:write" => "Upload files to your library.",
++    _ => "Use your account.",
++  };
++  format!("<li>{}</li>", html_escape(text))
++}
++
++fn external_origin(request: &HttpRequest) -> String {
++  let info = request.connection_info();
++  format!("{}://{}", info.scheme(), info.host())
++}
+diff --git a/crates/service/web/storyteller_web/src/http_server/endpoints/oauth/mod.rs b/crates/service/web/storyteller_web/src/http_server/endpoints/oauth/mod.rs
+new file mode 100644
+index 0000000..2ed7b74
+--- /dev/null
++++ b/crates/service/web/storyteller_web/src/http_server/endpoints/oauth/mod.rs
+@@ -0,0 +1,3 @@
++mod handlers;
++
++pub use handlers::*;
+diff --git a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/generate/image/omni_api_image_generate_handler.rs b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/generate/image/omni_api_image_generate_handler.rs
+index 243ef8c..9e21e5a 100644
+--- a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/generate/image/omni_api_image_generate_handler.rs
++++ b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/generate/image/omni_api_image_generate_handler.rs
+@@ -39,7 +39,8 @@ use crate::http_server::endpoints::omni_api::generate::image::insert_db_job::ins
+ use crate::http_server::endpoints::omni_api::generate::image::insert_db_job::shared_job_args::SharedJobArgs;
+ use crate::http_server::endpoints::omni_api::generate::image::pipeline_v2::run_pipeline_v2::{run_pipeline_v2, RunPipelineV2Args};
+ use crate::http_server::endpoints::omni_api::shared_utils::kinovi_account::KinoviAccount;
+-use crate::http_server::user_lookup::api_keys::require_api_key_user::require_api_key_user;
++use crate::http_server::oauth::protocol::SCOPE_GENERATE;
++use crate::http_server::user_lookup::oauth_access::require_api_key_or_oauth_scope;
+ use crate::http_server::user_lookup::user_session::session_utils::lookup::user_session_feature_flags::UserSessionFeatureFlags;
+ use crate::http_server::validations::validate_idempotency_token_format::validate_idempotency_token_format;
+ use crate::state::server_state::ServerState;
+@@ -83,7 +84,7 @@ pub async fn omni_api_image_generate_handler(
+   let mut mysql_connection = server_state.mysql_pool.acquire().await?;
+ 
+   // API-key authentication (Authorization header) instead of a session cookie. Never cached.
+-  let api_session = require_api_key_user(&http_request, &mut *mysql_connection).await?;
++  let api_session = require_api_key_or_oauth_scope(&http_request, &mut *mysql_connection, &[SCOPE_GENERATE]).await?;
+ 
+   let user_token = &api_session.user_token;
+ 
+diff --git a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/generate/video/omni_api_video_generate_handler.rs b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/generate/video/omni_api_video_generate_handler.rs
+index fad6784..0b4c77d 100644
+--- a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/generate/video/omni_api_video_generate_handler.rs
++++ b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/generate/video/omni_api_video_generate_handler.rs
+@@ -18,7 +18,8 @@ use crate::http_server::endpoints::omni_api::shared_utils::video::validate_video
+ use crate::http_server::endpoints::omni_gen::generate::video::shared_video_generation::{
+   run_authenticated_video_generation, VideoGenerationAuth,
+ };
+-use crate::http_server::user_lookup::api_keys::require_api_key_user::require_api_key_user;
++use crate::http_server::oauth::protocol::SCOPE_GENERATE;
++use crate::http_server::user_lookup::oauth_access::require_api_key_or_oauth_scope;
+ use crate::state::server_state::ServerState;
+ 
+ /// Generate a video using the omni-api unified endpoint (API-key authenticated).
+@@ -66,7 +67,7 @@ pub async fn omni_api_video_generate_handler(
+ 
+   // API-key authentication (Authorization header) ONLY — never a web
+   // session. Web/session callers use /v1/omni_gen/generate/video.
+-  let api_session = require_api_key_user(&http_request, &mut *mysql_connection).await?;
++  let api_session = require_api_key_or_oauth_scope(&http_request, &mut *mysql_connection, &[SCOPE_GENERATE]).await?;
+ 
+   let ip_address = get_request_ip(&http_request);
+ 
+diff --git a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/job_status/batch_get_job_status_handler.rs b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/job_status/batch_get_job_status_handler.rs
+index a136133..128481a 100644
+--- a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/job_status/batch_get_job_status_handler.rs
++++ b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/job_status/batch_get_job_status_handler.rs
+@@ -15,7 +15,8 @@ use crate::http_server::common_responses::common_web_error::CommonWebError;
+ use crate::http_server::common_responses::media::media_domain::MediaDomain;
+ use crate::http_server::endpoints::media_files::helpers::get_media_domain::get_media_domain;
+ use crate::http_server::endpoints::omni_api::job_status::record_to_payload::record_to_payload;
+-use crate::http_server::user_lookup::api_keys::require_api_key_user::require_api_key_user;
++use crate::http_server::oauth::protocol::{SCOPE_GENERATE, SCOPE_LIBRARY_READ};
++use crate::http_server::user_lookup::oauth_access::require_api_key_or_oauth_scope;
+ use crate::http_server::web_utils::job_keepalives::write_job_keepalives;
+ use crate::state::server_state::ServerState;
+ 
+@@ -47,7 +48,7 @@ pub async fn omni_api_batch_get_job_status_handler(
+   // banned owner is rejected inside `require_api_key_user`. Drop the connection before the job
+   // lookups below so we don't hold a pool slot idle.
+   let mut mysql_connection = server_state.mysql_pool.acquire().await?;
+-  require_api_key_user(&http_request, &mut *mysql_connection).await?;
++  require_api_key_or_oauth_scope(&http_request, &mut *mysql_connection, &[SCOPE_GENERATE, SCOPE_LIBRARY_READ]).await?;
+   drop(mysql_connection);
+ 
+   let tokens = query.tokens.iter()
+diff --git a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/job_status/get_job_status_handler.rs b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/job_status/get_job_status_handler.rs
+index d0d054f..ea03c6f 100644
+--- a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/job_status/get_job_status_handler.rs
++++ b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/job_status/get_job_status_handler.rs
+@@ -10,7 +10,8 @@ use mysql_queries::queries::generic_inference::web::get_inference_job_status::ge
+ use crate::http_server::common_responses::common_web_error::CommonWebError;
+ use crate::http_server::endpoints::media_files::helpers::get_media_domain::get_media_domain;
+ use crate::http_server::endpoints::omni_api::job_status::record_to_payload::record_to_payload;
+-use crate::http_server::user_lookup::api_keys::require_api_key_user::require_api_key_user;
++use crate::http_server::oauth::protocol::{SCOPE_GENERATE, SCOPE_LIBRARY_READ};
++use crate::http_server::user_lookup::oauth_access::require_api_key_or_oauth_scope;
+ use crate::http_server::web_utils::job_keepalives::write_job_keepalives;
+ use crate::state::server_state::ServerState;
+ 
+@@ -43,7 +44,7 @@ pub async fn omni_api_get_job_status_handler(
+   // banned owner is rejected inside `require_api_key_user`. Drop the connection before the job
+   // lookups below so we don't hold a pool slot idle.
+   let mut mysql_connection = server_state.mysql_pool.acquire().await?;
+-  require_api_key_user(&http_request, &mut *mysql_connection).await?;
++  require_api_key_or_oauth_scope(&http_request, &mut *mysql_connection, &[SCOPE_GENERATE, SCOPE_LIBRARY_READ]).await?;
+   drop(mysql_connection);
+ 
+   if path.token.as_str().trim() == "None" {
+diff --git a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/upload/omni_upload_audio_media_file_handler.rs b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/upload/omni_upload_audio_media_file_handler.rs
+index 02653eb..402b880 100644
+--- a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/upload/omni_upload_audio_media_file_handler.rs
++++ b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/upload/omni_upload_audio_media_file_handler.rs
+@@ -28,7 +28,8 @@ use mysql_queries::queries::media_files::create::specialized_insert::insert_medi
+ use crate::http_server::common_responses::common_web_error::CommonWebError;
+ use crate::http_server::endpoints::media_files::upload::upload_error::MediaFileUploadError;
+ use crate::http_server::endpoints::media_files::upload::common_utils::try_parse_generation_provider::try_parse_generation_provider;
+-use crate::http_server::user_lookup::api_keys::require_api_key_user::require_api_key_user;
++use crate::http_server::oauth::protocol::SCOPE_LIBRARY_WRITE;
++use crate::http_server::user_lookup::oauth_access::require_api_key_or_oauth_scope;
+ use crate::http_server::validations::validate_idempotency_token_format::validate_idempotency_token_format;
+ use crate::state::server_state::ServerState;
+ 
+@@ -121,7 +122,7 @@ pub async fn omni_upload_audio_media_file_handler(
+ 
+   // API-key authentication (Authorization header) instead of a session cookie. Never cached, and a
+   // banned owner is rejected inside `require_api_key_user`.
+-  let api_session = require_api_key_user(&http_request, &mut *mysql_connection)
++  let api_session = require_api_key_or_oauth_scope(&http_request, &mut *mysql_connection, &[SCOPE_LIBRARY_WRITE])
+       .await
+       .map_err(map_api_key_auth_error)?;
+ 
+@@ -329,6 +330,9 @@ fn map_api_key_auth_error(err: CommonWebError) -> MediaFileUploadError {
+     CommonWebError::NotAuthorized => {
+       MediaFileUploadError::NotAuthorizedVerbose("invalid or missing API key".to_string())
+     }
++    CommonWebError::Forbidden => {
++      MediaFileUploadError::NotAuthorizedVerbose("token is missing the required scope".to_string())
++    }
+     _ => MediaFileUploadError::ServerError,
+   }
+ }
+diff --git a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/upload/omni_upload_image_media_file_handler.rs b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/upload/omni_upload_image_media_file_handler.rs
+index d871b20..9bcc2e0 100644
+--- a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/upload/omni_upload_image_media_file_handler.rs
++++ b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/upload/omni_upload_image_media_file_handler.rs
+@@ -29,7 +29,8 @@ use tokens::tokens::prompts::PromptToken;
+ use crate::http_server::common_responses::common_web_error::CommonWebError;
+ use crate::http_server::endpoints::media_files::upload::upload_error::MediaFileUploadError;
+ use crate::http_server::endpoints::media_files::upload::common_utils::try_parse_generation_provider::try_parse_generation_provider;
+-use crate::http_server::user_lookup::api_keys::require_api_key_user::require_api_key_user;
++use crate::http_server::oauth::protocol::SCOPE_LIBRARY_WRITE;
++use crate::http_server::user_lookup::oauth_access::require_api_key_or_oauth_scope;
+ use crate::http_server::validations::validate_idempotency_token_format::validate_idempotency_token_format;
+ use crate::state::server_state::ServerState;
+ 
+@@ -132,7 +133,7 @@ pub async fn omni_upload_image_media_file_handler(
+ 
+   // API-key authentication (Authorization header) instead of a session cookie. Never cached, and a
+   // banned owner is rejected inside `require_api_key_user`.
+-  let api_session = require_api_key_user(&http_request, &mut *mysql_connection)
++  let api_session = require_api_key_or_oauth_scope(&http_request, &mut *mysql_connection, &[SCOPE_LIBRARY_WRITE])
+       .await
+       .map_err(map_api_key_auth_error)?;
+ 
+@@ -334,6 +335,9 @@ fn map_api_key_auth_error(err: CommonWebError) -> MediaFileUploadError {
+     CommonWebError::NotAuthorized => {
+       MediaFileUploadError::NotAuthorizedVerbose("invalid or missing API key".to_string())
+     }
++    CommonWebError::Forbidden => {
++      MediaFileUploadError::NotAuthorizedVerbose("token is missing the required scope".to_string())
++    }
+     _ => MediaFileUploadError::ServerError,
+   }
+ }
+diff --git a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/upload/omni_upload_video_media_file_handler.rs b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/upload/omni_upload_video_media_file_handler.rs
+index 0a8be54..19ca568 100644
+--- a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/upload/omni_upload_video_media_file_handler.rs
++++ b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_api/upload/omni_upload_video_media_file_handler.rs
+@@ -36,7 +36,8 @@ use tokens::tokens::prompts::PromptToken;
+ use crate::http_server::common_responses::common_web_error::CommonWebError;
+ use crate::http_server::endpoints::media_files::upload::upload_error::MediaFileUploadError;
+ use crate::http_server::endpoints::media_files::upload::common_utils::try_parse_generation_provider::try_parse_generation_provider;
+-use crate::http_server::user_lookup::api_keys::require_api_key_user::require_api_key_user;
++use crate::http_server::oauth::protocol::SCOPE_LIBRARY_WRITE;
++use crate::http_server::user_lookup::oauth_access::require_api_key_or_oauth_scope;
+ use crate::http_server::validations::validate_idempotency_token_format::validate_idempotency_token_format;
+ use crate::state::server_state::ServerState;
+ 
+@@ -153,7 +154,7 @@ pub async fn omni_upload_video_media_file_handler(
+ 
+   // API-key authentication (Authorization header) instead of a session cookie. Never cached, and a
+   // banned owner is rejected inside `require_api_key_user`.
+-  let api_session = require_api_key_user(&http_request, &mut *mysql_connection)
++  let api_session = require_api_key_or_oauth_scope(&http_request, &mut *mysql_connection, &[SCOPE_LIBRARY_WRITE])
+       .await
+       .map_err(map_api_key_auth_error)?;
+ 
+@@ -518,6 +519,9 @@ fn map_api_key_auth_error(err: CommonWebError) -> MediaFileUploadError {
+     CommonWebError::NotAuthorized => {
+       MediaFileUploadError::NotAuthorizedVerbose("invalid or missing API key".to_string())
+     }
++    CommonWebError::Forbidden => {
++      MediaFileUploadError::NotAuthorizedVerbose("token is missing the required scope".to_string())
++    }
+     _ => MediaFileUploadError::ServerError,
+   }
+ }
+diff --git a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_gen/generate/audio/omni_gen_audio_generate_handler.rs b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_gen/generate/audio/omni_gen_audio_generate_handler.rs
+index 49480cf..de3f091 100644
+--- a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_gen/generate/audio/omni_gen_audio_generate_handler.rs
++++ b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_gen/generate/audio/omni_gen_audio_generate_handler.rs
+@@ -223,7 +223,7 @@ server_state.maybe_media_cdn_override_url.as_deref(),
+   // ==================== WRITE RESULT ==================== //
+ 
+   let maybe_platform_type = match session.session_type {
+-    AnySessionType::Api => Some(PlatformType::ApiKey),
++    AnySessionType::Api | AnySessionType::Oauth => Some(PlatformType::ApiKey),
+     AnySessionType::McpSession => Some(PlatformType::Mcp),
+     AnySessionType::WebSession => get_request_platform_type(&http_request),
+   };
+diff --git a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_gen/generate/image/omni_gen_image_generate_handler.rs b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_gen/generate/image/omni_gen_image_generate_handler.rs
+index 0d60732..af66973 100644
+--- a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_gen/generate/image/omni_gen_image_generate_handler.rs
++++ b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_gen/generate/image/omni_gen_image_generate_handler.rs
+@@ -214,7 +214,7 @@ server_state.maybe_media_cdn_override_url.as_deref(),
+   // ==================== WRITE RESULT ==================== //
+ 
+   let maybe_platform_type = match session.session_type {
+-    AnySessionType::Api => Some(PlatformType::ApiKey),
++    AnySessionType::Api | AnySessionType::Oauth => Some(PlatformType::ApiKey),
+     AnySessionType::McpSession => Some(PlatformType::Mcp),
+     AnySessionType::WebSession => get_request_platform_type(&http_request),
+   };
+diff --git a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_gen/generate/mesh/omni_gen_mesh_generate_handler.rs b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_gen/generate/mesh/omni_gen_mesh_generate_handler.rs
+index ebbc9bc..d881306 100644
+--- a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_gen/generate/mesh/omni_gen_mesh_generate_handler.rs
++++ b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_gen/generate/mesh/omni_gen_mesh_generate_handler.rs
+@@ -210,7 +210,7 @@ server_state.maybe_media_cdn_override_url.as_deref(),
+   // ==================== WRITE RESULT ==================== //
+ 
+   let maybe_platform_type = match session.session_type {
+-    AnySessionType::Api => Some(PlatformType::ApiKey),
++    AnySessionType::Api | AnySessionType::Oauth => Some(PlatformType::ApiKey),
+     AnySessionType::McpSession => Some(PlatformType::Mcp),
+     AnySessionType::WebSession => get_request_platform_type(&http_request),
+   };
+diff --git a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_gen/generate/splat/omni_gen_splat_generate_handler.rs b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_gen/generate/splat/omni_gen_splat_generate_handler.rs
+index f7acee2..662aefc 100644
+--- a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_gen/generate/splat/omni_gen_splat_generate_handler.rs
++++ b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_gen/generate/splat/omni_gen_splat_generate_handler.rs
+@@ -215,7 +215,7 @@ server_state.maybe_media_cdn_override_url.as_deref(),
+   // ==================== WRITE RESULT ==================== //
+ 
+   let maybe_platform_type = match session.session_type {
+-    AnySessionType::Api => Some(PlatformType::ApiKey),
++    AnySessionType::Api | AnySessionType::Oauth => Some(PlatformType::ApiKey),
+     AnySessionType::McpSession => Some(PlatformType::Mcp),
+     AnySessionType::WebSession => get_request_platform_type(&http_request),
+   };
+diff --git a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_gen/generate/video/omni_gen_video_generate_handler.rs b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_gen/generate/video/omni_gen_video_generate_handler.rs
+index 26fbdfa..7bc855c 100644
+--- a/crates/service/web/storyteller_web/src/http_server/endpoints/omni_gen/generate/video/omni_gen_video_generate_handler.rs
++++ b/crates/service/web/storyteller_web/src/http_server/endpoints/omni_gen/generate/video/omni_gen_video_generate_handler.rs
+@@ -65,7 +65,7 @@ pub async fn omni_gen_video_generate_handler(
+   ).await?;
+ 
+   let maybe_platform_type = match session.session_type {
+-    AnySessionType::Api => Some(PlatformType::ApiKey),
++    AnySessionType::Api | AnySessionType::Oauth => Some(PlatformType::ApiKey),
+     AnySessionType::McpSession => Some(PlatformType::Mcp),
+     AnySessionType::WebSession => get_request_platform_type(&http_request),
+   };
+diff --git a/crates/service/web/storyteller_web/src/http_server/mod.rs b/crates/service/web/storyteller_web/src/http_server/mod.rs
+index 2bc90b5..5436509 100644
+--- a/crates/service/web/storyteller_web/src/http_server/mod.rs
++++ b/crates/service/web/storyteller_web/src/http_server/mod.rs
+@@ -3,6 +3,7 @@ pub mod common_responses;
+ pub mod endpoint_helpers;
+ pub mod deprecated_endpoints;
+ pub mod endpoints;
++pub mod oauth;
+ pub mod middleware;
+ pub mod requests;
+ pub mod routes;
+diff --git a/crates/service/web/storyteller_web/src/http_server/oauth/mod.rs b/crates/service/web/storyteller_web/src/http_server/oauth/mod.rs
+new file mode 100644
+index 0000000..1b800ec
+--- /dev/null
++++ b/crates/service/web/storyteller_web/src/http_server/oauth/mod.rs
+@@ -0,0 +1 @@
++pub mod protocol;
+diff --git a/crates/service/web/storyteller_web/src/http_server/oauth/protocol.rs b/crates/service/web/storyteller_web/src/http_server/oauth/protocol.rs
+new file mode 100644
+index 0000000..cbe8466
+--- /dev/null
++++ b/crates/service/web/storyteller_web/src/http_server/oauth/protocol.rs
+@@ -0,0 +1,380 @@
++//! OAuth 2.1 helpers for the ArtCraft connector sign-in.
++//!
++//! Pure functions only: no database and no HTTP types, so the rules can be
++//! tested without the server.
++
++use sha2::{Digest, Sha256};
++
++pub const SCOPE_GENERATE: &str = "generate";
++pub const SCOPE_LIBRARY_READ: &str = "library:read";
++pub const SCOPE_LIBRARY_WRITE: &str = "library:write";
++
++pub const ACCESS_TOKEN_PREFIX: &str = "artcraft_oauth_at_";
++pub const REFRESH_TOKEN_PREFIX: &str = "artcraft_oauth_rt_";
++pub const AUTH_CODE_PREFIX: &str = "artcraft_oauth_cd_";
++pub const CLIENT_ID_PREFIX: &str = "artcraft_oauth_cl_";
++
++pub const ACCESS_TOKEN_TTL_SECONDS: u64 = 60 * 60;
++pub const REFRESH_TOKEN_TTL_SECONDS: u64 = 30 * 24 * 60 * 60;
++pub const AUTH_CODE_TTL_SECONDS: u64 = 60;
++
++const KNOWN_SCOPES: &[&str] = &[SCOPE_GENERATE, SCOPE_LIBRARY_READ, SCOPE_LIBRARY_WRITE];
++const CROCKFORD: &[u8] = b"0123456789abcdefghjkmnpqrstvwxyz";
++
++/// Space-separated scopes, known names only, duplicates removed, stable order.
++pub fn normalize_scopes(raw: &str) -> Result<String, &'static str> {
++  let mut chosen: Vec<&str> = Vec::new();
++  for part in raw.split_whitespace() {
++    if !KNOWN_SCOPES.contains(&part) {
++      return Err("unknown scope");
++    }
++    if !chosen.contains(&part) {
++      chosen.push(part);
++    }
++  }
++  if chosen.is_empty() {
++    return Err("scope required");
++  }
++  // Keep the public order: generate, library:read, library:write.
++  let mut ordered = Vec::new();
++  for known in KNOWN_SCOPES {
++    if chosen.contains(known) {
++      ordered.push(*known);
++    }
++  }
++  Ok(ordered.join(" "))
++}
++
++pub fn scope_granted(granted: &str, required: &str) -> bool {
++  granted.split_whitespace().any(|scope| scope == required)
++}
++
++/// Requested scopes must be a subset of the scopes the client registered.
++pub fn scopes_within(requested: &str, allowed: &str) -> bool {
++  requested.split_whitespace().all(|scope| scope_granted(allowed, scope))
++}
++
++pub fn pkce_s256_challenge(verifier: &str) -> String {
++  let digest = Sha256::digest(verifier.as_bytes());
++  base64url_nopad(digest.as_ref())
++}
++
++pub fn pkce_verifier_ok(verifier: &str) -> bool {
++  let len = verifier.len();
++  (43..=128).contains(&len)
++    && verifier.bytes().all(|byte| {
++      byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~')
++    })
++}
++
++pub fn code_challenge_ok(challenge: &str) -> bool {
++  let len = challenge.len();
++  (43..=128).contains(&len)
++    && challenge.bytes().all(|byte| {
++      byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_')
++    })
++}
++
++pub fn sha256_hex(value: &str) -> String {
++  let digest = Sha256::digest(value.as_bytes());
++  let bytes: &[u8] = digest.as_ref();
++  let mut hex = String::with_capacity(bytes.len() * 2);
++  for byte in bytes {
++    hex.push_str(&format!("{byte:02x}"));
++  }
++  hex
++}
++
++/// The bearer credential, when it is an ArtCraft OAuth access token.
++pub fn access_token_from_authorization(header_value: &str) -> Option<&str> {
++  let value = header_value.trim();
++  let token = if let Some(rest) = strip_prefix_ignore_ascii_case(value, "Bearer ") {
++    rest.trim()
++  } else {
++    value
++  };
++  if token.starts_with(ACCESS_TOKEN_PREFIX) {
++    Some(token)
++  } else {
++    None
++  }
++}
++
++fn strip_prefix_ignore_ascii_case<'a>(value: &'a str, prefix: &str) -> Option<&'a str> {
++  if value.len() >= prefix.len() && value[..prefix.len()].eq_ignore_ascii_case(prefix) {
++    Some(&value[prefix.len()..])
++  } else {
++    None
++  }
++}
++
++pub fn secrets_match(presented: &str, stored_hash: &str) -> bool {
++  // Compare the hashes, not the raw secrets. Lengths are fixed, so this is a
++  // straight equality of the hex digest.
++  sha256_hex(presented) == stored_hash
++}
++
++/// `https` URIs, plus loopback `http` for local connector development.
++pub fn redirect_uri_allowed(uri: &str) -> bool {
++  if uri.len() > 512 || uri.chars().any(|c| c.is_control() || c.is_whitespace()) {
++    return false;
++  }
++  let Some((scheme, rest)) = uri.split_once("://") else {
++    return false;
++  };
++  if rest.is_empty() {
++    return false;
++  }
++  // Fragments are not allowed on redirect URIs.
++  if uri.contains('#') {
++    return false;
++  }
++  let Some(host) = redirect_host(rest) else {
++    return false;
++  };
++  match scheme {
++    "https" => true,
++    "http" => host == "localhost" || host == "127.0.0.1" || host == "::1",
++    _ => false,
++  }
++}
++
++/// Host from the part after `scheme://`. Bracketed IPv6 is kept whole.
++fn redirect_host(rest: &str) -> Option<&str> {
++  if let Some(v6) = rest.strip_prefix('[') {
++    let end = v6.find(']')?;
++    let host = &v6[..end];
++    if host.is_empty() {
++      return None;
++    }
++    return Some(host);
++  }
++  let host = rest.split(['/', '?', ':']).next().unwrap_or("");
++  if host.is_empty() {
++    None
++  } else {
++    Some(host)
++  }
++}
++
++pub fn redirect_matches(registered_newlines: &str, presented: &str) -> bool {
++  registered_newlines.split('\n').any(|uri| uri == presented)
++}
++
++pub fn html_escape(value: &str) -> String {
++  let mut out = String::with_capacity(value.len());
++  for ch in value.chars() {
++    match ch {
++      '&' => out.push_str("&amp;"),
++      '<' => out.push_str("&lt;"),
++      '>' => out.push_str("&gt;"),
++      '"' => out.push_str("&quot;"),
++      '\'' => out.push_str("&#39;"),
++      _ => out.push(ch),
++    }
++  }
++  out
++}
++
++pub fn random_token(prefix: &str, entropy_len: usize) -> String {
++  use rand::Rng;
++  let mut rng = rand::thread_rng();
++  let mut entropy = String::with_capacity(entropy_len);
++  for _ in 0..entropy_len {
++    let idx = rng.gen_range(0..CROCKFORD.len());
++    entropy.push(CROCKFORD[idx] as char);
++  }
++  format!("{prefix}{entropy}")
++}
++
++/// Decode a standard (not URL) base64 string. Padding is optional.
++pub fn base64_decode(input: &str) -> Option<Vec<u8>> {
++  fn val(byte: u8) -> Option<u8> {
++    match byte {
++      b'A'..=b'Z' => Some(byte - b'A'),
++      b'a'..=b'z' => Some(byte - b'a' + 26),
++      b'0'..=b'9' => Some(byte - b'0' + 52),
++      b'+' => Some(62),
++      b'/' => Some(63),
++      _ => None,
++    }
++  }
++  let bytes: Vec<u8> = input.bytes().filter(|b| !b.is_ascii_whitespace() && *b != b'=').collect();
++  if bytes.len() % 4 == 1 {
++    return None;
++  }
++  let mut out = Vec::new();
++  let mut i = 0;
++  while i < bytes.len() {
++    let b0 = val(*bytes.get(i)?)?;
++    let b1 = val(*bytes.get(i + 1)?)?;
++    out.push((b0 << 2) | (b1 >> 4));
++    if i + 2 < bytes.len() {
++      let b2 = val(bytes[i + 2])?;
++      out.push((b1 << 4) | (b2 >> 2));
++      if i + 3 < bytes.len() {
++        let b3 = val(bytes[i + 3])?;
++        out.push((b2 << 6) | b3);
++      }
++    }
++    i += 4;
++  }
++  Some(out)
++}
++
++/// `Authorization: Basic base64(client_id:client_secret)`.
++pub fn parse_basic_client(header_value: &str) -> Option<(String, String)> {
++  let rest = header_value.trim().strip_prefix("Basic ").or_else(|| header_value.trim().strip_prefix("basic "))?;
++  let decoded = base64_decode(rest.trim())?;
++  let text = String::from_utf8(decoded).ok()?;
++  let (id, secret) = text.split_once(':')?;
++  if id.is_empty() || secret.is_empty() {
++    return None;
++  }
++  Some((id.to_string(), secret.to_string()))
++}
++
++pub fn origin_matches_host(origin: &str, expected_host: &str) -> bool {
++  let without_scheme = origin.split_once("://").map(|(_, rest)| rest).unwrap_or(origin);
++  let host_port = without_scheme.split('/').next().unwrap_or("");
++  host_port.eq_ignore_ascii_case(expected_host)
++}
++
++fn base64url_nopad(data: &[u8]) -> String {
++  const TABLE: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
++  let mut out = String::new();
++  let mut i = 0;
++  while i + 3 <= data.len() {
++    let n = ((data[i] as u32) << 16) | ((data[i + 1] as u32) << 8) | (data[i + 2] as u32);
++    out.push(TABLE[((n >> 18) & 63) as usize] as char);
++    out.push(TABLE[((n >> 12) & 63) as usize] as char);
++    out.push(TABLE[((n >> 6) & 63) as usize] as char);
++    out.push(TABLE[(n & 63) as usize] as char);
++    i += 3;
++  }
++  if i < data.len() {
++    let remain = data.len() - i;
++    let b0 = data[i] as u32;
++    let b1 = if remain == 2 { data[i + 1] as u32 } else { 0 };
++    let n = (b0 << 16) | (b1 << 8);
++    out.push(TABLE[((n >> 18) & 63) as usize] as char);
++    out.push(TABLE[((n >> 12) & 63) as usize] as char);
++    if remain == 2 {
++      out.push(TABLE[((n >> 6) & 63) as usize] as char);
++    }
++  }
++  out
++}
++
++#[cfg(test)]
++mod tests {
++  use super::*;
++
++  #[test]
++  fn pkce_matches_rfc_7636_appendix_b() {
++    let verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
++    assert!(pkce_verifier_ok(verifier));
++    assert_eq!(pkce_s256_challenge(verifier), "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
++  }
++
++  #[test]
++  fn pkce_rejects_a_wrong_verifier() {
++    let challenge = pkce_s256_challenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk");
++    assert_ne!(pkce_s256_challenge("another-verifier-that-is-long-enough-to-be-valid"), challenge);
++  }
++
++  #[test]
++  fn scopes_drop_duplicates_and_reject_unknown() {
++    assert_eq!(
++      normalize_scopes("library:read generate library:read").unwrap(),
++      "generate library:read"
++    );
++    assert!(normalize_scopes("openid").is_err());
++    assert!(normalize_scopes("  ").is_err());
++  }
++
++  #[test]
++  fn requested_scopes_must_be_inside_the_client_grant() {
++    assert!(scopes_within("library:read", "generate library:read"));
++    assert!(!scopes_within("library:write", "generate library:read"));
++    assert!(scope_granted("generate library:read", SCOPE_GENERATE));
++    assert!(!scope_granted("library:read", SCOPE_GENERATE));
++  }
++
++  #[test]
++  fn redirect_uris_are_exact_and_https_or_loopback() {
++    assert!(redirect_uri_allowed("https://chatgpt.com/connector/oauth/callback"));
++    assert!(redirect_uri_allowed("http://127.0.0.1:8787/callback"));
++    assert!(redirect_uri_allowed("http://localhost:3000/cb"));
++    assert!(redirect_uri_allowed("http://[::1]/cb"));
++    assert!(redirect_uri_allowed("http://[::1]:8080/callback"));
++    assert!(!redirect_uri_allowed("http://[::1"));
++    assert!(!redirect_uri_allowed("http://evil.example/cb"));
++    assert!(!redirect_uri_allowed("https://example.com/cb#frag"));
++    assert!(redirect_matches("https://a.example/cb\nhttps://b.example/cb", "https://b.example/cb"));
++    assert!(!redirect_matches("https://a.example/cb", "https://a.example/cb/extra"));
++  }
++
++  #[test]
++  fn html_escape_and_basic_auth() {
++    assert_eq!(html_escape("<a&\"'>"), "&lt;a&amp;&quot;&#39;&gt;");
++    let encoded = base64_encode(b"client:secret");
++    let header = format!("Basic {encoded}");
++    assert_eq!(parse_basic_client(&header), Some(("client".into(), "secret".into())));
++    assert!(parse_basic_client("Bearer abc").is_none());
++  }
++
++  #[test]
++  fn hash_does_not_contain_the_secret() {
++    let secret = "artcraft_oauth_at_example";
++    let hash = sha256_hex(secret);
++    assert_eq!(hash.len(), 64);
++    assert!(!hash.contains("example"));
++    assert!(secrets_match(secret, &hash));
++    assert!(!secrets_match("other", &hash));
++  }
++
++  #[test]
++  fn access_token_prefix_is_required() {
++    assert!(access_token_from_authorization("Bearer artcraft_oauth_at_abc").is_some());
++    assert!(access_token_from_authorization("artcraft_api_abc").is_none());
++    assert!(access_token_from_authorization("Bearer artcraft_oauth_rt_abc").is_none());
++  }
++
++  #[test]
++  fn origin_compares_host_and_port() {
++    assert!(origin_matches_host("https://api.storyteller.ai", "api.storyteller.ai"));
++    assert!(!origin_matches_host("https://evil.example", "api.storyteller.ai"));
++    assert!(!origin_matches_host("https://api.storyteller.ai.evil.example", "api.storyteller.ai"));
++  }
++
++  fn base64_encode(data: &[u8]) -> String {
++    const TABLE: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
++    let mut out = String::new();
++    let mut i = 0;
++    while i + 3 <= data.len() {
++      let n = ((data[i] as u32) << 16) | ((data[i + 1] as u32) << 8) | (data[i + 2] as u32);
++      out.push(TABLE[((n >> 18) & 63) as usize] as char);
++      out.push(TABLE[((n >> 12) & 63) as usize] as char);
++      out.push(TABLE[((n >> 6) & 63) as usize] as char);
++      out.push(TABLE[(n & 63) as usize] as char);
++      i += 3;
++    }
++    if i < data.len() {
++      let remain = data.len() - i;
++      let b0 = data[i] as u32;
++      let b1 = if remain == 2 { data[i + 1] as u32 } else { 0 };
++      let n = (b0 << 16) | (b1 << 8);
++      out.push(TABLE[((n >> 18) & 63) as usize] as char);
++      out.push(TABLE[((n >> 12) & 63) as usize] as char);
++      if remain == 2 {
++        out.push(TABLE[((n >> 6) & 63) as usize] as char);
++        out.push('=');
++      } else {
++        out.push('=');
++        out.push('=');
++      }
++    }
++    out
++  }
++}
+diff --git a/crates/service/web/storyteller_web/src/http_server/routes/application_routes/add_application_routes.rs b/crates/service/web/storyteller_web/src/http_server/routes/application_routes/add_application_routes.rs
+index d413f22..9a980ab 100644
+--- a/crates/service/web/storyteller_web/src/http_server/routes/application_routes/add_application_routes.rs
++++ b/crates/service/web/storyteller_web/src/http_server/routes/application_routes/add_application_routes.rs
+@@ -12,6 +12,7 @@ use crate::http_server::routes::application_routes::generate_routes::add_generat
+ use crate::http_server::routes::application_routes::internal_routes::add_internal_routes;
+ use crate::http_server::routes::application_routes::job_routes::add_job_routes;
+ use crate::http_server::routes::application_routes::mcp_session_routes::add_mcp_session_routes;
++use crate::http_server::routes::application_routes::oauth_routes::add_oauth_routes;
+ use crate::http_server::routes::application_routes::media_files_routes::add_media_file_routes;
+ use crate::http_server::routes::application_routes::moderation_routes::add_moderator_routes;
+ use crate::http_server::routes::application_routes::omni_api_routes::add_omni_api_routes;
+@@ -49,6 +50,7 @@ where
+ {
+ 
+   let mut app = add_moderator_routes(app); // /moderation
++  app = add_oauth_routes(app); // /.well-known/oauth-authorization-server and /oauth/...
+ 
+   // Artcraft surface area
+   app = add_generate_routes(app); // /v1/generate/...
+diff --git a/crates/service/web/storyteller_web/src/http_server/routes/application_routes/mod.rs b/crates/service/web/storyteller_web/src/http_server/routes/application_routes/mod.rs
+index ec2dc88..2a2bc6c 100644
+--- a/crates/service/web/storyteller_web/src/http_server/routes/application_routes/mod.rs
++++ b/crates/service/web/storyteller_web/src/http_server/routes/application_routes/mod.rs
+@@ -12,6 +12,7 @@ mod generate_routes;
+ mod internal_routes;
+ mod job_routes;
+ mod mcp_session_routes;
++mod oauth_routes;
+ mod media_files_routes;
+ mod moderation_routes;
+ mod omni_api_routes;
+diff --git a/crates/service/web/storyteller_web/src/http_server/routes/application_routes/oauth_routes.rs b/crates/service/web/storyteller_web/src/http_server/routes/application_routes/oauth_routes.rs
+new file mode 100644
+index 0000000..493ba7c
+--- /dev/null
++++ b/crates/service/web/storyteller_web/src/http_server/routes/application_routes/oauth_routes.rs
+@@ -0,0 +1,42 @@
++use actix_http::body::MessageBody;
++use actix_service::ServiceFactory;
++use actix_web::dev::{ServiceRequest, ServiceResponse};
++use actix_web::{web, App, Error};
++
++use crate::http_server::endpoints::oauth::{
++  oauth_authorize_get, oauth_authorize_post, oauth_discovery, oauth_grants_page, oauth_register,
++  oauth_revoke, oauth_revoke_grant, oauth_token,
++};
++
++pub fn add_oauth_routes<T, B>(app: App<T>) -> App<T>
++where
++  B: MessageBody,
++  T: ServiceFactory<
++    ServiceRequest,
++    Config = (),
++    Response = ServiceResponse<B>,
++    Error = Error,
++    InitError = (),
++  >,
++{
++  app
++    .service(
++      web::resource("/.well-known/oauth-authorization-server")
++        .route(web::get().to(oauth_discovery)),
++    )
++    .service(
++      web::resource("/oauth/register").route(web::post().to(oauth_register)),
++    )
++    .service(
++      web::resource("/oauth/authorize")
++        .route(web::get().to(oauth_authorize_get))
++        .route(web::post().to(oauth_authorize_post)),
++    )
++    .service(web::resource("/oauth/token").route(web::post().to(oauth_token)))
++    .service(web::resource("/oauth/revoke").route(web::post().to(oauth_revoke)))
++    .service(web::resource("/oauth/grants").route(web::get().to(oauth_grants_page)))
++    .service(
++      web::resource("/oauth/grants/{client_token}/revoke")
++        .route(web::post().to(oauth_revoke_grant)),
++    )
++}
+diff --git a/crates/service/web/storyteller_web/src/http_server/user_lookup/api_or_web_session/require_any_session_or_key.rs b/crates/service/web/storyteller_web/src/http_server/user_lookup/api_or_web_session/require_any_session_or_key.rs
+index 64bcd3c..a222550 100644
+--- a/crates/service/web/storyteller_web/src/http_server/user_lookup/api_or_web_session/require_any_session_or_key.rs
++++ b/crates/service/web/storyteller_web/src/http_server/user_lookup/api_or_web_session/require_any_session_or_key.rs
+@@ -63,6 +63,9 @@ pub enum AnySessionType {
+   Api,
+   WebSession,
+   McpSession,
++  /// OAuth access token minted by `/oauth/token`. Generation routes require the
++  /// `generate` scope. Other callers are recorded as an API client.
++  Oauth,
+ }
+ 
+ impl AnySession {
+@@ -76,8 +79,9 @@ impl AnySession {
+ ///
+ /// If an `Authorization` header is present, ONLY the header credential is attempted — a
+ /// malformed or unknown credential is a 401, never a fallthrough to cookies. Header credentials
+-/// with the `mcp_session_` prefix are looked up as MCP sessions (live and unexpired only);
+-/// anything else in the header is looked up as an API key. Without the header, the session
++/// with the `mcp_session_` prefix are looked up as MCP sessions (live and unexpired only).
++/// An `artcraft_oauth_at_` access token is an OAuth grant and must include `generate`
++/// on these routes. Anything else in the header is looked up as an API key. Without the header, the session
+ /// cookie is decoded and looked up, and the AVT (anonymous visitor tracking) cookie is captured
+ /// alongside it.
+ ///
+@@ -120,6 +124,10 @@ async fn authenticate_by_header_credential<'c, E>(
+     return authenticate_by_mcp_session(&private_session_token, mysql_executor).await;
+   }
+ 
++  if credential.as_str_be_careful().starts_with(crate::http_server::oauth::protocol::ACCESS_TOKEN_PREFIX) {
++    return authenticate_by_oauth_access(credential.as_str_be_careful(), mysql_executor).await;
++  }
++
+   let maybe_record = get_api_or_web_session_user_by_api_key(GetApiOrWebSessionUserByApiKeyArgs {
+     api_key: &credential,
+     mysql_executor,
+@@ -144,6 +152,34 @@ async fn authenticate_by_header_credential<'c, E>(
+   into_session_rejecting_banned(record, AnySessionType::Api, None)
+ }
+ 
++async fn authenticate_by_oauth_access<'c, E>(
++  access_token: &str,
++  mysql_executor: E,
++) -> Result<AnySession, CommonWebError>
++  where E: 'c + Executor<'c, Database = MySql>
++{
++  use crate::http_server::oauth::protocol::{sha256_hex, SCOPE_GENERATE};
++  use crate::http_server::user_lookup::oauth_access::reject_unless_scope;
++  use mysql_queries::queries::oauth::get_oauth_access_session_by_hash;
++
++  let hash = sha256_hex(access_token);
++  let maybe_session = get_oauth_access_session_by_hash(&hash, mysql_executor)
++    .await
++    .map_err(|err| {
++      warn!("OAuth access token lookup error: {:?}", err);
++      CommonWebError::from_error(err)
++    })?;
++  let session = match maybe_session {
++    Some(session) => session,
++    None => {
++      warn!("No live OAuth access token for presented credential");
++      return Err(CommonWebError::NotAuthorized);
++    }
++  };
++  reject_unless_scope(&session, &[SCOPE_GENERATE])?;
++  into_session_rejecting_banned(session.record, AnySessionType::Oauth, None)
++}
++
+ async fn authenticate_by_mcp_session<'c, E>(
+   private_session_token: &McpSessionPrivateToken,
+   mysql_executor: E,
+diff --git a/crates/service/web/storyteller_web/src/http_server/user_lookup/mod.rs b/crates/service/web/storyteller_web/src/http_server/user_lookup/mod.rs
+index 11127bc..218cbb7 100644
+--- a/crates/service/web/storyteller_web/src/http_server/user_lookup/mod.rs
++++ b/crates/service/web/storyteller_web/src/http_server/user_lookup/mod.rs
+@@ -1,3 +1,4 @@
+ pub mod api_keys;
+ pub mod api_or_web_session;
++pub mod oauth_access;
+ pub mod user_session;
+diff --git a/crates/service/web/storyteller_web/src/http_server/user_lookup/oauth_access.rs b/crates/service/web/storyteller_web/src/http_server/user_lookup/oauth_access.rs
+new file mode 100644
+index 0000000..455c44a
+--- /dev/null
++++ b/crates/service/web/storyteller_web/src/http_server/user_lookup/oauth_access.rs
+@@ -0,0 +1,109 @@
++use actix_web::HttpRequest;
++use sqlx::MySqlConnection;
++
++use mysql_queries::queries::oauth::{get_oauth_access_session_by_hash, OauthAccessSession};
++use tokens::tokens::api_keys::ApiKeyToken;
++
++use crate::http_server::common_responses::common_web_error::CommonWebError;
++use crate::http_server::oauth::protocol::{access_token_from_authorization, scope_granted, sha256_hex};
++use crate::http_server::user_lookup::api_keys::require_api_key_user::{require_api_key_user, UserApiSession};
++
++pub enum OauthPresentation {
++  /// Header is missing or is not an `artcraft_oauth_at_` access token.
++  NotAnOauthToken,
++  /// Prefix matched, but the token is unknown, expired, or revoked.
++  Rejected,
++  Accepted(OauthAccessSession),
++}
++
++pub async fn present_oauth_access(
++  authorization_header: Option<&str>,
++  mysql_connection: &mut MySqlConnection,
++) -> Result<OauthPresentation, CommonWebError> {
++  let Some(token) = authorization_header.and_then(access_token_from_authorization) else {
++    return Ok(OauthPresentation::NotAnOauthToken);
++  };
++  let hash = sha256_hex(token);
++  match get_oauth_access_session_by_hash(&hash, &mut *mysql_connection).await {
++    Ok(Some(session)) => Ok(OauthPresentation::Accepted(session)),
++    Ok(None) => Ok(OauthPresentation::Rejected),
++    Err(err) => {
++      log::warn!("OAuth access token lookup error: {:?}", err);
++      Err(CommonWebError::from_error(err))
++    }
++  }
++}
++
++/// API key, or an OAuth access token that has one of `any_of` scopes.
++/// API keys are not scoped. An OAuth token without the scope is 403.
++pub async fn require_api_key_or_oauth_scope(
++  http_request: &HttpRequest,
++  mysql_connection: &mut MySqlConnection,
++  any_of: &[&str],
++) -> Result<UserApiSession, CommonWebError> {
++  let header = http_request
++    .headers()
++    .get(actix_web::http::header::AUTHORIZATION)
++    .and_then(|value| value.to_str().ok());
++  match present_oauth_access(header, mysql_connection).await? {
++    OauthPresentation::NotAnOauthToken => require_api_key_user(http_request, mysql_connection).await,
++    OauthPresentation::Rejected => Err(CommonWebError::NotAuthorized),
++    OauthPresentation::Accepted(session) => {
++      reject_unless_scope(&session, any_of)?;
++      Ok(user_api_session_from_oauth(session))
++    }
++  }
++}
++
++pub fn reject_unless_scope(session: &OauthAccessSession, any_of: &[&str]) -> Result<(), CommonWebError> {
++  if session.record.is_banned {
++    log::warn!("OAuth token owner is banned");
++    return Err(CommonWebError::NotAuthorized);
++  }
++  if any_of.iter().any(|scope| scope_granted(&session.scopes, scope)) {
++    Ok(())
++  } else {
++    log::warn!("OAuth token is missing a required scope");
++    Err(CommonWebError::Forbidden)
++  }
++}
++
++pub async fn require_library_user(
++  http_request: &HttpRequest,
++  session_checker: &crate::http_server::user_lookup::user_session::session_utils::session_checker::SessionChecker,
++  avt_cookie_manager: &actix_artcraft::sessions::anonymous_visitor_tracking::avt_cookie_manager::AvtCookieManager,
++  mysql_connection: &mut MySqlConnection,
++) -> Result<tokens::tokens::users::UserToken, CommonWebError> {
++  use crate::http_server::oauth::protocol::SCOPE_LIBRARY_READ;
++  use crate::http_server::user_lookup::api_or_web_session::require_api_or_web_session::require_api_or_web_session;
++
++  let header = http_request
++    .headers()
++    .get(actix_web::http::header::AUTHORIZATION)
++    .and_then(|value| value.to_str().ok());
++  match present_oauth_access(header, mysql_connection).await? {
++    OauthPresentation::Accepted(session) => {
++      reject_unless_scope(&session, &[SCOPE_LIBRARY_READ])?;
++      Ok(session.record.user_token)
++    }
++    OauthPresentation::Rejected => Err(CommonWebError::NotAuthorized),
++    OauthPresentation::NotAnOauthToken => {
++      let session = require_api_or_web_session(
++        http_request,
++        session_checker,
++        avt_cookie_manager,
++        &mut *mysql_connection,
++      ).await?;
++      Ok(session.user_token)
++    }
++  }
++}
++
++pub fn user_api_session_from_oauth(session: OauthAccessSession) -> UserApiSession {
++  UserApiSession {
++    // OAuth callers have no API key. Callers read `user_token`.
++    api_key_token: ApiKeyToken::new_from_str("oauth"),
++    user_token: session.record.user_token,
++    is_banned: session.record.is_banned,
++  }
++}
+-- 
+2.43.0
+

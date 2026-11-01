@@ -1,0 +1,19 @@
+--- a/_docs/artcraft_omni_api.md
++++ b/_docs/artcraft_omni_api.md
+@@ -68,6 +68,8 @@
+ 
+ `Bearer` is recommended. **Do not send cookies.**
+ 
++Send a descriptive `User-Agent`. Python `urllib`'s default agent is rejected by Cloudflare with error 1010 (HTTP 403) before the API key is checked. `requests`, `httpx`, and other clients that send a normal agent are accepted.
++
+ ---
+ 
+ ## Video generation — `POST /v1/omni_api/generate/video`
+@@ -620,6 +622,7 @@
+ - **Type mismatches** (e.g. a `.webm` passed as a reference video, which requires `mp4`) are
+   rejected with a `400` describing the unpermitted type.
+ - **`401 Unauthorized`** — missing/invalid API key, or the key's owner is banned.
++- **`403` with Cloudflare error 1010** — the client `User-Agent` was blocked before the API key was read. Set a descriptive `User-Agent`. Python `urllib` does this by default.
+ - **`402 Payment required`** — insufficient credits/balance.
+ - There is a companion image endpoint, `POST /v1/omni_api/generate/image`, which accepts
+   `image_urls` (mutually exclusive with `image_media_tokens`) following the same rules.
