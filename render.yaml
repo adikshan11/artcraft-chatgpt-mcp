@@ -13,7 +13,14 @@ services:
       # OAuth (Auth0 or Clerk). See README "ArtCraft Studio".
       - key: OAUTH_ISSUER
         sync: false
-      - key: OAUTH_AUDIENCE
+      # The audience is fixed in the connector at
+      # https://connect.getartcraft.com/mcp. OAUTH_AUDIENCE is not read.
+      # Retention is 7 days after the session ends. Any other value is ignored.
+      - key: STUDIO_FILE_RETENTION_DAYS
+        value: "7"
+      # Encrypts the exchanged ArtCraft token. Generate with
+      # python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+      - key: GRANT_KEY
         sync: false
       # S3-compatible storage for user files (Backblaze B2 shown; R2_* also works).
       - key: S3_ENDPOINT_URL
