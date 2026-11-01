@@ -25,7 +25,7 @@
       <dt>Open app sessions</dt>
       <dd><span data-field="open_sessions">{{ status.facts.open_sessions }}</span> of {{ status.facts.max_sessions }}</dd>
     </div>
-    <div><dt>Files kept for</dt><dd>{{ status.facts.retention_days }} days</dd></div>
+    <div><dt>Files kept</dt><dd>{{ status.facts.retention_days }} days after a session ends</dd></div>
   </dl>
   <p class="status-note">
     Each person can have {{ status.facts.max_sessions_per_user }} apps open at once, and an
