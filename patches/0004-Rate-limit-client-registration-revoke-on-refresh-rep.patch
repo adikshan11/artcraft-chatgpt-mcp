@@ -1,0 +1,314 @@
+From 2d25acb3e01a6db3f184eab4f20996dc5cba639c Mon Sep 17 00:00:00 2001
+From: Cursor Agent <cursoragent@cursor.com>
+Date: Sun, 1 Nov 2026 15:19:11 +0000
+Subject: [PATCH 4/4] Rate limit client registration, revoke on refresh replay,
+ authenticate revoke
+
+Registration is limited to 10 per IP and 300 total per hour. Presenting an already rotated refresh token revokes everything that app holds for that person. /oauth/revoke now authenticates the client and only revokes that client's tokens. The discovery document is not cacheable.
+---
+ .../up.sql                                    |  5 ++
+ .../migrations_squashed/oauth_connector.sql   |  5 ++
+ .../mysql_queries/src/queries/oauth/store.rs  | 78 ++++++++++++++++++-
+ .../http_server/endpoints/oauth/handlers.rs   | 73 +++++++++++++----
+ 4 files changed, 142 insertions(+), 19 deletions(-)
+
+diff --git a/_database/sql/migrations/2026-11-01-150000-0000_create_oauth_connector/up.sql b/_database/sql/migrations/2026-11-01-150000-0000_create_oauth_connector/up.sql
+index ed6bf6e..0736809 100644
+--- a/_database/sql/migrations/2026-11-01-150000-0000_create_oauth_connector/up.sql
++++ b/_database/sql/migrations/2026-11-01-150000-0000_create_oauth_connector/up.sql
+@@ -26,11 +26,16 @@ CREATE TABLE oauth_clients (
+   -- Space-separated scopes this client is allowed to request.
+   allowed_scopes VARCHAR(255) NOT NULL,
+ 
++  -- IP address that registered the client. Used to rate limit open registration.
++  ip_address_creation VARCHAR(40) NOT NULL DEFAULT '',
++
+   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+   maybe_revoked_at TIMESTAMP NULL,
+ 
+   PRIMARY KEY (id),
+   UNIQUE KEY (token),
++  KEY index_created_at (created_at),
++  KEY index_ip_address_creation (ip_address_creation),
+   KEY index_maybe_revoked_at (maybe_revoked_at)
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+ 
+diff --git a/_database/sql/migrations_squashed/oauth_connector.sql b/_database/sql/migrations_squashed/oauth_connector.sql
+index ed6bf6e..0736809 100644
+--- a/_database/sql/migrations_squashed/oauth_connector.sql
++++ b/_database/sql/migrations_squashed/oauth_connector.sql
+@@ -26,11 +26,16 @@ CREATE TABLE oauth_clients (
+   -- Space-separated scopes this client is allowed to request.
+   allowed_scopes VARCHAR(255) NOT NULL,
+ 
++  -- IP address that registered the client. Used to rate limit open registration.
++  ip_address_creation VARCHAR(40) NOT NULL DEFAULT '',
++
+   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+   maybe_revoked_at TIMESTAMP NULL,
+ 
+   PRIMARY KEY (id),
+   UNIQUE KEY (token),
++  KEY index_created_at (created_at),
++  KEY index_ip_address_creation (ip_address_creation),
+   KEY index_maybe_revoked_at (maybe_revoked_at)
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+ 
+diff --git a/crates/schema/database/mysql_queries/src/queries/oauth/store.rs b/crates/schema/database/mysql_queries/src/queries/oauth/store.rs
+index cf5863c..627f489 100644
+--- a/crates/schema/database/mysql_queries/src/queries/oauth/store.rs
++++ b/crates/schema/database/mysql_queries/src/queries/oauth/store.rs
+@@ -12,6 +12,7 @@ pub struct InsertOauthClientArgs<'a> {
+   pub redirect_uris: &'a str,
+   pub token_endpoint_auth_method: &'a str,
+   pub allowed_scopes: &'a str,
++  pub ip_address_creation: &'a str,
+ }
+ 
+ pub struct OauthClientRecord {
+@@ -50,7 +51,8 @@ SET
+   client_name = ?,
+   redirect_uris = ?,
+   token_endpoint_auth_method = ?,
+-  allowed_scopes = ?
++  allowed_scopes = ?,
++  ip_address_creation = ?
+     "#,
+   )
+   .bind(args.token)
+@@ -59,11 +61,52 @@ SET
+   .bind(args.redirect_uris)
+   .bind(args.token_endpoint_auth_method)
+   .bind(args.allowed_scopes)
++  .bind(args.ip_address_creation)
+   .execute(mysql_executor)
+   .await?;
+   Ok(())
+ }
+ 
++/// Clients registered in the last `minutes`, optionally from one IP address.
++pub async fn count_oauth_clients_since<'c, E>(
++  maybe_ip_address: Option<&str>,
++  minutes: i64,
++  mysql_executor: E,
++) -> Result<i64, sqlx::Error>
++where
++  E: Executor<'c, Database = MySql>,
++{
++  let row = match maybe_ip_address {
++    Some(ip_address) => {
++      sqlx::query(
++        r#"
++SELECT COUNT(*) AS total
++FROM oauth_clients
++WHERE created_at > DATE_SUB(NOW(), INTERVAL ? MINUTE)
++  AND ip_address_creation = ?
++        "#,
++      )
++      .bind(minutes)
++      .bind(ip_address)
++      .fetch_one(mysql_executor)
++      .await?
++    }
++    None => {
++      sqlx::query(
++        r#"
++SELECT COUNT(*) AS total
++FROM oauth_clients
++WHERE created_at > DATE_SUB(NOW(), INTERVAL ? MINUTE)
++        "#,
++      )
++      .bind(minutes)
++      .fetch_one(mysql_executor)
++      .await?
++    }
++  };
++  row.try_get("total")
++}
++
+ pub async fn get_oauth_client_by_token<'c, E>(
+   token: &str,
+   mysql_executor: E,
+@@ -383,9 +426,38 @@ WHERE refresh_token_hash = ?
+   Ok(())
+ }
+ 
+-/// Revoke by either secret hash. Unknown tokens are a no-op.
++/// A refresh token that was revoked (for example by rotation) and has not yet
++/// expired. Returns the user token and client token that owned it.
++pub async fn find_revoked_oauth_refresh_grant<'c, E>(
++  refresh_token_hash: &str,
++  mysql_executor: E,
++) -> Result<Option<(String, String)>, sqlx::Error>
++where
++  E: Executor<'c, Database = MySql>,
++{
++  let row = sqlx::query(
++    r#"
++SELECT user_token, client_token
++FROM oauth_access_tokens
++WHERE refresh_token_hash = ?
++  AND maybe_revoked_at IS NOT NULL
++  AND refresh_expires_at > NOW()
++LIMIT 1
++    "#,
++  )
++  .bind(refresh_token_hash)
++  .fetch_optional(mysql_executor)
++  .await?;
++  match row {
++    None => Ok(None),
++    Some(row) => Ok(Some((row.try_get("user_token")?, row.try_get("client_token")?))),
++  }
++}
++
++/// Revoke by either secret hash, for one client only. Unknown tokens are a no-op.
+ pub async fn revoke_oauth_token_hash<'c, E>(
+   token_hash: &str,
++  client_token: &str,
+   mysql_executor: E,
+ ) -> Result<(), sqlx::Error>
+ where
+@@ -396,9 +468,11 @@ where
+ UPDATE oauth_access_tokens
+ SET maybe_revoked_at = NOW()
+ WHERE maybe_revoked_at IS NULL
++  AND client_token = ?
+   AND (access_token_hash = ? OR refresh_token_hash = ?)
+     "#,
+   )
++  .bind(client_token)
+   .bind(token_hash)
+   .bind(token_hash)
+   .execute(mysql_executor)
+diff --git a/crates/service/web/storyteller_web/src/http_server/endpoints/oauth/handlers.rs b/crates/service/web/storyteller_web/src/http_server/endpoints/oauth/handlers.rs
+index 9ddce94..bcf0bf1 100644
+--- a/crates/service/web/storyteller_web/src/http_server/endpoints/oauth/handlers.rs
++++ b/crates/service/web/storyteller_web/src/http_server/endpoints/oauth/handlers.rs
+@@ -8,7 +8,7 @@ use log::warn;
+ use serde::Deserialize;
+ 
+ use mysql_queries::queries::oauth::{
+-  get_oauth_client_by_token, insert_oauth_access_token, insert_oauth_authorization_code,
++  count_oauth_clients_since, find_revoked_oauth_refresh_grant, get_oauth_client_by_token, insert_oauth_access_token, insert_oauth_authorization_code,
+   insert_oauth_client, list_oauth_grants_for_user, lock_oauth_authorization_code,
+   lock_oauth_refresh_session, mark_oauth_authorization_code_used, revoke_oauth_grants_for_client,
+   revoke_oauth_refresh_hash, revoke_oauth_token_hash, InsertOauthAccessTokenArgs,
+@@ -60,7 +60,9 @@ struct AuthorizeForm {
+ 
+ pub async fn oauth_discovery(request: HttpRequest) -> HttpResponse {
+   let origin = external_origin(&request);
+-  HttpResponse::Ok().json(serde_json::json!({
++  // The issuer comes from the request host, so this must never be cached and
++  // replayed to another host.
++  HttpResponse::Ok().insert_header((header::CACHE_CONTROL, "no-store")).json(serde_json::json!({
+     "issuer": origin,
+     "authorization_endpoint": format!("{origin}/oauth/authorize"),
+     "token_endpoint": format!("{origin}/oauth/token"),
+@@ -74,7 +76,11 @@ pub async fn oauth_discovery(request: HttpRequest) -> HttpResponse {
+   }))
+ }
+ 
++const REGISTRATIONS_PER_IP_PER_HOUR: i64 = 10;
++const REGISTRATIONS_PER_HOUR: i64 = 300;
++
+ pub async fn oauth_register(
++  request: HttpRequest,
+   body: Json<RegisterBody>,
+   server_state: Data<Arc<ServerState>>,
+ ) -> HttpResponse {
+@@ -124,8 +130,23 @@ pub async fn oauth_register(
+       return oauth_error(500, "server_error", "could not store the client");
+     }
+   };
++  let ip_address = http_server_common::request::get_request_ip::get_request_ip(&request);
++  let too_many = match (
++    count_oauth_clients_since(Some(&ip_address), 60, &mut *connection).await,
++    count_oauth_clients_since(None, 60, &mut *connection).await,
++  ) {
++    (Ok(from_ip), Ok(all)) => from_ip >= REGISTRATIONS_PER_IP_PER_HOUR || all >= REGISTRATIONS_PER_HOUR,
++    (Err(err), _) | (_, Err(err)) => {
++      warn!("OAuth register count error: {:?}", err);
++      return oauth_error(500, "server_error", "could not store the client");
++    }
++  };
++  if too_many {
++    return oauth_error(429, "temporarily_unavailable", "too many registrations, try again later");
++  }
+   if let Err(err) = insert_oauth_client(
+     InsertOauthClientArgs {
++      ip_address_creation: &ip_address,
+       token: &client_id,
+       client_secret_hash: client_secret_hash.as_deref(),
+       client_name: name,
+@@ -339,26 +360,30 @@ pub async fn oauth_revoke(request: HttpRequest, body: Bytes, server_state: Data<
+     Ok(fields) => fields,
+     Err(response) => return response,
+   };
+-  let Some(token) = fields.get("token") else {
+-    return HttpResponse::Ok().finish();
++  let mut connection = match server_state.mysql_pool.acquire().await {
++    Ok(connection) => connection,
++    Err(err) => {
++      warn!("OAuth revoke pool error: {:?}", err);
++      return oauth_error(500, "server_error", "could not revoke the token");
++    }
+   };
+-  // Refuse to treat an access-token-shaped string as something else, but still
+-  // hash whatever was sent. Unknown hashes revoke nothing and still return 200.
+-  if !token.is_empty() {
++  // RFC 7009: the client that holds the token authenticates, and can only
++  // revoke its own tokens.
++  let client = match authenticate_client(&request, &fields, &mut *connection).await {
++    Ok(client) => client,
++    Err(response) => return response,
++  };
++  // Unknown or foreign tokens revoke nothing and still return 200.
++  if let Some(token) = fields.get("token").filter(|token| !token.is_empty()) {
+     let hash = sha256_hex(token);
+-    let mut connection = match server_state.mysql_pool.acquire().await {
+-      Ok(connection) => connection,
+-      Err(err) => {
+-        warn!("OAuth revoke pool error: {:?}", err);
+-        return oauth_error(500, "server_error", "could not revoke the token");
+-      }
+-    };
+-    if let Err(err) = revoke_oauth_token_hash(&hash, &mut *connection).await {
++    if let Err(err) = revoke_oauth_token_hash(&hash, &client.token, &mut *connection).await {
+       warn!("OAuth revoke error: {:?}", err);
+       return oauth_error(500, "server_error", "could not revoke the token");
+     }
+   }
+-  HttpResponse::Ok().finish()
++  HttpResponse::Ok()
++    .insert_header((header::CACHE_CONTROL, "no-store"))
++    .finish()
+ }
+ 
+ pub async fn oauth_grants_page(request: HttpRequest, server_state: Data<Arc<ServerState>>) -> HttpResponse {
+@@ -513,7 +538,21 @@ async fn refresh_grant(
+   let hash = sha256_hex(refresh_token);
+   let locked = match lock_oauth_refresh_session(&hash, &mut *tx).await {
+     Ok(Some(locked)) => locked,
+-    Ok(None) => return oauth_error(400, "invalid_grant", "refresh token is expired or revoked"),
++    Ok(None) => {
++      // A refresh token that was already rotated and is presented again was
++      // probably copied. Revoke everything this app holds for that person.
++      match find_revoked_oauth_refresh_grant(&hash, &mut *tx).await {
++        Ok(Some((user_token, client_token))) if client_token == client.token => {
++          warn!("OAuth refresh token replayed; revoking the grant");
++          if revoke_oauth_grants_for_client(&user_token, &client_token, &mut *tx).await.is_ok() {
++            let _ = tx.commit().await;
++          }
++        }
++        Ok(_) => {}
++        Err(err) => warn!("OAuth refresh replay lookup error: {:?}", err),
++      }
++      return oauth_error(400, "invalid_grant", "refresh token is expired or revoked");
++    }
+     Err(err) => {
+       warn!("OAuth refresh lock error: {:?}", err);
+       return oauth_error(500, "server_error", "could not refresh the token");
+-- 
+2.43.0
+

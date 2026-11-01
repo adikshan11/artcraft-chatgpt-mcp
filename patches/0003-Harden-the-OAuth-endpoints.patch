@@ -1,7 +1,7 @@
 From 64100a1b796d73c24f4c7da020f909bbffd87754 Mon Sep 17 00:00:00 2001
 From: Cursor Agent <cursoragent@cursor.com>
 Date: Sun, 1 Nov 2026 15:15:59 +0000
-Subject: [PATCH 3/3] Harden the OAuth endpoints
+Subject: [PATCH 3/4] Harden the OAuth endpoints
 
 Decode percent escapes without slicing text, so a multibyte character after a percent sign cannot panic. Send Cache-Control: no-store on token and registration responses. Refuse consent and revoke POSTs that have no matching Origin. Block framing of the consent page and show where the app will redirect.
 ---

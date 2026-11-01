@@ -1,7 +1,7 @@
 From 3024778e585ea649279b71970d653106d0f92c07 Mon Sep 17 00:00:00 2001
 From: Cursor Agent <cursoragent@cursor.com>
 Date: Sun, 1 Nov 2026 14:59:56 +0000
-Subject: [PATCH 2/3] Add OAuth sign-in for third-party connectors
+Subject: [PATCH 2/4] Add OAuth sign-in for third-party connectors
 
 Authorization code with PKCE, dynamic client registration, a consent page, and a page to revoke an app. Access and refresh tokens are opaque and stored as SHA-256 hashes. Generation, upload, library list, and job history accept an artcraft_oauth_at_ token when it has the scope that route needs. API keys stay unscoped. A present Authorization header does not fall through to the website cookie.
 ---

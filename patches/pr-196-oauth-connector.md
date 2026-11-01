@@ -12,9 +12,8 @@ This branch contains the API-key library reads commit too. Merge the 2676 PR fir
 - Migration 2026-11-01-150000-0000_create_oauth_connector, plus a copy in migrations_squashed like the MCP sessions migration. Drop the squashed copy if the pipeline applies it on top of migrated databases.
 
 ## Known limits
-- Registration is open and has no rate limit. The consent page shows the app name and the exact redirect address.
-- Refresh tokens rotate, but replaying an old one does not revoke the whole grant.
-- /oauth/revoke does not authenticate the client. Knowing the token is enough.
+- Registration is open but limited to 10 per IP and 300 total per hour. The consent page shows the app name and the exact redirect address.
+- Replaying a rotated refresh token revokes everything that app holds for that person. /oauth/revoke authenticates the client and only revokes its own tokens.
 - Consent and revoke POSTs are refused unless Origin matches the host. The consent page cannot be framed. Token responses send Cache-Control: no-store.
 - Tokens are opaque and introspected from MySQL, not JWT.
 - omni_gen generate (including the website upload path) requires generate, not library:write.
