@@ -1,0 +1,188 @@
+From 64100a1b796d73c24f4c7da020f909bbffd87754 Mon Sep 17 00:00:00 2001
+From: Cursor Agent <cursoragent@cursor.com>
+Date: Sun, 1 Nov 2026 15:15:59 +0000
+Subject: [PATCH 3/3] Harden the OAuth endpoints
+
+Decode percent escapes without slicing text, so a multibyte character after a percent sign cannot panic. Send Cache-Control: no-store on token and registration responses. Refuse consent and revoke POSTs that have no matching Origin. Block framing of the consent page and show where the app will redirect.
+---
+ .../http_server/endpoints/oauth/handlers.rs   | 104 +++++++++++++-----
+ 1 file changed, 79 insertions(+), 25 deletions(-)
+
+diff --git a/crates/service/web/storyteller_web/src/http_server/endpoints/oauth/handlers.rs b/crates/service/web/storyteller_web/src/http_server/endpoints/oauth/handlers.rs
+index c56e3b9..9ddce94 100644
+--- a/crates/service/web/storyteller_web/src/http_server/endpoints/oauth/handlers.rs
++++ b/crates/service/web/storyteller_web/src/http_server/endpoints/oauth/handlers.rs
+@@ -151,7 +151,9 @@ pub async fn oauth_register(
+   if let Some(secret) = client_secret {
+     response["client_secret"] = serde_json::Value::String(secret);
+   }
+-  HttpResponse::Created().json(response)
++  HttpResponse::Created()
++    .insert_header((header::CACHE_CONTROL, "no-store"))
++    .json(response)
+ }
+ 
+ pub async fn oauth_authorize_get(
+@@ -210,7 +212,7 @@ pub async fn oauth_authorize_get(
+ 
+   let scope_lines = scopes.split_whitespace().map(scope_line).collect::<String>();
+   let page = format!(
+-    "<p><strong>{}</strong> is asking to use your ArtCraft account.</p><ul>{}</ul>\
++    "<p><strong>{}</strong> is asking to use your ArtCraft account. After you choose, ArtCraft sends you to <strong>{}</strong>.</p><ul>{}</ul>\
+      <form method=\"post\" action=\"/oauth/authorize\">\
+      <input type=\"hidden\" name=\"client_id\" value=\"{}\">\
+      <input type=\"hidden\" name=\"redirect_uri\" value=\"{}\">\
+@@ -222,6 +224,7 @@ pub async fn oauth_authorize_get(
+      <button type=\"submit\" name=\"decision\" value=\"deny\">Deny</button>\
+      </form>",
+     html_escape(&client.client_name),
++    html_escape(&query.redirect_uri),
+     scope_lines,
+     html_escape(&query.client_id),
+     html_escape(&query.redirect_uri),
+@@ -237,11 +240,8 @@ pub async fn oauth_authorize_post(
+   form: Form<AuthorizeForm>,
+   server_state: Data<Arc<ServerState>>,
+ ) -> HttpResponse {
+-  if let Some(origin) = request.headers().get(header::ORIGIN).and_then(|value| value.to_str().ok()) {
+-    let host = request.connection_info().host().to_string();
+-    if !origin_matches_host(origin, &host) {
+-      return oauth_error(400, "invalid_request", "consent came from another site");
+-    }
++  if !same_site_post(&request) {
++    return oauth_error(400, "invalid_request", "consent must be sent from this site");
+   }
+   let mut connection = match server_state.mysql_pool.acquire().await {
+     Ok(connection) => connection,
+@@ -406,11 +406,8 @@ pub async fn oauth_revoke_grant(
+   path: actix_web::web::Path<String>,
+   server_state: Data<Arc<ServerState>>,
+ ) -> HttpResponse {
+-  if let Some(origin) = request.headers().get(header::ORIGIN).and_then(|value| value.to_str().ok()) {
+-    let host = request.connection_info().host().to_string();
+-    if !origin_matches_host(origin, &host) {
+-      return oauth_error(400, "invalid_request", "revoke came from another site");
+-    }
++  if !same_site_post(&request) {
++    return oauth_error(400, "invalid_request", "revoke must be sent from this site");
+   }
+   let mut connection = match server_state.mysql_pool.acquire().await {
+     Ok(connection) => connection,
+@@ -572,13 +569,16 @@ where
+     warn!("OAuth token insert error: {:?}", err);
+     return Err(oauth_error(500, "server_error", "could not issue a token"));
+   }
+-  Ok(HttpResponse::Ok().json(serde_json::json!({
+-    "access_token": access_token,
+-    "token_type": "Bearer",
+-    "expires_in": ACCESS_TOKEN_TTL_SECONDS,
+-    "refresh_token": refresh_token,
+-    "scope": scopes,
+-  })))
++  Ok(HttpResponse::Ok()
++    .insert_header((header::CACHE_CONTROL, "no-store"))
++    .insert_header((header::PRAGMA, "no-cache"))
++    .json(serde_json::json!({
++      "access_token": access_token,
++      "token_type": "Bearer",
++      "expires_in": ACCESS_TOKEN_TTL_SECONDS,
++      "refresh_token": refresh_token,
++      "scope": scopes,
++    })))
+ }
+ 
+ async fn load_client(
+@@ -675,8 +675,10 @@ fn percent_decode(value: &str) -> String {
+   let mut i = 0;
+   while i < bytes.len() {
+     if bytes[i] == b'%' && i + 2 < bytes.len() {
+-      if let Ok(byte) = u8::from_str_radix(&value[i + 1..i + 3], 16) {
+-        out.push(byte);
++      let high = (bytes[i + 1] as char).to_digit(16);
++      let low = (bytes[i + 2] as char).to_digit(16);
++      if let (Some(high), Some(low)) = (high, low) {
++        out.push((high * 16 + low) as u8);
+         i += 3;
+         continue;
+       }
+@@ -701,10 +703,12 @@ fn percent_encode(value: &str) -> String {
+ 
+ fn oauth_error(status: u16, error: &str, description: &str) -> HttpResponse {
+   let code = actix_web::http::StatusCode::from_u16(status).unwrap_or(actix_web::http::StatusCode::BAD_REQUEST);
+-  HttpResponse::build(code).json(serde_json::json!({
+-    "error": error,
+-    "error_description": description,
+-  }))
++  HttpResponse::build(code)
++    .insert_header((header::CACHE_CONTROL, "no-store"))
++    .json(serde_json::json!({
++      "error": error,
++      "error_description": description,
++    }))
+ }
+ 
+ fn redirect_error(redirect_uri: &str, error: &str, state: Option<&str>) -> HttpResponse {
+@@ -726,6 +730,10 @@ fn html_page(title: &str, body: &str) -> HttpResponse {
+   let title = html_escape(title);
+   HttpResponse::Ok()
+     .content_type("text/html; charset=utf-8")
++    .insert_header((header::CACHE_CONTROL, "no-store"))
++    .insert_header((header::X_FRAME_OPTIONS, "DENY"))
++    .insert_header((header::CONTENT_SECURITY_POLICY, "frame-ancestors 'none'"))
++    .insert_header((header::REFERRER_POLICY, "no-referrer"))
+     .body(format!(
+       "<!doctype html><html><head><meta charset=\"utf-8\"><title>{title}</title></head><body><h1>{title}</h1>{body}</body></html>"
+     ))
+@@ -745,3 +753,49 @@ fn external_origin(request: &HttpRequest) -> String {
+   let info = request.connection_info();
+   format!("{}://{}", info.scheme(), info.host())
+ }
++
++/// Cookie-authenticated POSTs must carry an `Origin` that matches this host.
++/// A missing `Origin` is refused.
++fn same_site_post(request: &HttpRequest) -> bool {
++  let Some(origin) = request.headers().get(header::ORIGIN).and_then(|value| value.to_str().ok()) else {
++    return false;
++  };
++  let host = request.connection_info().host().to_string();
++  origin_matches_host(origin, &host)
++}
++
++#[cfg(test)]
++mod tests {
++  use super::*;
++
++  #[test]
++  fn percent_decode_does_not_panic_on_multibyte_text() {
++    assert_eq!(percent_decode("%a\u{20ac}"), "%a\u{20ac}");
++    assert_eq!(percent_decode("%e2%82%ac"), "\u{20ac}");
++    assert_eq!(percent_decode("a+b%20c%"), "a b c%");
++    assert_eq!(percent_decode("%zz"), "%zz");
++  }
++
++  #[test]
++  fn percent_encode_round_trips() {
++    let raw = "state with spaces&=/";
++    assert_eq!(percent_decode(&percent_encode(raw)), raw);
++  }
++
++  #[test]
++  fn same_site_post_needs_a_matching_origin() {
++    use actix_web::test::TestRequest;
++    let missing = TestRequest::default().insert_header((header::HOST, "api.storyteller.ai")).to_http_request();
++    assert!(!same_site_post(&missing));
++    let other = TestRequest::default()
++      .insert_header((header::HOST, "api.storyteller.ai"))
++      .insert_header((header::ORIGIN, "https://evil.example"))
++      .to_http_request();
++    assert!(!same_site_post(&other));
++    let same = TestRequest::default()
++      .insert_header((header::HOST, "api.storyteller.ai"))
++      .insert_header((header::ORIGIN, "https://api.storyteller.ai"))
++      .to_http_request();
++    assert!(same_site_post(&same));
++  }
++}
+-- 
+2.43.0
+
