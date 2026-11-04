@@ -14,6 +14,13 @@ The Craft app icons in static/app-icons/ are resized copies of each app's
 assets/app-icon artwork from github.com/storytold/<app>, used under that
 app's MIT OR Apache-2.0 license.
 
+static/app-icons/craft-anything.png is Craft Anything's raven icon, an unmodified
+128 px file from assets/app-icon/hicolor in github.com/storytold/craft-anything.
+It is not open source: it belongs to the ArtCraft Team and is not covered by the
+MIT OR Apache-2.0 license above. It identifies Craft Anything on the card that
+links to its repository. I asked for permission in
+github.com/storytold/craft-anything/issues/833 and will take it down if they ask.
+
 static/app-icons/artcraft.svg is the ArtCraft logo, unmodified, from
 github.com/storytold/artcraft. It is a trademark of the ArtCraft Team and is
 shown on the catalog card that links to the ArtCraft repository and on the
