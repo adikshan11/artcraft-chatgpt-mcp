@@ -156,16 +156,15 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b'class="flip-mark" src="/static/app-icons/artcraft.svg?v=', response.data)
         self.assertIn(b'class="flip"', response.data)
         for app in (b"WordCraft", b"DeckCraft", b"PdfCraft", b"PhotoCraft", b"VectorCraft",
-                    b"DesignCraft", b"FigCraft", b"SoundCraft"):
+                    b"DesignCraft", b"FigCraft", b"SoundCraft", b"EffectCraft", b"TextureCraft", b"MaterialCraft"):
             self.assertIn(app, response.data)
-        self.assertIn(b"v0.12.0", response.data)
-        # All 13 Craft apps are on the plate and in the grid; the unhosted ones say why.
-        for app in (b"EffectCraft", b"FilmCraft", b"CADCraft", b"GridCraft", b"LightCraft"):
+        self.assertIn(b"v0.15.1", response.data)
+        # All 15 Craft apps are on the plate and in the grid; the unhosted ones say why.
+        for app in (b"FilmCraft", b"CADCraft", b"GridCraft", b"LightCraft"):
             self.assertIn(app + b" (not hosted yet)", response.data)
-        self.assertEqual(response.data.count(b'<li style="--i: '), 13)
-        self.assertEqual(response.data.count(b'class="is-off"'), 5)
+        self.assertEqual(response.data.count(b'<li style="--i: '), 15)
+        self.assertEqual(response.data.count(b'class="is-off"'), 4)
         self.assertIn(b"<h3 class=\"app-group-title\">Not hosted yet</h3>", response.data)
-        self.assertIn(b"Merged, not in 0.19.0", response.data)
         self.assertIn(b'href="https://github.com/storytold/lightcraft"', response.data)
         # Privacy is a footer link, not a homepage section; footer links carry no arrows.
         self.assertNotIn(b'id="privacy"', response.data)
@@ -176,18 +175,19 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b'aria-label="Source code on GitHub"', response.data)
         self.assertIn(b'href="https://discord.gg/artcraft"', response.data)
         # Each app I can't host yet links the open upstream pull requests that would fix it.
-        for pr in (b"effectcraft/pull/2719", b"filmcraft/pull/1657", b"cadcraft/pull/1904", b"gridcraft/pull/480",
+        for pr in (b"filmcraft/pull/1657", b"cadcraft/pull/1904", b"gridcraft/pull/480",
                    b"gridcraft/pull/2739", b"gridcraft/pull/2857", b"lightcraft/pull/2176"):
             self.assertIn(b'href="https://github.com/storytold/' + pr + b'"', response.data)
         self.assertIn(b"/static/site.js", response.data)
         self.assertIn(b'href="/status"', response.data)
         # One example from every hosted app, made by the apps themselves.
         for sample in (b"deck-chart.png", b"report.png", b"pdf-draft.png", b"flyer.png", b"badge.png",
-                       b"post.png", b"screen.png", b"jingle-wave.png", b"jingle.mp3"):
+                       b"post.png", b"screen.png", b"jingle-wave.png", b"jingle.mp3",
+                       b"motion-title.png", b"material-brick.png", b"texture-brick.png"):
             self.assertIn(b"/static/showcase/" + sample, response.data)
         self.assertIn(b'href="https://github.com/storytold/figcraft"', response.data)
         # Limits and status are stated plainly.
-        self.assertIn(b"EffectCraft, FilmCraft, CADCraft, GridCraft", response.data)
+        self.assertIn(b"FilmCraft, CADCraft, GridCraft and LightCraft", response.data)
         self.assertIn(b"Up to 500 MB each and 5 GB per account.", response.data)
         # The disclaimer sits in the footer, not under the hero.
         hero, footer = response.data.split(b'<footer class="footer">', 1)
@@ -255,7 +255,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn(text, response.data)
         for app in (b"WordCraft", b"SoundCraft", b"EffectCraft", b"LightCraft"):
             self.assertIn(app, response.data)
-        self.assertIn(b"Not hosted. storytold/effectcraft#2719 is merged.", response.data)
+        self.assertIn(b"Not hosted. Its command-line build", response.data)
         self.assertIn(b'href="https://github.com/storytold/cadcraft/pull/1904"', response.data)
         self.assertIn(b'data-theme-toggle', response.data)
 
@@ -281,8 +281,8 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("09:05 UTC", rows["File cleanup"]["text"])
         # The apps aren't installed in the test environment, which on Render is a fault.
         self.assertEqual(rows["WordCraft"]["health"], "error")
-        self.assertEqual(rows["EffectCraft"]["health"], "off")
-        self.assertEqual(len(data["apps"]), 13)
+        self.assertEqual(rows["FilmCraft"]["health"], "off")
+        self.assertEqual(len(data["apps"]), 15)
         self.assertEqual(data["overall"], "error")
         body = response.get_data(as_text=True).lower()
         for secret in ("key", "token", "secret", "password", "bucket", "/opt/craft"):

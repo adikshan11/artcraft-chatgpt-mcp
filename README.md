@@ -125,8 +125,8 @@ Never set it on the public Render service.
 
 The PDF and PhotoCraft tools hand the work to the official PdfCraft and
 PhotoCraft command-line tools. Skip this step if you only want image and video
-generation. I pin the same releases the hosted Studio runs, PdfCraft 0.15.0 and
-PhotoCraft 0.17.0, because I have checked that their folder limits hold.
+generation. I pin the same releases the hosted Studio runs, PdfCraft 0.18.1 and
+PhotoCraft 0.20.1, because I have checked that their folder limits hold.
 
 Each release is a different file per system. On macOS it's the universal CLI
 zip. On Windows the CLI, `<app>-cli.exe`, ships inside the portable zip (the
@@ -136,16 +136,16 @@ each release's `SHA256SUMS.txt`:
 
 | App | System | File | SHA-256 |
 | --- | --- | --- | --- |
-| PdfCraft 0.15.0 | macOS | `pdfcraft-cli-0.15.0-macos-universal.zip` | `0304db20f3597e4e9ad3044d67f79cb89bdad49833c6ad7a60c0d0d6a7afaa50` |
-| PdfCraft 0.15.0 | Windows x64 | `pdfcraft-0.15.0-windows-x64-portable.zip` | `92df7bef0b4c1eb7a59d0410716903e69fe4d2c4ea0074c6b53780096c3e20f9` |
-| PdfCraft 0.15.0 | Windows Arm64 | `pdfcraft-0.15.0-windows-arm64-portable.zip` | `12207c2a822c92a80b126835c57e57ed2270ae2944db471f0a19bdb70e2cfa8d` |
-| PdfCraft 0.15.0 | Linux x86_64 | `pdfcraft-0.15.0-linux-x86_64.tar.gz` | `b167a18c60a7b329f05a5bbf97e32dc678aad3f8d5866d8e4378ff24273f8313` |
-| PdfCraft 0.15.0 | Linux aarch64 | `pdfcraft-0.15.0-linux-aarch64.tar.gz` | `b380bc7a4c28d05d7ea95eb23085ca322c49ca1a21b8bb79389a8e083ae92b9d` |
-| PhotoCraft 0.17.0 | macOS | `photocraft-cli-0.17.0-macos-universal.zip` | `6edff99cc1977508bea9b5566f551374e7b8ef42a21502ee084a1d969f0d54c0` |
-| PhotoCraft 0.17.0 | Windows x64 | `photocraft-0.17.0-windows-x64-portable.zip` | `3453777af0a0b376bfea0d1ccf42bedcbe1c324e1836b50d6227b9e1d64a20ab` |
-| PhotoCraft 0.17.0 | Windows Arm64 | `photocraft-0.17.0-windows-arm64-portable.zip` | `fe0f621702ee723d51d771f245aed2de2e5111349bce524afc04a66efa1c2627` |
-| PhotoCraft 0.17.0 | Linux x86_64 | `photocraft-0.17.0-linux-x86_64.tar.gz` | `5259f9c428c8ee3478c35500ece98713561cafc050e4c9eb354a5050f36eb2b8` |
-| PhotoCraft 0.17.0 | Linux aarch64 | `photocraft-0.17.0-linux-aarch64.tar.gz` | `a9478dee2b34f270a1f845a7d7f4da501c529d443680ee23c2c8b588867d61b8` |
+| PdfCraft 0.18.1 | macOS | `pdfcraft-cli-0.18.1-macos-universal.zip` | `086b233ad7c2bdc172bf8c0e359855fde7c6bdd69a5bd19efb47f08920cfeb7d` |
+| PdfCraft 0.18.1 | Windows x64 | `pdfcraft-0.18.1-windows-x64-portable.zip` | `d837a49ecb66ba0afc0b4937f919d74b36a9eff691c1c6167d7f52e1dd3f9ffd` |
+| PdfCraft 0.18.1 | Windows Arm64 | `pdfcraft-0.18.1-windows-arm64-portable.zip` | `5a1e8bb2e961277c29c9f1ccfe371fd00a30c7045e5e5e8fd81a6e127ba8c751` |
+| PdfCraft 0.18.1 | Linux x86_64 | `pdfcraft-0.18.1-linux-x86_64.tar.gz` | `41a6b9fb16970cd3610d05d985997002e419bf5278f86af6ab480783f89bf1fc` |
+| PdfCraft 0.18.1 | Linux aarch64 | `pdfcraft-0.18.1-linux-aarch64.tar.gz` | `7b9920b9d8c4ccbc362cd7e8cc6f939feaf23fac78b1a8b88791d8d4c93ff01c` |
+| PhotoCraft 0.20.1 | macOS | `photocraft-cli-0.20.1-macos-universal.zip` | `e006ef0ae3ca46cbf55c1235a7105f896750373e4f87bc2ae875ad822c994d5d` |
+| PhotoCraft 0.20.1 | Windows x64 | `photocraft-0.20.1-windows-x64-portable.zip` | `e21ac903cf0477b05d8d1b6071f1f579b80f8ee9c8737a0b47b53948a17c5c73` |
+| PhotoCraft 0.20.1 | Windows Arm64 | `photocraft-0.20.1-windows-arm64-portable.zip` | `2724e3042b9696fa6da09f1216a3b16ebc823d5d0712adc1f169304bb6d1a394` |
+| PhotoCraft 0.20.1 | Linux x86_64 | `photocraft-0.20.1-linux-x86_64.tar.gz` | `398787d58fe46919e99c9f56e35545549ef0aaab007f869a92beff7d9fe52234` |
+| PhotoCraft 0.20.1 | Linux aarch64 | `photocraft-0.20.1-linux-aarch64.tar.gz` | `ec07b36b48063ca30db0c9043adf86f752255b9800dfe93bf2c6c3fcc9688588` |
 
 Run the commands for your system once per app. Set `app`, `v` and `sum` (or
 `sums`) from the table first; the PdfCraft values are filled in. Each download
@@ -154,7 +154,7 @@ goes into a new empty folder and is checked before anything is unpacked.
 macOS (the universal zip runs on Intel and Apple Silicon):
 
 ```sh
-app=pdfcraft v=0.15.0 sum=0304db20f3597e4e9ad3044d67f79cb89bdad49833c6ad7a60c0d0d6a7afaa50
+app=pdfcraft v=0.18.1 sum=086b233ad7c2bdc172bf8c0e359855fde7c6bdd69a5bd19efb47f08920cfeb7d
 dl=$(mktemp -d)
 curl -fL "https://github.com/storytold/$app/releases/download/v$v/$app-cli-$v-macos-universal.zip" \
   -o "$dl/$app.zip"
@@ -172,11 +172,11 @@ it doesn't.
 Linux:
 
 ```sh
-app=pdfcraft v=0.15.0
+app=pdfcraft v=0.18.1
 arch=$(uname -m)  # x86_64 or aarch64
 case "$arch" in
-  x86_64) sum=b167a18c60a7b329f05a5bbf97e32dc678aad3f8d5866d8e4378ff24273f8313 ;;
-  aarch64) sum=b380bc7a4c28d05d7ea95eb23085ca322c49ca1a21b8bb79389a8e083ae92b9d ;;
+  x86_64) sum=41a6b9fb16970cd3610d05d985997002e419bf5278f86af6ab480783f89bf1fc ;;
+  aarch64) sum=7b9920b9d8c4ccbc362cd7e8cc6f939feaf23fac78b1a8b88791d8d4c93ff01c ;;
 esac
 dl=$(mktemp -d)
 curl -fL "https://github.com/storytold/$app/releases/download/v$v/$app-$v-linux-$arch.tar.gz" \
@@ -191,10 +191,10 @@ install -m 755 "$dl/$app-$v-linux-$arch/bin/$app-cli" "$dest/$app-cli"
 Windows:
 
 ```powershell
-$app = "pdfcraft"; $v = "0.15.0"
+$app = "pdfcraft"; $v = "0.18.1"
 $sums = @{
-  x64   = "92df7bef0b4c1eb7a59d0410716903e69fe4d2c4ea0074c6b53780096c3e20f9"
-  arm64 = "12207c2a822c92a80b126835c57e57ed2270ae2944db471f0a19bdb70e2cfa8d"
+  x64   = "d837a49ecb66ba0afc0b4937f919d74b36a9eff691c1c6167d7f52e1dd3f9ffd"
+  arm64 = "5a1e8bb2e961277c29c9f1ccfe371fd00a30c7045e5e5e8fd81a6e127ba8c751"
 }
 $arch = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "arm64" } else { "x64" }
 $name = "$app-$v-windows-$arch-portable"
@@ -565,31 +565,34 @@ user to 5 GB (`STUDIO_MAX_FILE_MB`, `STUDIO_USER_QUOTA_MB`).
 
 Studio also runs Storytold's open-source Craft apps on the server, so people can
 use them from claude.ai, the ChatGPT website, or a phone with nothing installed.
-Eight apps are included:
+Eleven apps are included:
 
 | App | What it does | File types |
 | --- | --- | --- |
-| WordCraft 0.12.0 | Documents | docx, doc, odt, rtf, md, txt, tex; exports PDF, PNG |
-| DeckCraft 0.12.0 | Presentations | pptx, .deckcraft; exports PDF, PNG, JPEG |
-| PdfCraft 0.15.0 | PDF editing, forms, redaction, OCR, accessibility | pdf; exports docx, pptx, txt, images |
-| PhotoCraft 0.17.0 | Photo editing | png, jpg, webp, gif, bmp, tiff, psd, .pcraft |
-| VectorCraft 0.18.0 | Vector art (always started with `--headless`) | .vectorcraft, pdf, ai, png, jpg |
-| DesignCraft 0.14.0 | Page layout | .designcraft, idml, images; exports PDF, PNG |
-| FigCraft 0.12.1 | Interface design | .figcraft, .fig, images; exports PNG, JPG, PDF, WebP |
-| SoundCraft 0.14.0 | Audio editing and mixing | .scraft, wav, aiff, flac, mp3, ogg, m4a, mid; bounces WAV, AIFF, FLAC |
+| WordCraft 0.15.1 | Documents | docx, doc, odt, rtf, md, txt, tex; exports PDF, PNG |
+| DeckCraft 0.15.0 | Presentations | pptx, .deckcraft; exports PDF, PNG, JPEG |
+| PdfCraft 0.18.1 | PDF editing, forms, redaction, OCR, accessibility | pdf; exports docx, pptx, txt, images |
+| PhotoCraft 0.20.1 | Photo editing | png, jpg, webp, gif, bmp, tiff, psd, .pcraft |
+| VectorCraft 0.21.0 | Vector art (always started with `--headless`) | .vectorcraft, pdf, ai, png, jpg |
+| DesignCraft 0.17.0 | Page layout | .designcraft, idml, images; exports PDF, PNG |
+| FigCraft 0.15.0 | Interface design | .figcraft, .fig, images; exports PNG, JPG, PDF, WebP |
+| SoundCraft 0.17.0 | Audio editing and mixing | .scraft, wav, aiff, flac, mp3, ogg, m4a, mid; bounces WAV, AIFF, FLAC |
+| EffectCraft 0.21.0 | Motion graphics | .ecproj, images, video, wav; renders PNG frames |
+| TextureCraft 0.3.0 | 3D texture painting | .tcraft, obj, glb, gltf, fbx, images; exports textures |
+| MaterialCraft 0.1.0 | Procedural materials | .mcraft, images; exports texture maps |
+
+Before an app or a new release is listed, [`scripts/escape_checks.py`](scripts/escape_checks.py)
+tries to get out of its folder through every tool and engine command that takes a
+path, and the evals use each one end to end.
 
 The other Craft apps are left out until their folder lock can be trusted on a
 shared server:
 
-- **CADCraft 0.15.1, FilmCraft 0.15.0, GridCraft 0.14.2 and LightCraft 0.16.0**
+- **CADCraft 0.17.0, FilmCraft 0.17.0, GridCraft 0.16.0 and LightCraft 0.18.0**
   don't have `--automation-read-root`/`--automation-write-root` in their
-  releases. Support is in progress upstream. At least one earlier build accepted
+  releases. The fixes are open upstream. At least one earlier build accepted
   the flags silently without enforcing them, so a listed flag is never taken on
   trust.
-- **EffectCraft 0.19.0** refuses every path outside the folder that it's given,
-  but a project inside the folder can still name footage outside it, and
-  rendering shows that footage. storytold/effectcraft#2719 fixes that on main
-  and is not in the 0.19.0 release, so Studio does not host this build.
 - A shared folder lock and escape tests for every app are proposed in
   [storytold/craft-contrib#22](https://github.com/storytold/craft-contrib/pull/22).
 - **AniCraft** has no command-line or MCP server yet.
