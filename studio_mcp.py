@@ -192,6 +192,10 @@ async def sweep_expired_files_forever():
             await asyncio.to_thread(usage.prune, storage())
         except Exception:
             log.exception("Deleting old usage counts failed.")
+        try:
+            await asyncio.to_thread(storage().erase_old_versions)
+        except Exception:
+            log.exception("Erasing old file versions failed.")
         await asyncio.sleep(SWEEP_INTERVAL_SECONDS)
 
 

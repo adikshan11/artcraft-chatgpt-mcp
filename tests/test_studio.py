@@ -33,6 +33,62 @@ def make_pdf(path: Path, pages: int = 3):
         writer.write(handle)
 
 
+class VersionedBucket:
+    """An S3 client for a bucket that keeps versions. A delete without a version id only
+    adds a delete marker, as Backblaze B2 does."""
+
+    def __init__(self, keys):
+        self.store = {key: [{"id": "v1", "marker": False}] for key in keys}
+        self.calls = []
+        self.count = 1
+
+    def put(self, key):
+        self.count += 1
+        self.store.setdefault(key, []).insert(0, {"id": f"v{self.count}", "marker": False})
+
+    def entries(self):
+        """Every stored version as (key, version id, is latest)."""
+        return [
+            (key, entry["id"], index == 0)
+            for key, entries in self.store.items()
+            for index, entry in enumerate(entries)
+        ]
+
+    def get_paginator(self, name):
+        return _Pages(self, name)
+
+    def delete_object(self, Bucket, Key, VersionId=None):
+        self.calls.append((Key, VersionId))
+        entries = self.store.get(Key, [])
+        if VersionId is None:
+            self.count += 1
+            entries.insert(0, {"id": f"v{self.count}", "marker": True})
+        else:
+            entries[:] = [entry for entry in entries if entry["id"] != VersionId]
+        if not entries:
+            self.store.pop(Key, None)
+
+
+class _Pages:
+    def __init__(self, bucket, name):
+        self.bucket, self.name = bucket, name
+
+    def paginate(self, Bucket, Prefix=""):
+        store = self.bucket.store
+        if self.name == "list_objects_v2":
+            return [{"Contents": [
+                {"Key": key} for key, entries in store.items()
+                if key.startswith(Prefix) and not entries[0]["marker"]
+            ]}]
+        page = {"Versions": [], "DeleteMarkers": []}
+        for key, entries in store.items():
+            if key.startswith(Prefix):
+                for index, entry in enumerate(entries):
+                    row = {"Key": key, "VersionId": entry["id"], "IsLatest": index == 0, "Size": 1}
+                    page["DeleteMarkers" if entry["marker"] else "Versions"].append(row)
+        return [page]
+
+
 class StudioTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
@@ -375,23 +431,52 @@ class RetentionTests(unittest.TestCase):
             "users/not-a-user/media/nope.png",
         ]
 
-        class FakeClient:
-            def __init__(self):
-                self.deleted = []
+        store = S3Storage.__new__(S3Storage)
+        store.bucket, store.client = "b", VersionedBucket(keys)
+        self.assertEqual(store.delete_user(user), 2)
+        self.assertEqual(store.client.entries(), [(keys[2], "v1", True), (keys[3], "v1", True)])
 
-            def get_paginator(self, _name):
-                return self
+    def test_s3_delete_erases_every_version(self):
+        from media_storage import S3Storage, object_key
 
-            def paginate(self, Bucket, Prefix):
-                return [{"Contents": [{"Key": key} for key in keys if key.startswith(Prefix)]}]
+        user = user_id_for("t", "alice")
+        key = object_key(user, "a" * 32 + ".png")
+        other = f"users/{user}/media/{'b' * 32}.png"
+        bucket = VersionedBucket([key, other])
+        bucket.put(key)
+        store = S3Storage.__new__(S3Storage)
+        store.bucket, store.client = "b", bucket
+        store.delete(user, "a" * 32 + ".png")
+        self.assertEqual(bucket.entries(), [(other, "v1", True)])
 
-            def delete_object(self, Bucket, Key):
-                self.deleted.append(Key)
+    def test_s3_erase_old_versions_keeps_current_files(self):
+        from media_storage import S3Storage
+
+        bucket = VersionedBucket(["users/x/replaced", "users/x/hidden", "ops/usage/kept"])
+        bucket.put("users/x/replaced")
+        bucket.delete_object("b", "users/x/hidden")
+        store = S3Storage.__new__(S3Storage)
+        store.bucket, store.client = "b", bucket
+        self.assertEqual(store.erase_old_versions(), 2)
+        self.assertEqual(bucket.entries(), [("users/x/replaced", "v2", True), ("ops/usage/kept", "v1", True)])
+        self.assertEqual(store.erase_old_versions(), 0)
+
+    def test_s3_provider_without_versions_still_deletes(self):
+        from botocore.exceptions import ClientError
+        from media_storage import S3Storage
+
+        class NoVersions(VersionedBucket):
+            def get_paginator(self, name):
+                if name == "list_object_versions":
+                    raise ClientError({"Error": {"Code": "NotImplemented"}}, "ListObjectVersions")
+                return super().get_paginator(name)
 
         store = S3Storage.__new__(S3Storage)
-        store.bucket, store.client = "b", FakeClient()
-        self.assertEqual(store.delete_user(user), 2)
-        self.assertEqual(store.client.deleted, keys[:2])
+        store.bucket, store.client = "b", NoVersions(["users/x/grant/token"])
+        store._erase("users/x/grant/token")
+        self.assertEqual(store.client.calls, [("users/x/grant/token", None)])
+        self.assertEqual(store.erase_old_versions(), 0)
+
 
 
 if __name__ == "__main__":

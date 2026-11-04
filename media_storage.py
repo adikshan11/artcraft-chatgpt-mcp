@@ -236,6 +236,10 @@ class LocalStorage:
     def delete_record(self, key: str):
         (self.root / ops_key(key)).unlink(missing_ok=True)
 
+    def erase_old_versions(self) -> int:
+        """A local directory keeps no old versions."""
+        return 0
+
     def upload_url(self, user_id, media_id):
         return self._path(user_id, media_id).resolve().as_uri()
 
@@ -277,8 +281,43 @@ class S3Storage:
         except ClientError as exc:
             raise StorageError(f"Media '{media_id}' was not found.") from exc
 
+    def _versions(self, prefix: str = "") -> "tuple[list[dict], list[dict]]":
+        """Every stored version and delete marker under ``prefix``. A provider that doesn't
+        keep versions reports none."""
+        from botocore.exceptions import ClientError
+
+        versions, markers = [], []
+        try:
+            for page in self.client.get_paginator("list_object_versions").paginate(Bucket=self.bucket, Prefix=prefix):
+                versions.extend(page.get("Versions", []))
+                markers.extend(page.get("DeleteMarkers", []))
+        except ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") != "NotImplemented":
+                raise
+        return versions, markers
+
+    def _erase_versions(self, entries: "list[dict]") -> None:
+        for entry in entries:
+            self.client.delete_object(Bucket=self.bucket, Key=entry["Key"], VersionId=entry["VersionId"])
+
+    def _erase(self, key: str) -> None:
+        """Delete ``key`` for good. Without a version id, a bucket that keeps versions only
+        hides the file, so the versions and the delete marker are removed too. The file is
+        hidden first and the markers go last, so an old version never shows again."""
+        self.client.delete_object(Bucket=self.bucket, Key=key)
+        versions, markers = self._versions(key)
+        self._erase_versions([entry for entry in versions + markers if entry["Key"] == key])
+
+    def erase_old_versions(self) -> int:
+        """Remove every version that isn't a file's current one, and the delete markers.
+        Returns how many versions went."""
+        versions, markers = self._versions()
+        old = [version for version in versions if not version["IsLatest"]]
+        self._erase_versions(old + markers)
+        return len(old)
+
     def delete(self, user_id, media_id):
-        self.client.delete_object(Bucket=self.bucket, Key=object_key(user_id, media_id))
+        self._erase(object_key(user_id, media_id))
 
     def list(self, user_id) -> list[StoredObject]:
         items = []
@@ -312,7 +351,7 @@ class S3Storage:
             return None
 
     def delete_private(self, key: str):
-        self.client.delete_object(Bucket=self.bucket, Key=validate_private_key(key))
+        self._erase(validate_private_key(key))
 
     def list_user_ids(self) -> "list[str]":
         found = set()
@@ -335,6 +374,8 @@ class S3Storage:
                 if key.startswith(prefix) and ".." not in key:
                     self.client.delete_object(Bucket=self.bucket, Key=key)
                     deleted += 1
+        versions, markers = self._versions(prefix)
+        self._erase_versions([entry for entry in versions + markers if ".." not in entry["Key"]])
         return deleted
 
     def download_url(self, user_id, media_id):
