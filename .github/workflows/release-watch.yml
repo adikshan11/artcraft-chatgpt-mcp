@@ -1,0 +1,105 @@
+name: Release watch
+
+# Looks for new Craft releases every six hours. For each one it builds the image against the
+# new checksum, tries to escape the folder lock, runs the evals and opens a pull request with
+# the results. Render deploys when that pull request merges.
+#
+# Storytold has no release events today. When it sends one, a repository_dispatch of type
+# craft-release starts this straight away.
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+  repository_dispatch:
+    types: [craft-release]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-watch
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    name: Check for new releases
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Move the pins to the newest releases
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python scripts/bump_apps.py > /tmp/bumps.json
+
+      - name: Decide whether there's anything to do
+        id: changes
+        run: |
+          cat /tmp/bumps.json
+          apps=$(python3 -c "import json; print(' '.join(row['app'] for row in json.load(open('/tmp/bumps.json'))['bumped']))")
+          echo "apps=$apps" >> "$GITHUB_OUTPUT"
+
+      - name: Build the image, which checks every new checksum
+        if: steps.changes.outputs.apps != ''
+        run: docker build -t bridgecraft .
+
+      # Same sandbox as the evals. A failure here still reaches the pull request, marked as failed.
+      - name: Try to escape the folder lock in each new release
+        id: escapes
+        if: steps.changes.outputs.apps != ''
+        continue-on-error: true
+        env:
+          APPS: ${{ steps.changes.outputs.apps }}
+        run: |
+          docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges \
+            --read-only --tmpfs /tmp:exec --memory 4g --pids-limit 512 -e ESCAPE_WORK=/tmp \
+            bridgecraft python scripts/escape_all.py craft_apps.json /opt/craft $APPS > /tmp/escapes.json
+
+      - name: Run the evals
+        id: evals
+        if: steps.changes.outputs.apps != ''
+        continue-on-error: true
+        run: |
+          docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges \
+            --read-only --tmpfs /tmp --memory 4g --pids-limit 512 \
+            -v "$PWD/evals:/app/evals:ro" -e PYTHONDONTWRITEBYTECODE=1 \
+            bridgecraft python -m evals.run_evals > /tmp/evals.json
+
+      - name: Run the unit tests
+        id: tests
+        if: steps.changes.outputs.apps != ''
+        continue-on-error: true
+        run: |
+          pip install -r requirements.txt
+          python -m unittest discover -s tests
+
+      - name: Open or update the pull request
+        if: steps.changes.outputs.apps != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ESCAPES: ${{ steps.escapes.outcome }}
+          EVALS: ${{ steps.evals.outcome }}
+          TESTS: ${{ steps.tests.outcome }}
+        run: |
+          python scripts/release_watch_pr.py /tmp/bumps.json /tmp/escapes.json /tmp/evals.json > /tmp/body.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B bump/craft-releases
+          git add craft_apps.json README.md craft_app_mcp.py pdfcraft_mcp.py
+          git commit -q -m "Move to the newest Craft releases"
+          git push --force origin bump/craft-releases
+          if gh pr view bump/craft-releases --json state -q .state 2>/dev/null | grep -q OPEN; then
+            gh pr edit bump/craft-releases --body-file /tmp/body.md
+          else
+            gh pr create --head bump/craft-releases --base main \
+              --title "Move to the newest Craft releases" --body-file /tmp/body.md
+          fi

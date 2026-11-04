@@ -159,8 +159,10 @@ def main() -> int:
     parser.add_argument("--extra-arg", action="append", default=[])
     parser.add_argument("--flag-style", default="automation", choices=["automation", "plain"], help="plain means --read-root, for an app that doesn't use the --automation- names yet.")
     parser.add_argument("--hidden", default="", help="Comma-separated tools Studio hides, which are not called.")
+    parser.add_argument("--blocked", default="", help="Comma-separated engine commands Studio refuses; a trailing dot means a prefix.")
     args = parser.parse_args()
     hidden = set(filter(None, args.hidden.split(",")))
+    blocked = tuple(filter(None, args.blocked.split(",")))
 
     work = Path(tempfile.mkdtemp(dir=os.environ.get("ESCAPE_WORK")))
     read_root, write_root, outside, home = (work / name for name in ("read", "write", "outside", "home"))
@@ -216,6 +218,8 @@ def main() -> int:
     if runner:
         id_key = "command" if "command" in runner_tool["inputSchema"].get("properties", {}) else "id"
         for command, keys in commands:
+            if any(command.startswith(word) if word.endswith(".") else command == word for word in blocked):
+                continue
             for key in keys:
                 calls.append((f"{runner}:{command}", key, False, lambda value, command=command, key=key, id_key=id_key: {id_key: command, "params": {key: value}}))
 
