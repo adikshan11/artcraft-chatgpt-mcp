@@ -4,6 +4,8 @@
 import json
 import shutil
 import tempfile
+import threading
+import time
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -12,7 +14,7 @@ from unittest.mock import patch
 from starlette.testclient import TestClient as AsgiTestClient
 
 import usage
-from media_storage import LocalStorage, StorageError, user_id_for
+from media_storage import LocalStorage, S3Storage, StorageError, user_id_for
 
 
 def reset():
@@ -20,6 +22,8 @@ def reset():
     usage._written.clear()
     usage._finished.clear()
     usage._summary.clear()
+    usage._storage.clear()
+    usage._refreshing.clear()
     usage._first_request["pending"] = True
 
 
@@ -74,8 +78,11 @@ class UsageTestCase(unittest.TestCase):
 
     def test_tool_calls_keep_name_app_and_outcome_only(self):
         class Server:
+            async def list_tools(self):
+                return [type("Tool", (), {"name": name})() for name in ("open_craft_session", "refused", "broken")]
+
             async def call_tool(self, name, arguments, context=None):
-                if name == "broken":
+                if name in ("broken", "secret-tool-name"):
                     raise RuntimeError("no")
                 return type("Result", (), {"is_error": name == "refused"})()
 
@@ -90,6 +97,9 @@ class UsageTestCase(unittest.TestCase):
             await server.call_tool("refused", {})
             with self.assertRaises(RuntimeError):
                 await server.call_tool("broken", {"app": "Effectcraft"})
+            # A caller can send any name; it must not reach a record.
+            with self.assertRaises(RuntimeError):
+                await server.call_tool("secret-tool-name", {})
 
         asyncio.run(run())
         result = usage.summary(None)
@@ -97,9 +107,61 @@ class UsageTestCase(unittest.TestCase):
         self.assertEqual(tools["studio/open_craft_session"]["calls"], 1)
         self.assertEqual(tools["studio/refused"]["failed"], 1)
         self.assertEqual(tools["studio/broken"]["failed"], 1)
+        self.assertEqual(tools[f"studio/{usage.UNKNOWN_TOOL}"]["failed"], 1)
         self.assertEqual(result["apps"], [{"app": "Effectcraft", "calls": 2, "failed": 1}])
         usage.flush(self.store)
         self.assertNotIn("secret prompt", self.stored())
+        self.assertNotIn("secret-tool-name", self.stored())
+        self.assertIn("studio/refused", self.stored())
+
+    def test_health_checks_are_counted_apart(self):
+        for _ in range(5):
+            usage.record_request("/health", 200, 1)
+        usage.record_request("/", 200, 10)
+        result = usage.summary(None)
+        self.assertEqual((result["requests"], result["health_checks"]), (1, 5))
+        self.assertEqual(result["timeline"][-1]["requests"], 1)
+        self.assertEqual({row["route"]: row["count"] for row in result["routes"]}, {"health": 5, "home": 1})
+
+    def test_local_and_bucket_totals(self):
+        self.store.put_record(f"{usage.PREFIX}2026-11-04T10/{'a' * 12}.json", b"12345")
+        self.assertEqual(self.store.total_bytes(), {"bytes": 5, "files": 1, "old_versions": 0})
+
+        class Pages:
+            def paginate(self, Bucket):
+                return [{"Versions": [{"Size": 100, "IsLatest": True}, {"Size": 40, "IsLatest": False}]},
+                        {"DeleteMarkers": [{"Key": "gone"}]},
+                        {"Versions": [{"Size": 2, "IsLatest": True}]}]
+
+        bucket = S3Storage.__new__(S3Storage)
+        bucket.bucket = "test"
+        bucket.client = type("Client", (), {"get_paginator": lambda self, name: Pages()})()
+        self.assertEqual(bucket.total_bytes(), {"bytes": 142, "files": 2, "old_versions": 1})
+
+    def test_slow_bucket_does_not_hold_up_the_page(self):
+        release = threading.Event()
+
+        class Slow(LocalStorage):
+            def list_records(self, prefix):
+                release.wait(10)
+                return []
+
+        with patch.object(usage, "SUMMARY_WAIT_SECONDS", 0.05):
+            started = time.monotonic()
+            self.assertIsNone(usage.cached_summary(Slow(self.tmp / "slow")))
+            self.assertLess(time.monotonic() - started, 2)
+            release.set()
+            usage._refreshing[24].join(5)
+            # Control: once the read finishes, the counts are there.
+            self.assertEqual(usage.cached_summary(Slow(self.tmp / "slow"))["requests"], 0)
+
+    def test_failed_read_keeps_the_last_counts(self):
+        usage.record_request("/", 200, 1)
+        first = usage.cached_summary(self.store)
+        self.assertEqual(first["requests"], 1)
+        usage._summary[24] = (time.monotonic() - usage.SUMMARY_SECONDS - 1, first)
+        with patch.object(self.store, "list_records", side_effect=OSError("down")), self.assertLogs("bridgecraft.usage", "WARNING"):
+            self.assertEqual(usage.cached_summary(self.store), first)
 
     def test_flush_writes_once_and_merges_processes(self):
         usage.record_request("/", 200, 10)
@@ -179,6 +241,46 @@ class SiteUsageTestCase(unittest.TestCase):
         self.assertEqual(body["usage"]["client_errors"], 1)
         usage.flush(self.store)
         self.assertTrue(self.store.list_records(usage.PREFIX))
+
+    def test_status_page_draws_the_counts(self):
+        from app import app
+
+        for _ in range(3):
+            usage.record_request("/", 200, 10)
+        usage.record_request("/health", 200, 1)
+        usage.record_tool("studio", "run_craft_tool", "wordcraft", True, 50)
+        page = app.test_client().get("/status").get_data(as_text=True)
+        self.assertIn('id="status-usage"', page)
+        self.assertIn("Requests per hour", page)
+        self.assertIn("studio/run_craft_tool", page)
+        self.assertIn("WordCraft", page)
+        self.assertIn("(1 in these 24 hours)", page)
+        self.assertIn("File storage:</strong>", page)
+        hour = usage.hour_of(datetime.now(timezone.utc))[11:]
+        self.assertIn(f'data-tip="{hour}:00 UTC: 3 requests"', page)
+
+    def test_status_page_with_nothing_counted_and_with_no_counts(self):
+        from app import app
+
+        usage._first_request["pending"] = False
+        page = app.test_client().get("/status").get_data(as_text=True)
+        self.assertIn("None in the last 24 hours.", page)
+        self.assertNotIn('class="usage-bar"', page)
+        with patch("site_status.usage_counts", return_value=None):
+            page = app.test_client().get("/status").get_data(as_text=True)
+        self.assertIn("usage counts can't be read", page)
+        self.assertIn('id="status-apps"', page)
+
+    def test_chart_and_size_wording(self):
+        import site_status
+
+        timeline = [{"hour": "2026-11-04T09", "requests": 0}, {"hour": "2026-11-04T10", "requests": 40}, {"hour": "2026-11-04T11", "requests": 10}]
+        chart = site_status._chart(timeline, "requests", "requests")
+        self.assertEqual((chart["total"], chart["highest"]), (50, 40))
+        self.assertEqual([bar["height"] for bar in chart["bars"]], [0, 100, 25])
+        self.assertEqual(chart["bars"][1]["hour"], "10:00")
+        self.assertEqual(site_status._chart(timeline[:1], "requests", "requests")["bars"][0]["height"], 0)
+        self.assertEqual([site_status._size(n) for n in (5, 1500, 3_400_000, 10 * 1000**3)], ["5 bytes", "1.5 KB", "3.4 MB", "10 GB"])
 
 
 if __name__ == "__main__":
