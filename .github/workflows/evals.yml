@@ -1,0 +1,85 @@
+name: Evals
+
+# Runs one job in each hosted Craft app and checks the files it makes. Weekly, on
+# demand, and on pull requests that change the evals or the pinned apps. Runs on main
+# publish their report to the eval-results branch, which /status reads.
+
+on:
+  schedule:
+    - cron: "30 3 * * 1"  # Monday 09:00 IST
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/evals.yml
+      - evals/**
+      - craft_apps.json
+      - craft_sessions.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evals-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run:
+    name: Run evals
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      has_report: ${{ steps.report.outputs.has_report }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Build image
+        run: docker build -t bridgecraft .
+
+      # No network, no extra privileges and a read-only disk apart from /tmp.
+      - name: Run the jobs in the sandbox
+        run: |
+          docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges \
+            --read-only --tmpfs /tmp --memory 4g --pids-limit 512 \
+            -v "$PWD/evals:/app/evals:ro" -e PYTHONDONTWRITEBYTECODE=1 -e EVAL_COMMIT="$GITHUB_SHA" \
+            bridgecraft python -m evals.run_evals > latest.json
+
+      - name: Check the report
+        id: report
+        if: ${{ !cancelled() }}
+        run: |
+          if python3 -c "import json; assert json.load(open('latest.json'))['apps']"; then
+            echo "has_report=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: ${{ steps.report.outputs.has_report == 'true' }}
+        with:
+          name: eval-report
+          path: latest.json
+          retention-days: 30
+
+  publish:
+    name: Publish report
+    needs: run
+    # A failing report is still published, so /status can say what failed.
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && needs.run.outputs.has_report == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: eval-report
+
+      - name: Push to the eval-results branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git init -q -b eval-results
+          git add latest.json
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Eval report for $GITHUB_SHA"
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" eval-results

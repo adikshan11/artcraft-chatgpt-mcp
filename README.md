@@ -518,6 +518,15 @@ docker run --rm -v "$PWD/tests:/app/tests:ro" bridgecraft \
   python -m unittest tests.test_craft_real -v
 ```
 
+The evals run one job in each hosted Craft app and open the files it makes. They
+run weekly in `.github/workflows/evals.yml`, and `/status` shows the latest report:
+
+```sh
+docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges \
+  --read-only --tmpfs /tmp -v "$PWD/evals:/app/evals:ro" bridgecraft \
+  python -m evals.run_evals > evals.json
+```
+
 ## ArtCraft Studio (public, multi-user)
 
 `/studio` is the public MCP endpoint for anyone using ChatGPT, Claude, or another
