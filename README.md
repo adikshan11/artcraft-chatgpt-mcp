@@ -661,9 +661,11 @@ options (`mcp_args`) to the manifest.
    URLs carry their own authorization). Studio deletes everything under
    `users/<id>/` 7 days after the session ends (the session ends after
    `CRAFT_IDLE_MINUTES`, default 10, without a request). Deleting a file,
-   disconnecting, or closing the account deletes immediately. The sweep runs at
-   startup and every hour. A bucket lifecycle rule of the same age is a backstop
-   for media objects.
+   disconnecting, or closing the account deletes immediately, including every
+   version the bucket kept. The sweep runs at startup and every hour, and also
+   erases the old versions of replaced files. The storage key must be allowed to
+   delete versions (`deleteFiles` on Backblaze B2). A bucket lifecycle rule of the
+   same age is a backstop for media objects.
 3. **Render.** The service builds from `Dockerfile` (includes FFmpeg). Set
    `OAUTH_ISSUER` (e.g. `https://<tenant>.us.auth0.com/`; it must match exactly, including the
    trailing slash), `GRANT_KEY` (a Fernet key; see `render.yaml`), and the storage
