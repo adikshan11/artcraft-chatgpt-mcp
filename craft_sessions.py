@@ -55,6 +55,8 @@ class CraftApp:
     # Engine commands refused even through the app's generic command tools. An entry
     # ending in "." blocks every command with that prefix, e.g. "collab.".
     blocked_commands: tuple[str, ...] = ()
+    root_flags: tuple[str, str] = ("--automation-read-root", "--automation-write-root")
+    absolute_paths: bool = False
 
     @property
     def cli(self) -> Path:
@@ -83,8 +85,13 @@ def load_apps() -> dict[str, CraftApp]:
             hidden_tools=frozenset(entry.get("hidden_tools", ())),
             mcp_args=tuple(entry.get("mcp_args", ())),
             blocked_commands=tuple(entry.get("blocked_commands", ())),
+            root_flags=tuple(entry.get("root_flags", CraftApp.root_flags)),
+            absolute_paths=bool(entry.get("absolute_paths")),
         )
     return apps
+
+
+PATH_ARGUMENTS = frozenset({"path", "paths", "file", "files", "folder", "dir", "output", "out"})
 
 
 def _strings(value):
@@ -111,6 +118,18 @@ def blocked_command(app: CraftApp, arguments) -> str | None:
             if re.search(r"(?<![\w.])" + re.escape(blocked) + tail, text):
                 return blocked.rstrip(".") + ("…" if blocked.endswith(".") else "")
     return None
+
+
+def with_absolute_paths(value, root: Path, key: str = ""):
+    """Anchor relative paths to the session folder, for an app that only takes absolute ones.
+    The app still checks the result, so ``../x`` is refused the same as it is elsewhere."""
+    if isinstance(value, dict):
+        return {name: with_absolute_paths(item, root, name) for name, item in value.items()}
+    if isinstance(value, list):
+        return [with_absolute_paths(item, root, key) for item in value]
+    if isinstance(value, str) and key in PATH_ARGUMENTS and value and not value.startswith("/"):
+        return str(root / value)
+    return value
 
 
 def installed_apps() -> list[CraftApp]:
@@ -164,13 +183,13 @@ class _StdioClient:
         self._stderr_task = asyncio.ensure_future(self._drain_stderr())
 
     @classmethod
-    async def start(cls, cli: Path, root: Path, home: Path, extra_args=()) -> "_StdioClient":
+    async def start(cls, cli: Path, root: Path, home: Path, extra_args=(), root_flags=CraftApp.root_flags) -> "_StdioClient":
         for sub in ("tmp", "config", "cache", "data"):
             (home / sub).mkdir(parents=True, exist_ok=True)
         process = await asyncio.create_subprocess_exec(
             str(cli), "mcp", *extra_args,
-            "--automation-read-root", str(root),
-            "--automation-write-root", str(root),
+            root_flags[0], str(root),
+            root_flags[1], str(root),
             cwd=str(root),  # relative paths resolve inside the root
             env=_child_env(home),
             stdin=asyncio.subprocess.PIPE,
@@ -322,7 +341,7 @@ class SessionManager:
             session.home.mkdir()
             await asyncio.to_thread(populate, session.root)
             session.take_snapshot()
-            session.client = await _StdioClient.start(app.cli, session.root, session.home, app.mcp_args)
+            session.client = await _StdioClient.start(app.cli, session.root, session.home, app.mcp_args, app.root_flags)
             await asyncio.wait_for(self._initialize(session), START_TIMEOUT_SECONDS)
         except asyncio.TimeoutError:
             await self._close(session)
@@ -365,6 +384,8 @@ class SessionManager:
                 f"{session.app.title}'s `{command}` command is turned off in Studio, because it reaches outside "
                 "the session (network sharing, plug-ins or folders elsewhere on the server)."
             )
+        if session.app.absolute_paths:
+            arguments = with_absolute_paths(arguments or {}, session.root)
         try:
             result = await asyncio.wait_for(
                 session.client.request("tools/call", {"name": tool, "arguments": arguments or {}}),

@@ -4,6 +4,7 @@
 import os
 import sys
 import time
+import unittest
 from pathlib import Path
 from unittest.mock import patch
 
@@ -284,6 +285,20 @@ class CraftIsolationAndLimitTests(CraftTestCase):
             await self.call("list_craft_apps")
         self.assertNotIn(session_id, craft_sessions.manager.sessions)
         self.assertFalse(folder.exists())
+
+
+class CraftAbsolutePathTests(unittest.TestCase):
+    def test_relative_paths_are_anchored_to_the_session_folder(self):
+        root = Path("/tmp/session/files")
+        result = craft_sessions.with_absolute_paths(
+            {"path": "a.png", "name": "a.png", "params": {"paths": ["b.png", "/tmp/session/files/c.png"], "dir": "../up"}},
+            root,
+        )
+        self.assertEqual(result, {
+            "path": "/tmp/session/files/a.png",
+            "name": "a.png",
+            "params": {"paths": ["/tmp/session/files/b.png", "/tmp/session/files/c.png"], "dir": "/tmp/session/files/../up"},
+        })
 
 
 class CraftManifestTests(CraftTestCase):

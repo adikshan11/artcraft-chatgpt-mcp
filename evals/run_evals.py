@@ -245,7 +245,44 @@ async def soundcraft(job: Job):
     await job.reopens("open_session", "demo.scraft")
 
 
-JOBS = {job.__name__: job for job in (wordcraft, deckcraft, pdfcraft, photocraft, vectorcraft, designcraft, figcraft, soundcraft)}
+async def effectcraft(job: Job):
+    await job.open()
+    await job.tool("open_project", new=True)
+    await job.tool("execute_command", command="comp.new", params={"name": "Main", "width": 320, "height": 180, "frameRate": 30, "duration": 1})
+    await job.tool("execute_command", command="layer.newText", params={"text": TEXT})
+    await job.tool("render_frame", path="frame.png", inline=False)
+    await job.tool("save_project", path="demo.ecproj")
+    await job.save()
+    job.check("the frame is a picture", checks.image, "frame.png", "PNG", (320, 180))
+    job.check("the project was saved", checks.not_empty, "demo.ecproj")
+    await job.reopens("open_project", "demo.ecproj")
+
+
+async def texturecraft(job: Job):
+    await job.open()
+    await job.tool("project_new", mesh="cube", resolution=128)
+    await job.tool("textures_export", dir="textures", format="png")
+    await job.tool("project_save", path="demo.tcraft")
+    await job.save()
+    job.check("the project was saved", checks.not_empty, "demo.tcraft")
+    textures = [name for name in job.saved if name.endswith(".png")]
+    job.record("the textures were exported", bool(textures), "" if textures else f"saved {sorted(job.saved)}")
+    await job.reopens("project_open", "demo.tcraft")
+
+
+async def materialcraft(job: Job):
+    await job.open()
+    await job.tool("graph_new", template="bricks", size=64)
+    await job.tool("outputs_export", dir="maps", format="png")
+    await job.tool("package_save", path="demo.mcraft")
+    await job.save()
+    job.check("the package was saved", checks.not_empty, "demo.mcraft")
+    maps = [name for name in job.saved if name.endswith(".png")]
+    job.record("the maps were exported", bool(maps), "" if maps else f"saved {sorted(job.saved)}")
+    await job.reopens("package_open", "demo.mcraft")
+
+
+JOBS = {job.__name__: job for job in (wordcraft, deckcraft, pdfcraft, photocraft, vectorcraft, designcraft, figcraft, soundcraft, effectcraft, texturecraft, materialcraft)}
 
 
 async def run_app(app, store: LocalStorage, jobs=None) -> dict:
