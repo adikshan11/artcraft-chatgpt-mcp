@@ -183,6 +183,42 @@
     {% endif %}
   </section>
 
+  <section class="status-group" aria-labelledby="status-evals">
+    <h2 id="status-evals">Evals</h2>
+    {% if status.evals %}
+    {% set evals = status.evals %}
+    <p class="status-note">
+      Once a week, each hosted Craft app does a small job with sample files in a locked-down
+      sandbox, with no network, and I open what it made to check it: the words are in the
+      PDF, the photo keeps its colour, the mix isn't silent and a saved project opens again.
+    </p>
+    <p class="status-banner" data-health="{{ 'ok' if evals.passed else 'error' }}">
+      <span class="dot" aria-hidden="true"></span>
+      <span>{{ evals.apps_passed }} of {{ evals.apps|length }} apps passed on {{ evals.date }}</span>
+    </p>
+    {% if evals.stale %}
+    <p class="status-note" data-eval-stale>This is an old result: the weekly run hasn't reported since then.</p>
+    {% endif %}
+    <div class="usage-scroll">
+      <table class="usage-table">
+        <thead><tr><th scope="col">App</th><th scope="col">Version</th><th scope="col">Result</th><th scope="col">Checks</th><th scope="col">Time (ms)</th></tr></thead>
+        <tbody>
+          {% for row in evals.apps %}
+          <tr><th scope="row">{{ row.title }}</th><td>{{ row.version }}</td><td>{{ "Passed" if row.passed else "Failed" }}</td><td>{{ row.checks_passed }} of {{ row.checks }}</td><td>{{ row.ms }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% for row in evals.apps if row.failures %}
+    <p class="status-note"><strong>{{ row.title }}:</strong>
+      {% for failure in row.failures %}{{ failure.name }}{% if failure.detail %} ({{ failure.detail }}){% endif %}{{ "; " if not loop.last }}{% endfor %}.
+    </p>
+    {% endfor %}
+    {% else %}
+    <p class="status-note">No results to show yet. The evals run once a week.</p>
+    {% endif %}
+  </section>
+
   <p class="status-foot">
     Checked at <time data-field="generated_at" datetime="{{ status.generated_at }}">{{ status.generated_at[11:16] }} UTC</time>.
     This page checks again every 30 seconds while it's open. The same data is at
