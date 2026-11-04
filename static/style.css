@@ -40,11 +40,11 @@
   --faint: #f2f1ee61;
   --line: #f2f1ee26;
   --line-strong: #f2f1ee66;
-  --accent: #ffc62e;
+  --accent: #ccff00;
   --craft: var(--accent);
-  --link: #ffd866;
+  --link: #dcff4d;
   --dark: #0c0d0f;
-  --usage-mark: #ba8800;
+  --usage-mark: #7f9e00;
   --on-dark: #f1f1ef;
   --page: 1200px;
   --gutter: 40px;
@@ -56,7 +56,7 @@
   --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
-/* Dark like the Craft apps' own pages, with the phoenix's yellow as the one
+/* Dark like the Craft apps' own pages, with the phoenix's chartreuse as the one
    colour. Light is there for anyone who picks it with the nav switch. */
 :root[data-theme="light"] {
   color-scheme: light;
@@ -69,10 +69,10 @@
   --faint: #1010146b;
   --line: #10101429;
   --line-strong: #10101466;
-  --craft: #a36f00;
+  --craft: #5c7300;
   --link: #0a5cc2;
   --dark: #121316;
-  --usage-mark: #a36f00;
+  --usage-mark: #5c7300;
 }
 
 *,
@@ -216,8 +216,8 @@ h2 em {
   transform: translateX(3px);
 }
 
-/* The wordmark follows the Craft apps' two-tone names, in our yellow:
-   ochre on light paper, where the bright yellow would be too faint. */
+/* The wordmark follows the Craft apps' two-tone names, in our chartreuse:
+   olive on light paper, where the bright chartreuse would be too faint. */
 .brand {
   display: inline-flex;
   align-items: center;
@@ -522,7 +522,7 @@ h2 em {
   border-top: 1px solid var(--ink);
 }
 
-/* How far down the page you are: a yellow line and a counter whose digits roll. */
+/* How far down the page you are: a chartreuse line and a counter whose digits roll. */
 .rail-mark {
   position: absolute;
   top: calc(var(--progress, 0) * 100%);
@@ -729,7 +729,7 @@ h2 em {
   text-underline-offset: 4px;
 }
 
-/* The plate: the phoenix on a yellow field, every Craft app arched over it. */
+/* The plate: the phoenix on a chartreuse field, every Craft app arched over it. */
 /* Sized to the window's height as well, so the whole plate shows beside the words. */
 .plate {
   position: relative;
@@ -797,7 +797,7 @@ h2 em {
   filter: grayscale(1);
 }
 
-/* Both sides of the flip are the plate's own yellow, so on the plate they have no edge or shadow. */
+/* Both sides of the flip are the plate's own chartreuse, so on the plate they have no edge or shadow. */
 .plate .flip-face {
   border-radius: 0;
   box-shadow: none;
