@@ -9,13 +9,16 @@ says so. The usage counts are the only stored numbers; see usage.py.
 
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import craft_sessions
 import eval_results
+import release_watch
 import studio_mcp
 import usage
 from media_storage import S3Storage, StorageError
+
+SWEEP_LATE_AFTER = timedelta(hours=2)
 
 # The Craft apps ArtCraft lists that Studio does not host yet, why, and the open
 # upstream pull requests that would let me host them.
@@ -72,6 +75,8 @@ def services() -> list[dict]:
     sweep = studio_mcp.last_sweep
     if not sweep:
         rows.append(_row("File cleanup", "off", "Hasn't run since the server started"))
+    elif datetime.now(timezone.utc) - sweep["at"] > SWEEP_LATE_AFTER:
+        rows.append(_row("File cleanup", "error", f"Hasn't run since {sweep['at']:%H:%M} UTC; it should run hourly"))
     elif not sweep["ok"]:
         rows.append(_row("File cleanup", "error", f"Last run failed at {sweep['at']:%H:%M} UTC; it retries hourly"))
     else:
@@ -97,6 +102,44 @@ def apps() -> list[dict]:
         rows.append({**_row(app["title"], "off", f"Not hosted. {app['reason']}"), "app": app["name"],
                      "prs": app["pr_links"]})
     return rows
+
+
+def _ago(moment: datetime) -> str:
+    return _duration((datetime.now(timezone.utc) - moment).total_seconds()) + " ago"
+
+
+def freshness(evals: dict | None) -> tuple[list[dict], dict | None]:
+    """Whether the numbers on this page, and the apps behind them, are up to date."""
+    pins = {app.name: app.version for app in craft_sessions.load_apps().values()}
+    rows, versions = [], None
+    feed = release_watch.latest(pins)
+    if feed is None:
+        on_render = bool(os.environ.get("RENDER"))
+        rows.append(_row("Release list", "warn" if on_render else "off",
+                         "Can't read Storytold's release list yet" if on_render else "Not read on this local copy"))
+    else:
+        versions = release_watch.compare(pins, feed["latest"])
+        stale = release_watch.feed_stale(feed["fetched_at"])
+        rows.append(_row("Release list", "warn" if stale else "ok", f"Read {_ago(feed['fetched_at'])}"))
+        behind = versions["behind"]
+        total = len(pins)
+        if behind:
+            names = ", ".join(f"{row['app']} {row['pinned']} to {row['latest']}" for row in behind)
+            rows.append(_row("App versions", "warn" if versions["overdue"] else "ok",
+                             f"{versions['current']} of {total} on the latest release. New: {names}"))
+        elif versions["unknown"]:
+            rows.append(_row("App versions", "warn", f"No answer for {', '.join(versions['unknown'])}"))
+        else:
+            rows.append(_row("App versions", "ok", f"All {total} on the latest release"))
+    if evals:
+        tested = {app["app"]: app["version"] for app in evals["apps"]}
+        moved = sorted(name for name, version in pins.items() if tested.get(name) != version)
+        if evals["stale"] or moved:
+            why = f"; {', '.join(moved)} changed since" if moved else ""
+            rows.append(_row("App checks", "warn", f"Last ran on {evals['date']}{why}"))
+        else:
+            rows.append(_row("App checks", "ok", f"Ran on {evals['date']} against the versions in use"))
+    return rows, versions
 
 
 def _size(size: int) -> str:
@@ -152,7 +195,9 @@ def usage_view(counts: dict | None) -> dict | None:
 
 
 def summary(started_at: float) -> dict:
-    service_rows, app_rows = services(), apps()
+    evals = eval_results.latest()
+    fresh_rows, versions = freshness(evals)
+    service_rows, app_rows = services() + fresh_rows, apps()
     healths = {row["health"] for row in service_rows + app_rows}
     overall = "error" if "error" in healths else "warn" if "warn" in healths else "ok"
     open_sessions = len(craft_sessions.manager.sessions)
@@ -173,7 +218,8 @@ def summary(started_at: float) -> dict:
             "retention_days": studio_mcp.RETENTION_DAYS,
         },
         "usage": usage_counts(),
-        "evals": eval_results.latest(),
+        "evals": evals,
+        "versions": versions,
         "on_render": bool(os.environ.get("RENDER")),
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }

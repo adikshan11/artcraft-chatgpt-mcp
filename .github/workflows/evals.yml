@@ -8,6 +8,11 @@ on:
   schedule:
     - cron: "30 3 * * 1"  # Monday 09:00 IST
   workflow_dispatch:
+  # A merged version bump gets a fresh report, so /status never shows an old one for it.
+  push:
+    branches: [main]
+    paths:
+      - craft_apps.json
   pull_request:
     paths:
       - .github/workflows/evals.yml

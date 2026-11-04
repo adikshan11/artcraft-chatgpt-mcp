@@ -158,7 +158,8 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         for app in (b"WordCraft", b"DeckCraft", b"PdfCraft", b"PhotoCraft", b"VectorCraft",
                     b"DesignCraft", b"FigCraft", b"SoundCraft", b"EffectCraft", b"TextureCraft", b"MaterialCraft"):
             self.assertIn(app, response.data)
-        self.assertIn(b"v0.15.1", response.data)
+        wordcraft = next(entry for entry in json.loads(Path("craft_apps.json").read_text())["apps"] if entry["name"] == "wordcraft")
+        self.assertIn(f"v{wordcraft['version']}".encode(), response.data)
         # All 15 Craft apps are on the plate and in the grid; the unhosted ones say why.
         for app in (b"FilmCraft", b"CADCraft", b"GridCraft", b"LightCraft"):
             self.assertIn(app + b" (not hosted yet)", response.data)
