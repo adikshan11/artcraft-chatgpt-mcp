@@ -24,7 +24,8 @@ The BridgeCraft logo (static/bridgecraft.svg) began as an engraving generated in
 Canva for this project (design/phoenix-source.jpg). design/prep_phoenix.py
 flattens it and design/draw_logo.py traces it into vector paths in VectorCraft;
 design/bridgecraft.vectorcraft is the resulting source document.
-The share image (static/og.jpg) was made in Canva for this project.
+The share image (static/og.jpg) is drawn from the same flattened engraving and
+the website fonts.
 
 The website fonts in static/fonts/ (Archivo, Inter, Geist Mono and Instrument
 Serif) are licensed under the SIL Open Font License 1.1; static/fonts/OFL.txt

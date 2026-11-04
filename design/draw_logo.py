@@ -30,7 +30,7 @@ import mcp_driver  # noqa: E402  (the stdio MCP client from the sandbox test fol
 OUT = "/out"
 ART = os.environ.get("PHOENIX_ART", "/design/phoenix-flat.png")
 CLI = os.environ.get("VECTORCRAFT_CLI", "/opt/craft/vectorcraft/vectorcraft-cli")
-FIELD, FIELD_LIGHT = "#ffc62e", "#ffd866"
+FIELD, FIELD_LIGHT = "#ccff00", "#dcff4d"
 TILE = ("M112 0 L400 0 C461.9 0 512 50.1 512 112 L512 400 C512 461.9 461.9 512 400 512 "
         "L112 512 C50.1 512 0 461.9 0 400 L0 112 C0 50.1 50.1 0 112 0 Z")
 
@@ -88,7 +88,7 @@ subprocess.run([CLI, "convert", f"{OUT}/bridgecraft.vectorcraft", f"{OUT}/bridge
 for size in (32, 180, 512):
     subprocess.run([CLI, "convert", f"{OUT}/bridgecraft.vectorcraft", f"{OUT}/bridgecraft-{size}.png", "--scale", str(size / 512)],
                    check=True, stdout=subprocess.DEVNULL)
-# iOS rounds the touch icon itself and fills see-through corners with black, so that one gets square yellow corners.
+# iOS rounds the touch icon itself and fills see-through corners with black, so that one gets square chartreuse corners.
 from PIL import Image  # noqa: E402
 
 touch = Image.open(f"{OUT}/bridgecraft-180.png").convert("RGBA")
