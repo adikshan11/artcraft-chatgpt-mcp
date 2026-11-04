@@ -83,6 +83,10 @@ def services() -> list[dict]:
         rows.append(_row("File cleanup", "ok",
                          f"Last ran at {sweep['at']:%H:%M} UTC and deleted {sweep['deleted']} expired "
                          f"file{'' if sweep['deleted'] == 1 else 's'}"))
+    if craft_sessions.network_is_cut():
+        rows.append(_row("Session network", "ok", "Craft sessions run with no network"))
+    else:
+        rows.append(_row("Session network", "off", "This host doesn't let Craft sessions give up their network"))
     return rows
 
 
