@@ -12,6 +12,7 @@ import time
 from datetime import datetime, timezone
 
 import craft_sessions
+import eval_results
 import studio_mcp
 import usage
 from media_storage import S3Storage, StorageError
@@ -175,6 +176,7 @@ def summary(started_at: float) -> dict:
             "retention_days": studio_mcp.RETENTION_DAYS,
         },
         "usage": usage_counts(),
+        "evals": eval_results.latest(),
         "on_render": bool(os.environ.get("RENDER")),
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
