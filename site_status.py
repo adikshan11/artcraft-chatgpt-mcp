@@ -3,8 +3,8 @@
 
 """What /status shows: the server's own state, read when the page is asked for.
 
-Nothing here is a stored metric. Uptime, sessions and the last file sweep reset when
-the server restarts, and the page says so.
+Uptime, sessions and the last file sweep reset when the server restarts, and the page
+says so. The usage counts are the only stored numbers; see usage.py.
 """
 
 import os
@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 
 import craft_sessions
 import studio_mcp
+import usage
 from media_storage import S3Storage, StorageError
 
 # The Craft apps ArtCraft lists that Studio does not host yet, why, and the open
@@ -100,6 +101,58 @@ def apps() -> list[dict]:
     return rows
 
 
+def _size(size: int) -> str:
+    for unit, scale in (("GB", 1000**3), ("MB", 1000**2), ("KB", 1000)):
+        if size >= scale:
+            return f"{size / scale:.1f}".removesuffix(".0") + f" {unit}"
+    return f"{size} bytes"
+
+
+def _chart(timeline: list[dict], field: str, unit: str) -> dict:
+    values = [point[field] for point in timeline]
+    highest = max(values, default=0)
+    return {
+        "total": sum(values),
+        "unit": unit,
+        "highest": highest,
+        "bars": [{"hour": point["hour"][11:] + ":00", "value": point[field],
+                  "height": round(point[field] / highest * 100, 1) if highest else 0}
+                 for point in timeline],
+    }
+
+
+def usage_counts() -> dict | None:
+    try:
+        store = studio_mcp.storage()
+    except StorageError:
+        store = None
+    return usage.cached_summary(store)
+
+
+def usage_view(counts: dict | None) -> dict | None:
+    """The usage counts as /status draws them."""
+    if not counts:
+        return None
+    craft = craft_sessions.load_apps()
+    view = {
+        "requests": _chart(counts["timeline"], "requests", "requests"),
+        "tool_calls": _chart(counts["timeline"], "tool_calls", "tool calls"),
+        "apps": [{**row, "title": craft[row["app"]].title if row["app"] in craft else row["app"]} for row in counts["apps"]],
+        "storage": None,
+    }
+    used = counts.get("storage")
+    if used:
+        free = used["free_bytes"]
+        view["storage"] = {
+            "used": _size(used["bytes"]),
+            "files": used["files"],
+            "old_versions": used["old_versions"],
+            "free": _size(free) if free else None,
+            "percent": min(100, round(used["bytes"] / free * 100, 2)) if free else None,
+        }
+    return view
+
+
 def summary(started_at: float) -> dict:
     service_rows, app_rows = services(), apps()
     healths = {row["health"] for row in service_rows + app_rows}
@@ -121,6 +174,7 @@ def summary(started_at: float) -> dict:
             "idle_minutes": craft_sessions.IDLE_SECONDS // 60,
             "retention_days": studio_mcp.RETENTION_DAYS,
         },
+        "usage": usage_counts(),
         "on_render": bool(os.environ.get("RENDER")),
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }

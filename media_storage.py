@@ -139,6 +139,8 @@ def content_type_for(media_id: str) -> str:
 
 
 class LocalStorage:
+    free_bytes = None  # a local folder has no free-tier limit
+
     """Directory-backed storage for tests and local development."""
 
     def __init__(self, root: Path):
@@ -218,6 +220,11 @@ class LocalStorage:
         source = self.root / ops_key(key)
         return source.read_bytes() if source.is_file() else None
 
+    def total_bytes(self) -> dict:
+        """Everything stored, in bytes and files."""
+        sizes = [path.stat().st_size for path in self.root.rglob("*") if path.is_file()]
+        return {"bytes": sum(sizes), "files": len(sizes), "old_versions": 0}
+
     def list_records(self, prefix: str) -> "list[str]":
         """Keys of the records under ``prefix`` (``ops/<kind>/``), oldest first."""
         folder = self.root / prefix
@@ -235,6 +242,8 @@ class LocalStorage:
 
 class S3Storage:
     """S3-compatible storage (Cloudflare R2, Backblaze B2, ...) with presigned URLs."""
+
+    free_bytes = 10 * 1000**3  # Backblaze B2's free tier
 
     def __init__(self, endpoint_url, access_key_id, secret_access_key, bucket, region="auto"):
         import boto3
@@ -345,6 +354,16 @@ class S3Storage:
             return self.client.get_object(Bucket=self.bucket, Key=ops_key(key))["Body"].read()
         except ClientError:
             return None
+
+    def total_bytes(self) -> dict:
+        """Everything stored, in bytes and files. Old versions the bucket has kept count
+        against the free tier too, so they're added in and reported."""
+        total = {"bytes": 0, "files": 0, "old_versions": 0}
+        for page in self.client.get_paginator("list_object_versions").paginate(Bucket=self.bucket):
+            for version in page.get("Versions", []):
+                total["bytes"] += version["Size"]
+                total["files" if version["IsLatest"] else "old_versions"] += 1
+        return total
 
     def list_records(self, prefix: str) -> "list[str]":
         """Keys of the records under ``prefix`` (``ops/<kind>/``), oldest first."""

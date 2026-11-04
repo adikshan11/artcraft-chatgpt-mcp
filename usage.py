@@ -26,17 +26,26 @@ FLUSH_SECONDS = 60
 # How long /status reuses a summary before reading the bucket again; reads cost
 # against the free tier, writes don't.
 SUMMARY_SECONDS = 300
+# How long /status waits for the bucket before answering with what it already has.
+SUMMARY_WAIT_SECONDS = 3
+# Adding up the bucket lists every object, so it's done less often.
+STORAGE_SECONDS = 3600
 # Timings kept per route or tool each hour, for the percentiles.
 MAX_SAMPLES = 1000
 PREFIX = "ops/usage/"
 PROCESS = secrets.token_hex(6)
+# The host's automatic checks, about one a minute. They're counted apart so they
+# don't bury what people did.
+HEALTH_ROUTE = "health"
+# A caller can ask for any tool name, so only the server's own names are recorded.
+UNKNOWN_TOOL = "unknown tool"
 
 # Request paths are reduced to these names, so a file ID or a query never reaches a record.
 PAGES = {
     "/": "home",
     "/status": "status",
     "/status.json": "status",
-    "/health": "health",
+    "/health": HEALTH_ROUTE,
     "/privacy": "legal pages",
     "/terms": "legal pages",
     "/support": "legal pages",
@@ -58,6 +67,9 @@ _first_request = {"pending": True}
 # Bucket records of finished hours don't change, so they're read once.
 _finished: dict[str, dict] = {}
 _summary: dict = {}
+_storage: dict = {}
+_refreshing: dict = {}
+_refresh_lock = threading.Lock()
 
 
 def route_name(path: str) -> str:
@@ -114,8 +126,11 @@ def timed_tools(server, connector: str, app_of=None):
     call_tool = server.call_tool
     if getattr(call_tool, "counted", False):
         return
+    known: set[str] = set()
 
     async def counted(name, arguments, context=None):
+        if not known:
+            known.update(tool.name for tool in await server.list_tools())
         started = time.perf_counter()
         ok = False
         # Looked up first: closing a Craft session forgets which app it was.
@@ -125,7 +140,7 @@ def timed_tools(server, connector: str, app_of=None):
             ok = not getattr(result, "is_error", False)
             return result
         finally:
-            record_tool(connector, name, app, ok, round((time.perf_counter() - started) * 1000))
+            record_tool(connector, name if name in known else UNKNOWN_TOOL, app, ok, round((time.perf_counter() - started) * 1000))
 
     counted.counted = True
     server.call_tool = counted
@@ -216,7 +231,8 @@ def percentile(values: list[int], share: float) -> int | None:
 
 
 def summary(store, hours: int = 24) -> dict:
-    """Requests, errors, timings and tool calls over the last ``hours``, one point per hour."""
+    """Requests, errors, timings and tool calls over the last ``hours``, one point per hour.
+    Health checks have their own count and row, and aren't in the totals or the timeline."""
     now = datetime.now(timezone.utc)
     since = hour_of(now - timedelta(hours=hours - 1))
     timeline = {hour_of(now - timedelta(hours=back)): {"requests": 0, "client_errors": 0, "server_errors": 0, "tool_calls": 0}
@@ -233,9 +249,10 @@ def summary(store, hours: int = 24) -> dict:
             for field in ("count", "client_errors", "server_errors"):
                 total[field] += route[field]
             total["ms"] += route["ms"]
-            point["requests"] += route["count"]
-            point["client_errors"] += route["client_errors"]
-            point["server_errors"] += route["server_errors"]
+            if name != HEALTH_ROUTE:
+                point["requests"] += route["count"]
+                point["client_errors"] += route["client_errors"]
+                point["server_errors"] += route["server_errors"]
         for name, tool in counts.get("tools", {}).items():
             total = tools.setdefault(name, {"calls": 0, "failed": 0, "ms": []})
             total["calls"] += tool["calls"]
@@ -254,26 +271,60 @@ def summary(store, hours: int = 24) -> dict:
     return {
         "window_hours": hours,
         "generated_at": now.isoformat(timespec="seconds"),
-        "requests": sum(route["count"] for route in routes.values()),
-        "client_errors": sum(route["client_errors"] for route in routes.values()),
-        "server_errors": sum(route["server_errors"] for route in routes.values()),
+        "requests": sum(point["requests"] for point in timeline.values()),
+        "client_errors": sum(point["client_errors"] for point in timeline.values()),
+        "server_errors": sum(point["server_errors"] for point in timeline.values()),
+        "health_checks": routes.get(HEALTH_ROUTE, {}).get("count", 0),
         "cold_starts": cold_starts,
         "tool_calls": sum(tool["calls"] for tool in tools.values()),
         "timeline": [{"hour": hour, **point} for hour, point in sorted(timeline.items()) if hour >= since],
-        "routes": sorted(({"route": name, **timed(route)} for name, route in routes.items()), key=lambda row: -row["count"]),
+        "routes": sorted(({"route": name, **timed(route)} for name, route in routes.items()), key=lambda row: (row["route"] == HEALTH_ROUTE, -row["count"])),
         "tools": sorted(({"tool": name, **timed(tool)} for name, tool in tools.items()), key=lambda row: -row["calls"]),
         "apps": sorted(({"app": name, **used} for name, used in apps.items()), key=lambda row: -row["calls"]),
     }
 
 
-def cached_summary(store, hours: int = 24) -> dict:
-    """``summary``, reused for SUMMARY_SECONDS so page views don't each read the bucket."""
+def storage_used(store) -> dict | None:
+    """What the bucket holds, or None if it can't be read. Reused for STORAGE_SECONDS."""
+    saved = _storage.get("saved")
+    if saved and time.monotonic() - saved[0] < STORAGE_SECONDS:
+        return saved[1]
+    used = None
+    if store:
+        try:
+            used = {**store.total_bytes(), "free_bytes": store.free_bytes}
+        except Exception as exc:  # noqa: BLE001 - the rest of the counts still show
+            log.warning("Storage use not read: %s", type(exc).__name__)
+    _storage["saved"] = (time.monotonic(), used)
+    return used
+
+
+def _refresh(store, hours: int):
+    saved = _summary.get(hours)
+    try:
+        result = {**summary(store, hours), "storage": storage_used(store)}
+    except Exception as exc:  # noqa: BLE001 - keep showing the last counts; tried again next time
+        log.warning("Usage counts not read: %s", type(exc).__name__)
+        result = saved[1] if saved else None
+    _summary[hours] = (time.monotonic(), result)
+
+
+def cached_summary(store, hours: int = 24) -> dict | None:
+    """``summary`` plus storage use, reused for SUMMARY_SECONDS so page views don't each
+    read the bucket. A slow bucket can't hold up the page: after SUMMARY_WAIT_SECONDS this
+    returns the last counts, or None if there are none yet, and the read carries on."""
     saved = _summary.get(hours)
     if saved and time.monotonic() - saved[0] < SUMMARY_SECONDS:
         return saved[1]
-    result = summary(store, hours)
-    _summary[hours] = (time.monotonic(), result)
-    return result
+    with _refresh_lock:
+        thread = _refreshing.get(hours)
+        if not thread or not thread.is_alive():
+            thread = threading.Thread(target=_refresh, args=(store, hours), daemon=True)
+            _refreshing[hours] = thread
+            thread.start()
+    thread.join(SUMMARY_WAIT_SECONDS)
+    saved = _summary.get(hours)
+    return saved[1] if saved else None
 
 
 async def flush_forever(get_store):

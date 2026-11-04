@@ -8,8 +8,9 @@
     <h1>Status</h1>
     <p class="status-lede">
       What this server can see about itself right now. It reads its own settings and
-      sessions when you open the page. It keeps no request logs and no history, so uptime,
-      open sessions and the last cleanup start again from zero after each restart.
+      sessions when you open the page. Uptime, open sessions and the last cleanup start
+      again from zero after each restart. The usage counts further down are kept for
+      14 days.
     </p>
   </header>
 
@@ -66,6 +67,122 @@
     </ul>
   </section>
 
+  <section class="status-group" aria-labelledby="status-usage">
+    <h2 id="status-usage">Usage</h2>
+    {% if usage %}
+    {% set counts = status.usage %}
+    <p class="status-note">
+      The last 24 hours, by the hour in UTC, updated about every 5 minutes. These are counts
+      only, with no paths, inputs, files, account IDs or IP addresses; the
+      <a href="{{ url_for('privacy') }}">privacy page</a> has the details. Automatic health
+      checks from the host aren't included ({{ counts.health_checks }} in these 24 hours).
+    </p>
+    <dl class="status-facts">
+      <div><dt>Requests</dt><dd>{{ counts.requests }}</dd></div>
+      <div><dt>Server errors</dt><dd>{{ counts.server_errors }}</dd></div>
+      <div><dt>Tool calls</dt><dd>{{ counts.tool_calls }}</dd></div>
+      <div><dt>Server starts</dt><dd>{{ counts.cold_starts }}</dd></div>
+    </dl>
+
+    <div class="usage-charts">
+      {% for chart, title in [(usage.requests, "Requests per hour"), (usage.tool_calls, "Tool calls per hour")] %}
+      <figure class="usage-chart" data-chart>
+        <figcaption>
+          <span>{{ title }}</span>
+          <span class="usage-readout" data-readout data-rest="{{ chart.total }} in total">{{ chart.total }} in total</span>
+        </figcaption>
+        {% if chart.total %}
+        <div class="usage-plot" role="img" aria-label="{{ title }} over the last 24 hours: {{ chart.total }} in total, {{ chart.highest }} in the busiest hour. The same numbers are in the table below.">
+          <span class="usage-top">Busiest hour: {{ chart.highest }}</span>
+          <div class="usage-bars">
+            {% for bar in chart.bars %}
+            <span class="usage-bar" data-tip="{{ bar.hour }} UTC: {{ bar.value }} {{ chart.unit }}">{% if bar.value %}<i style="height: {{ bar.height }}%"></i>{% endif %}</span>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="usage-hours" aria-hidden="true">
+          <span>{{ chart.bars[0].hour }}</span><span>{{ chart.bars[12].hour }}</span><span>{{ chart.bars[-1].hour }}</span>
+        </div>
+        {% else %}
+        <p class="usage-empty">None in the last 24 hours.</p>
+        {% endif %}
+      </figure>
+      {% endfor %}
+    </div>
+
+    <details class="usage-details">
+      <summary>Show each hour as a table</summary>
+      <div class="usage-scroll">
+        <table class="usage-table">
+          <thead><tr><th scope="col">Hour (UTC)</th><th scope="col">Requests</th><th scope="col">Client errors</th><th scope="col">Server errors</th><th scope="col">Tool calls</th></tr></thead>
+          <tbody>
+            {% for point in counts.timeline %}
+            <tr><th scope="row">{{ point.hour[:10] }} {{ point.hour[11:] }}:00</th><td>{{ point.requests }}</td><td>{{ point.client_errors }}</td><td>{{ point.server_errors }}</td><td>{{ point.tool_calls }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <p class="status-note">Times are in milliseconds: p50 is a typical request or call, and p95 is a slow one.</p>
+    {% if counts.routes %}
+    <div class="usage-scroll">
+      <table class="usage-table">
+        <caption>Pages and connectors</caption>
+        <thead><tr><th scope="col">Name</th><th scope="col">Requests</th><th scope="col">Client errors</th><th scope="col">Server errors</th><th scope="col">p50</th><th scope="col">p95</th></tr></thead>
+        <tbody>
+          {% for row in counts.routes %}
+          <tr><th scope="row">{{ row.route }}</th><td>{{ row.count }}</td><td>{{ row.client_errors }}</td><td>{{ row.server_errors }}</td><td>{{ row.p50_ms }}</td><td>{{ row.p95_ms }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% if counts.tools %}
+    <div class="usage-scroll">
+      <table class="usage-table">
+        <caption>Tools</caption>
+        <thead><tr><th scope="col">Tool</th><th scope="col">Calls</th><th scope="col">Failed</th><th scope="col">p50</th><th scope="col">p95</th></tr></thead>
+        <tbody>
+          {% for row in counts.tools %}
+          <tr><th scope="row">{{ row.tool }}</th><td>{{ row.calls }}</td><td>{{ row.failed }}</td><td>{{ row.p50_ms }}</td><td>{{ row.p95_ms }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% if usage.apps %}
+    <div class="usage-scroll">
+      <table class="usage-table">
+        <caption>Craft apps</caption>
+        <thead><tr><th scope="col">App</th><th scope="col">Calls</th><th scope="col">Failed</th></tr></thead>
+        <tbody>
+          {% for row in usage.apps %}
+          <tr><th scope="row">{{ row.title }}</th><td>{{ row.calls }}</td><td>{{ row.failed }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if usage.storage %}
+    <div class="usage-storage">
+      <p>
+        <strong>File storage:</strong> {{ usage.storage.used }}{% if usage.storage.free %} of the {{ usage.storage.free }} free tier{% endif %},
+        in {{ usage.storage.files }} file{{ "" if usage.storage.files == 1 else "s" }}{% if usage.storage.old_versions %},
+        plus {{ usage.storage.old_versions }} old version{{ "" if usage.storage.old_versions == 1 else "s" }} the bucket has kept{% endif %}.
+        Updated hourly.
+      </p>
+      {% if usage.storage.free %}
+      <div class="usage-meter" role="img" aria-label="{{ usage.storage.percent }}% of the free tier used"><i style="width: {{ usage.storage.percent }}%"></i></div>
+      {% endif %}
+    </div>
+    {% endif %}
+    {% else %}
+    <p class="status-note">The usage counts can't be read right now. Everything above is still current.</p>
+    {% endif %}
+  </section>
+
   <p class="status-foot">
     Checked at <time data-field="generated_at" datetime="{{ status.generated_at }}">{{ status.generated_at[11:16] }} UTC</time>.
     This page checks again every 30 seconds while it's open. The same data is at
@@ -109,6 +226,18 @@
 
     setInterval(refresh, 30000);
     document.addEventListener("visibilitychange", refresh);
+
+    // Pointing at a bar puts its hour and count in the chart's heading.
+    for (const chart of page.querySelectorAll("[data-chart]")) {
+      const readout = chart.querySelector("[data-readout]");
+      chart.addEventListener("pointerover", (event) => {
+        const bar = event.target.closest("[data-tip]");
+        if (bar) readout.textContent = bar.dataset.tip;
+      });
+      chart.addEventListener("pointerleave", () => {
+        readout.textContent = readout.dataset.rest;
+      });
+    }
   })();
 </script>
 {% endblock %}
