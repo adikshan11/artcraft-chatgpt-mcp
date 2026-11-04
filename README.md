@@ -581,6 +581,14 @@ Eleven apps are included:
 | TextureCraft 0.3.0 | 3D texture painting | .tcraft, obj, glb, gltf, fbx, images; exports textures |
 | MaterialCraft 0.1.0 | Procedural materials | .mcraft, images; exports texture maps |
 
+New releases reach the server through [`release-watch.yml`](.github/workflows/release-watch.yml).
+Every six hours it reads the list ArtCraft Launcher reads, moves the pins, builds the image
+against the new checksums, runs the escape checks, evals and unit tests, and opens a pull
+request with the results. Merging it deploys the release and starts a fresh eval report. A
+`repository_dispatch` of type `craft-release` starts the same run at once. `/status` and
+`/status.json` show whether the release list has been read lately, which apps have a newer
+release, and whether the last eval report covers the versions in use.
+
 Before an app or a new release is listed, [`scripts/escape_checks.py`](scripts/escape_checks.py)
 tries to get out of its folder through every tool and engine command that takes a
 path, and the evals use each one end to end.
