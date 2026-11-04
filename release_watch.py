@@ -16,12 +16,13 @@ import re
 import threading
 import time
 from datetime import datetime, timedelta, timezone
-from urllib import error, request
+from urllib import request
 
 log = logging.getLogger("bridgecraft.release_watch")
 
 RELEASE_INFO_URL = "https://api.storyteller.ai/v1/craft_apps/release_info"
 GITHUB_LATEST_URL = "https://api.github.com/repos/storytold/{name}/releases/latest"
+GITHUB_RELEASE_PAGE = "https://github.com/storytold/{name}/releases/latest"
 CACHE_SECONDS = 3600
 RETRY_SECONDS = 900
 WAIT_SECONDS = 2
@@ -69,14 +70,34 @@ def fetch_latest(names) -> dict:
         if name in latest:
             found[name] = latest[name]
             continue
-        try:
-            release = _get_json(GITHUB_LATEST_URL.format(name=name), headers)
-            version = str(release["tag_name"]).removeprefix("v")
-            if _VERSION.fullmatch(version):
-                found[name] = {"version": version, "published_at": release.get("published_at")}
-        except (OSError, ValueError, KeyError, TypeError, error.URLError) as exc:
-            log.warning("Latest %s release not fetched: %s", name, type(exc).__name__)
+        release = _from_api(name, headers) or _from_release_page(name)
+        if release:
+            found[name] = release
+        else:
+            log.warning("Latest %s release not fetched.", name)
     return found
+
+
+def _from_api(name: str, headers: dict) -> dict | None:
+    try:
+        release = _get_json(GITHUB_LATEST_URL.format(name=name), headers)
+        version = str(release["tag_name"]).removeprefix("v")
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return {"version": version, "published_at": release.get("published_at")} if _VERSION.fullmatch(version) else None
+
+
+def _from_release_page(name: str) -> dict | None:
+    """GitHub's API allows 60 calls an hour per address, and Render's addresses are shared. The
+    public page isn't counted that way: it redirects to the newest tag, but gives no date."""
+    req = request.Request(GITHUB_RELEASE_PAGE.format(name=name), method="HEAD", headers={"User-Agent": "BridgeCraft/1.0"})
+    try:
+        with request.urlopen(req, timeout=TIMEOUT_SECONDS) as response:
+            tag = response.geturl().rsplit("/tag/", 1)[1]
+    except (OSError, ValueError, IndexError):
+        return None
+    version = tag.removeprefix("v")
+    return {"version": version, "published_at": None} if _VERSION.fullmatch(version) else None
 
 
 def compare(pins: dict, latest: dict, now: datetime | None = None) -> dict:
@@ -110,7 +131,8 @@ def _watching() -> bool:
 
 def _fetch(names) -> None:
     try:
-        _cache["latest"] = fetch_latest(names)
+        # An app with no answer this time keeps its last one.
+        _cache["latest"] = {**_cache.get("latest", {}), **fetch_latest(names)}
         _cache["fetched_at"] = datetime.now(timezone.utc)
         _cache["next_at"] = time.monotonic() + CACHE_SECONDS
     except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:

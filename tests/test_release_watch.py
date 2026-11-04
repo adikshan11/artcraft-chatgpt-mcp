@@ -7,7 +7,7 @@ import os
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import release_watch
 import site_status
@@ -64,14 +64,35 @@ class ReleaseListTests(unittest.TestCase):
             found = release_watch.fetch_latest(["wordcraft", "texturecraft"])
         self.assertEqual(found["texturecraft"]["version"], "0.3.0")
 
-    def test_github_failing_for_one_app_keeps_the_rest(self):
+    def test_a_rate_limited_api_falls_back_to_the_release_page(self):
         def fake(url, headers=None):
             if "storyteller" in url:
                 return release_info(wordcraft="0.15.1")
             raise OSError("rate limited")
 
-        with patch.object(release_watch, "_get_json", fake):
+        redirected = MagicMock()
+        redirected.__enter__.return_value.geturl.return_value = "https://github.com/storytold/figcraft/releases/tag/v0.15.0"
+        with patch.object(release_watch, "_get_json", fake), patch.object(release_watch.request, "urlopen", return_value=redirected):
+            found = release_watch.fetch_latest(["figcraft"])
+        self.assertEqual(found["figcraft"], {"version": "0.15.0", "published_at": None})
+
+    def test_a_release_page_with_no_tag_gives_no_answer(self):
+        def fake(url, headers=None):
+            if "storyteller" in url:
+                return release_info(wordcraft="0.15.1")
+            raise OSError("rate limited")
+
+        # With no release, GitHub stays on the /releases page.
+        stayed = MagicMock()
+        stayed.__enter__.return_value.geturl.return_value = "https://github.com/storytold/figcraft/releases"
+        with patch.object(release_watch, "_get_json", fake), patch.object(release_watch.request, "urlopen", return_value=stayed):
             self.assertEqual(list(release_watch.fetch_latest(["wordcraft", "figcraft"])), ["wordcraft"])
+
+    def test_an_app_with_no_answer_keeps_its_last_one(self):
+        release_watch._cache["latest"] = {"figcraft": {"version": "0.15.0", "published_at": None}}
+        with patch.object(release_watch, "fetch_latest", return_value={"wordcraft": {"version": "0.15.1", "published_at": None}}):
+            release_watch._fetch(["wordcraft", "figcraft"])
+        self.assertEqual(sorted(release_watch._cache["latest"]), ["figcraft", "wordcraft"])
 
     def test_a_failed_fetch_keeps_the_last_answer_and_backs_off(self):
         names = ["wordcraft"]
