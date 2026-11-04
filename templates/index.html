@@ -205,7 +205,7 @@
               <a class="app-name" href="{{ org_url }}/{{ app.name }}" target="_blank" rel="noopener noreferrer">{{ app.title }}</a>
               <span class="app-kind">{{ app.short }}</span>
               <span class="app-prs">
-                {% for pr in app.pr_links %}<a href="{{ pr.url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ app.title }} pull request {{ pr.number }}">#{{ pr.number }}</a>{% endfor %}
+                {% for pr in app.pr_links %}<a href="{{ pr.url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ app.title }} {{ pr.kind }} {{ pr.number }}">#{{ pr.number }}</a>{% endfor %}
               </span>
             </div>
           </li>
@@ -225,7 +225,8 @@
             <p>
               FilmCraft, CADCraft, GridCraft and LightCraft can't yet be locked to one person's
               folder, so I don't host them. Fixes for all four are in review upstream, linked under
-              <a href="#apps">the apps</a>. The
+              <a href="#apps">the apps</a>. Craft Anything runs commands and opens websites on
+              the machine it's on, so it needs more than a folder lock, and I've asked for that upstream. The
               <a href="{{ url_for('status_page') }}">status page</a> shows what's running now.
             </p>
           </li>

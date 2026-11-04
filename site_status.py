@@ -21,7 +21,7 @@ from media_storage import S3Storage, StorageError
 SWEEP_LATE_AFTER = timedelta(hours=2)
 
 # The Craft apps ArtCraft lists that Studio does not host yet, why, and the open
-# upstream pull requests that would let me host them.
+# upstream pull requests or issues that would let me host them.
 _NO_LOCK = "Its command-line build can't be locked to one user's folder yet. The open pull requests below add that lock."
 NOT_HOSTED_APPS = [
     {"name": "filmcraft", "title": "FilmCraft", "short": "Folder lock in review", "reason": _NO_LOCK, "prs": [1657]},
@@ -29,9 +29,15 @@ NOT_HOSTED_APPS = [
     {"name": "gridcraft", "title": "GridCraft", "short": "Folder lock in review", "reason": _NO_LOCK,
      "prs": [480, 2739, 2857]},
     {"name": "lightcraft", "title": "LightCraft", "short": "Folder lock in review", "reason": _NO_LOCK, "prs": [2176]},
+    {"name": "craft-anything", "title": "Craft Anything", "short": "No folder lock yet",
+     "reason": "It runs commands, installs tools and opens websites for one person on their own computer, and it can't "
+               "be locked to one user's folder yet. The issue below asks for that.",
+     "prs": [], "issues": [833]},
 ]
 for _app in NOT_HOSTED_APPS:
-    _app["pr_links"] = [{"number": n, "url": f"https://github.com/storytold/{_app['name']}/pull/{n}"} for n in _app["prs"]]
+    _base = f"https://github.com/storytold/{_app['name']}"
+    _app["pr_links"] = [{"number": n, "kind": "pull request", "url": f"{_base}/pull/{n}"} for n in _app["prs"]] + [
+        {"number": n, "kind": "issue", "url": f"{_base}/issues/{n}"} for n in _app.get("issues", [])]
 
 
 def _duration(seconds: float) -> str:
