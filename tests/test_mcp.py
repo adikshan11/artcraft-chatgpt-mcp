@@ -251,7 +251,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         response = self.client.get("/status")
         self.assertEqual(response.status_code, 200)
         for text in (b"<h1>Status</h1>", b"Sign-in", b"File storage", b"File cleanup", b"Open app sessions",
-                     b"keeps no request logs", b"/status.json", b"every 30 seconds"):
+                     b"kept for\n      14 days", b"/status.json", b"every 30 seconds"):
             self.assertIn(text, response.data)
         for app in (b"WordCraft", b"SoundCraft", b"EffectCraft", b"LightCraft"):
             self.assertIn(app, response.data)

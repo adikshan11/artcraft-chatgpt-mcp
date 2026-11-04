@@ -375,6 +375,7 @@ def end_account():
 def status_page():
     import site_status
 
+    status = site_status.summary(STARTED_AT)
     return render_template(
         "status.html",
         site_url=ARTCRAFT_SITE_URL,
@@ -382,21 +383,16 @@ def status_page():
         product_url=ARTCRAFT_PRODUCT_URL,
         org_url=ORG_URL,
         app_icons=APP_ICONS,
-        status=site_status.summary(STARTED_AT),
+        status=status,
+        usage=site_status.usage_view(status["usage"]),
     )
 
 
 @app.get("/status.json")
 def status_json():
     import site_status
-    import usage
-    from studio_mcp import storage
 
-    try:
-        counts = usage.cached_summary(storage())
-    except Exception:  # noqa: BLE001 - the status page still answers without the bucket
-        counts = None
-    response = jsonify({**site_status.summary(STARTED_AT), "usage": counts})
+    response = jsonify(site_status.summary(STARTED_AT))
     response.headers["Cache-Control"] = "no-store"
     return response
 
