@@ -160,11 +160,11 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn(app, response.data)
         wordcraft = next(entry for entry in json.loads(Path("craft_apps.json").read_text())["apps"] if entry["name"] == "wordcraft")
         self.assertIn(f"v{wordcraft['version']}".encode(), response.data)
-        # All 15 Craft apps are on the plate and in the grid; the unhosted ones say why.
-        for app in (b"FilmCraft", b"CADCraft", b"GridCraft", b"LightCraft"):
+        # All 16 Craft apps are on the plate and in the grid; the unhosted ones say why.
+        for app in (b"FilmCraft", b"CADCraft", b"GridCraft", b"LightCraft", b"Craft Anything"):
             self.assertIn(app + b" (not hosted yet)", response.data)
-        self.assertEqual(response.data.count(b'<li style="--i: '), 15)
-        self.assertEqual(response.data.count(b'class="is-off"'), 4)
+        self.assertEqual(response.data.count(b'<li style="--i: '), 16)
+        self.assertEqual(response.data.count(b'class="is-off"'), 5)
         self.assertIn(b"<h3 class=\"app-group-title\">Not hosted yet</h3>", response.data)
         self.assertIn(b'href="https://github.com/storytold/lightcraft"', response.data)
         # Privacy is a footer link, not a homepage section; footer links carry no arrows.
@@ -177,7 +177,8 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b'href="https://discord.gg/artcraft"', response.data)
         # Each app I can't host yet links the open upstream pull requests that would fix it.
         for pr in (b"filmcraft/pull/1657", b"cadcraft/pull/1904", b"gridcraft/pull/480",
-                   b"gridcraft/pull/2739", b"gridcraft/pull/2857", b"lightcraft/pull/2176"):
+                   b"gridcraft/pull/2739", b"gridcraft/pull/2857", b"lightcraft/pull/2176",
+                   b"craft-anything/issues/833"):
             self.assertIn(b'href="https://github.com/storytold/' + pr + b'"', response.data)
         self.assertIn(b"/static/site.js", response.data)
         self.assertIn(b'href="/status"', response.data)
@@ -283,7 +284,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         # The apps aren't installed in the test environment, which on Render is a fault.
         self.assertEqual(rows["WordCraft"]["health"], "error")
         self.assertEqual(rows["FilmCraft"]["health"], "off")
-        self.assertEqual(len(data["apps"]), 15)
+        self.assertEqual(len(data["apps"]), 16)
         self.assertEqual(data["overall"], "error")
         body = response.get_data(as_text=True).lower()
         for secret in ("key", "token", "secret", "password", "bucket", "/opt/craft"):

@@ -606,6 +606,11 @@ shared server:
   releases. The fixes are open upstream. At least one earlier build accepted
   the flags silently without enforcing them, so a listed flag is never taken on
   trust.
+- **Craft Anything 0.3.0** has no folder lock, writes files anywhere it's told
+  and has tools that run commands, install engines and open websites. It's
+  built for one person on their own computer.
+  [storytold/craft-anything#833](https://github.com/storytold/craft-anything/issues/833)
+  asks for what a shared host needs.
 - A shared folder lock and escape tests for every app are proposed in
   [storytold/craft-contrib#22](https://github.com/storytold/craft-contrib/pull/22).
 - **AniCraft** has no command-line or MCP server yet.
