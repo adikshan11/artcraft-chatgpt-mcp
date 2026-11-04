@@ -581,6 +581,11 @@ Eleven apps are included:
 | TextureCraft 0.3.0 | 3D texture painting | .tcraft, obj, glb, gltf, fbx, images; exports textures |
 | MaterialCraft 0.1.0 | Procedural materials | .mcraft, images; exports texture maps |
 
+Each session runs its app as a separate process that can't read the server's memory or
+environment, can't gain privileges, and has no network where the host allows that. `/status`
+says whether this host does. Every page also carries a Content-Security-Policy with a fresh
+nonce.
+
 New releases reach the server through [`release-watch.yml`](.github/workflows/release-watch.yml).
 Every six hours it reads the list ArtCraft Launcher reads, moves the pins, builds the image
 against the new checksums, runs the escape checks, evals and unit tests, and opens a pull

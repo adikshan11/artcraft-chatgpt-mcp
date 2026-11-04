@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import time
 
 import log_redaction
@@ -18,7 +19,7 @@ from pathlib import Path
 from urllib import error, request
 
 from a2wsgi import WSGIMiddleware
-from flask import Flask, jsonify, redirect, render_template, send_from_directory
+from flask import Flask, g, jsonify, redirect, render_template, send_from_directory
 from flask import request as http_request
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
@@ -63,6 +64,27 @@ def _cache_versioned_static(response):
         if version and version == _static_version(http_request.view_args.get("filename", "")):
             response.headers["Cache-Control"] = f"public, max-age={STATIC_MAX_AGE}, immutable"
     return response
+
+
+@app.before_request
+def _new_csp_nonce():
+    g.csp_nonce = secrets.token_urlsafe(16)
+
+
+@app.after_request
+def _content_security_policy(response):
+    # style-src-attr is for the style="--i: 3" attributes that place the apps on the plate.
+    response.headers["Content-Security-Policy"] = (
+        f"default-src 'none'; script-src 'self' 'nonce-{g.csp_nonce}'; style-src 'self'; "
+        "style-src-attr 'unsafe-inline'; img-src 'self' data:; font-src 'self'; media-src 'self'; "
+        "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    )
+    return response
+
+
+@app.context_processor
+def csp_nonce():
+    return {"csp_nonce": g.csp_nonce}
 
 
 @app.context_processor
@@ -425,6 +447,29 @@ def mcp_allowed_hosts():
     return ["localhost", "localhost:*", "127.0.0.1", "127.0.0.1:*", "[::1]", "[::1]:*"]
 
 
+# Sent on everything, including the connector endpoints. The icons other apps fetch still load,
+# because none of these limit which sites can read a response.
+SECURITY_HEADERS = [
+    (b"strict-transport-security", b"max-age=31536000"),
+    (b"x-content-type-options", b"nosniff"),
+    (b"referrer-policy", b"strict-origin-when-cross-origin"),
+    (b"permissions-policy", b"camera=(), microphone=(), geolocation=(), payment=(), usb=()"),
+    (b"cross-origin-opener-policy", b"same-origin"),
+]
+
+
+def security_headers(inner):
+    async def with_headers(scope, receive, send):
+        async def send_with_headers(message):
+            if message["type"] == "http.response.start":
+                message = {**message, "headers": [*message.get("headers", []), *SECURITY_HEADERS]}
+            await send(message)
+
+        await inner(scope, receive, send_with_headers)
+
+    return with_headers
+
+
 def create_asgi_app():
     mcp_app = mcp.streamable_http_app(
         streamable_http_path="/",
@@ -493,7 +538,8 @@ def create_asgi_app():
         else:
             await site(scope, receive, send)
 
-    return usage.counted_requests(dispatch)
+    craft_sessions.protect_server()
+    return security_headers(usage.counted_requests(dispatch))
 
 
 asgi_app = create_asgi_app()

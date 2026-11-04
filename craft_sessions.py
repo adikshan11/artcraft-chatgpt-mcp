@@ -14,11 +14,14 @@ Sessions live in this process's memory, so Studio must run as a single worker.
 """
 
 import asyncio
+import ctypes
 import json
 import os
 import re
 import secrets
 import signal
+import subprocess
+import sys
 import tempfile
 import time
 from dataclasses import dataclass, field
@@ -144,10 +147,67 @@ def get_app(name: str) -> CraftApp:
     return app
 
 
+_LIBC = ctypes.CDLL(None, use_errno=True) if sys.platform == "linux" else None
+_PR_SET_DUMPABLE = 4
+_PR_SET_NO_NEW_PRIVS = 38
+# Runs in a throwaway process, and does what _cut_network does.
+_NETWORK_PROBE = """
+import os
+uid, gid = os.getuid(), os.getgid()
+os.unshare(os.CLONE_NEWUSER | os.CLONE_NEWNET)
+for path, text in (("setgroups", "deny"), ("uid_map", f"{uid} {uid} 1"), ("gid_map", f"{gid} {gid} 1")):
+    with open(f"/proc/self/{path}", "w") as handle:
+        handle.write(text)
+"""
+
+
+def protect_server() -> None:
+    """Stop a session from reading this process's memory or environment. Sessions run as the
+    same user, so the kernel would otherwise allow /proc/<pid>/environ and ptrace. It only
+    takes effect on Linux. Each session gets its own setting back when it starts its app."""
+    if _LIBC:
+        _LIBC.prctl(_PR_SET_DUMPABLE, 0, 0, 0, 0)
+
+
+def _cut_network() -> bool:
+    """Put this process in a new network namespace with no interfaces up. Some hosts forbid
+    it, and then the session starts with the network it has, and /status says so."""
+    uid, gid = os.getuid(), os.getgid()
+    try:
+        # A non-dumpable process can't write its own ID maps. The app's exec follows at once.
+        _LIBC.prctl(_PR_SET_DUMPABLE, 1, 0, 0, 0)
+        os.unshare(os.CLONE_NEWUSER | os.CLONE_NEWNET)
+        for path, text in (("setgroups", "deny"), ("uid_map", f"{uid} {uid} 1"), ("gid_map", f"{gid} {gid} 1")):
+            with open(f"/proc/self/{path}", "w") as handle:
+                handle.write(text)
+    except OSError:
+        return False
+    finally:
+        _LIBC.prctl(_PR_SET_DUMPABLE, 0, 0, 0, 0)
+    return True
+
+
+@lru_cache(maxsize=1)
+def network_is_cut() -> bool:
+    """Whether this host lets a session give up its network. Asked once, in a throwaway process,
+    because a child that gets halfway through _cut_network can't go back."""
+    if not hasattr(os, "CLONE_NEWNET"):
+        return False
+    try:
+        return subprocess.run([sys.executable, "-I", "-c", _NETWORK_PROBE], capture_output=True, timeout=10).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def _limit_child() -> None:
-    """Runs in the child before exec: cap memory, file size and core dumps."""
+    """Runs in the child before exec: cap memory, file size and core dumps, gain no privileges
+    from anything it starts, and give up the network where the host allows it."""
     import resource
 
+    if _LIBC:
+        _LIBC.prctl(_PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)
+        if network_is_cut():
+            _cut_network()
     for limit, value in (
         (resource.RLIMIT_AS, MEMORY_LIMIT_BYTES),
         (resource.RLIMIT_FSIZE, MAX_FILE_BYTES),
@@ -186,6 +246,7 @@ class _StdioClient:
     async def start(cls, cli: Path, root: Path, home: Path, extra_args=(), root_flags=CraftApp.root_flags) -> "_StdioClient":
         for sub in ("tmp", "config", "cache", "data"):
             (home / sub).mkdir(parents=True, exist_ok=True)
+        network_is_cut()  # asked here, so the child only reads the cached answer
         process = await asyncio.create_subprocess_exec(
             str(cli), "mcp", *extra_args,
             root_flags[0], str(root),

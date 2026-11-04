@@ -226,7 +226,7 @@
     <a href="{{ project_url }}/issues" target="_blank" rel="noopener noreferrer">open an issue</a>.
   </p>
 </main>
-<script>
+<script nonce="{{ csp_nonce }}">
   // Refresh the rows every 30 seconds, but only while the tab is visible.
   (() => {
     const words = {{ dot_words|tojson }};
