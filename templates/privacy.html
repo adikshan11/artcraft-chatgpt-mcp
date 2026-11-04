@@ -38,7 +38,9 @@
   <li>Files are kept in a private storage bucket (S3-compatible), under
     <code>users/&lt;id&gt;/</code> for your account only. Other users can't list or open them.</li>
   <li>Files are deleted {{ retention_days }} days after your session ends. Deleting a
-    file, disconnecting, or closing your account deletes them immediately.</li>
+    file, disconnecting, or closing your account deletes them immediately, along with
+    any earlier versions. When a file is replaced, the storage bucket can keep the old copy
+    until the next cleanup, which runs every hour.</li>
   <li>Sign-in uses a connector token for <code>https://connect.getartcraft.com/mcp</code>.
     Studio checks its issuer, signature, expiry, audience and scopes. That token is
     not sent to ArtCraft or to other APIs. Studio exchanges it with the sign-in
