@@ -134,6 +134,9 @@
           ("photocraft", "post.png", 1080, 1080, "Put the badge on a square post for Sunday's run.", "A square image with the runners' badge above the words Sunday long run, 7 am from the bakery, all paces welcome."),
           ("figcraft", "screen.png", 720, 1280, "Mock up a sign-up screen with name, email and password.", "A phone sign-up screen with three fields and a blue Create account button."),
           ("soundcraft", "jingle-wave.png", 960, 200, "Write a three-second jingle for the shop's radio spot.", "The waveform of a short synth jingle."),
+          ("effectcraft", "motion-title.png", 1280, 720, "Make a title card for the runners' video.", "A frame from a title card: Mill Street Runners in dark text on a yellow band across a navy background."),
+          ("materialcraft", "material-brick.png", 640, 640, "Make a red brick material and show it on a sphere.", "A sphere covered in a procedural red brick material with grey mortar."),
+          ("texturecraft", "texture-brick.png", 512, 512, "Texture the test ball in mossy brick and export the maps.", "The exported base colour map of a mossy brick material."),
         ] %}
         <div class="gallery">
           {% for app, file, w, h, ask, alt in examples %}
@@ -178,6 +181,9 @@
           "designcraft": "Page layout",
           "figcraft": "Screen design",
           "soundcraft": "Audio",
+          "effectcraft": "Motion graphics",
+          "texturecraft": "3D textures",
+          "materialcraft": "Materials",
         } %}
         <ul class="app-grid">
           {% for app in hosted_apps %}
@@ -218,9 +224,8 @@
             <h3>Not every Craft app is here</h3>
             <p>
               FilmCraft, CADCraft, GridCraft and LightCraft can't yet be locked to one person's
-              folder, so I didn't host them. Fixes for all four are in review upstream, linked under
-              <a href="#apps">the apps</a>. EffectCraft's fix has shipped, and TextureCraft and
-              MaterialCraft are new, but I haven't run the escape checks on those three yet. The
+              folder, so I don't host them. Fixes for all four are in review upstream, linked under
+              <a href="#apps">the apps</a>. The
               <a href="{{ url_for('status_page') }}">status page</a> shows what's running now.
             </p>
           </li>
