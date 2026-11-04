@@ -20,15 +20,18 @@ from media_storage import S3Storage, StorageError
 # The Craft apps ArtCraft lists that Studio does not host yet, why, and the open
 # upstream pull requests that would let me host them.
 _NO_LOCK = "Its command-line build can't be locked to one user's folder yet. The open pull requests below add that lock."
+_NOT_CHECKED = "A new Craft app. I haven't run the escape checks on it yet, so Studio does not host it."
 NOT_HOSTED_APPS = [
-    {"name": "effectcraft", "title": "EffectCraft", "short": "Merged, not in 0.19.0",
-     "reason": "storytold/effectcraft#2719 is merged. The 0.19.0 download can still show footage from outside the folder, so Studio does not host it yet.",
+    {"name": "effectcraft", "title": "EffectCraft", "short": "Fixed, not checked yet",
+     "reason": "storytold/effectcraft#2719 is in releases from 0.20.0 on. I haven't rerun the escape checks on a newer build, so Studio does not host it yet.",
      "prs": [2719]},
     {"name": "filmcraft", "title": "FilmCraft", "short": "Folder lock in review", "reason": _NO_LOCK, "prs": [1657]},
     {"name": "cadcraft", "title": "CADCraft", "short": "Folder lock in review", "reason": _NO_LOCK, "prs": [1904]},
     {"name": "gridcraft", "title": "GridCraft", "short": "Folder lock in review", "reason": _NO_LOCK,
      "prs": [480, 2739, 2857]},
     {"name": "lightcraft", "title": "LightCraft", "short": "Folder lock in review", "reason": _NO_LOCK, "prs": [2176]},
+    {"name": "texturecraft", "title": "TextureCraft", "short": "New, not checked yet", "reason": _NOT_CHECKED, "prs": []},
+    {"name": "materialcraft", "title": "MaterialCraft", "short": "New, not checked yet", "reason": _NOT_CHECKED, "prs": []},
 ]
 for _app in NOT_HOSTED_APPS:
     _app["pr_links"] = [{"number": n, "url": f"https://github.com/storytold/{_app['name']}/pull/{n}"} for n in _app["prs"]]

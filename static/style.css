@@ -773,7 +773,7 @@ h2 em {
 .arch li {
   --a: calc(210deg - 240deg * var(--i) / (var(--n) - 1));
   --r: 40%;
-  --size: 12%;
+  --size: 11%;
   position: absolute;
   left: calc(50% + cos(var(--a)) * var(--r) - var(--size) / 2);
   top: calc(57% - sin(var(--a)) * var(--r) - var(--size) / 2);

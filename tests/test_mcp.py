@@ -159,13 +159,14 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
                     b"DesignCraft", b"FigCraft", b"SoundCraft"):
             self.assertIn(app, response.data)
         self.assertIn(b"v0.12.0", response.data)
-        # All 13 Craft apps are on the plate and in the grid; the unhosted ones say why.
-        for app in (b"EffectCraft", b"FilmCraft", b"CADCraft", b"GridCraft", b"LightCraft"):
+        # All 15 Craft apps are on the plate and in the grid; the unhosted ones say why.
+        for app in (b"EffectCraft", b"FilmCraft", b"CADCraft", b"GridCraft", b"LightCraft", b"TextureCraft", b"MaterialCraft"):
             self.assertIn(app + b" (not hosted yet)", response.data)
-        self.assertEqual(response.data.count(b'<li style="--i: '), 13)
-        self.assertEqual(response.data.count(b'class="is-off"'), 5)
+        self.assertEqual(response.data.count(b'<li style="--i: '), 15)
+        self.assertEqual(response.data.count(b'class="is-off"'), 7)
         self.assertIn(b"<h3 class=\"app-group-title\">Not hosted yet</h3>", response.data)
-        self.assertIn(b"Merged, not in 0.19.0", response.data)
+        self.assertIn(b"Fixed, not checked yet", response.data)
+        self.assertIn(b"New, not checked yet", response.data)
         self.assertIn(b'href="https://github.com/storytold/lightcraft"', response.data)
         # Privacy is a footer link, not a homepage section; footer links carry no arrows.
         self.assertNotIn(b'id="privacy"', response.data)
@@ -187,7 +188,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn(b"/static/showcase/" + sample, response.data)
         self.assertIn(b'href="https://github.com/storytold/figcraft"', response.data)
         # Limits and status are stated plainly.
-        self.assertIn(b"EffectCraft, FilmCraft, CADCraft, GridCraft", response.data)
+        self.assertIn(b"FilmCraft, CADCraft, GridCraft and LightCraft", response.data)
         self.assertIn(b"Up to 500 MB each and 5 GB per account.", response.data)
         # The disclaimer sits in the footer, not under the hero.
         hero, footer = response.data.split(b'<footer class="footer">', 1)
@@ -255,7 +256,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn(text, response.data)
         for app in (b"WordCraft", b"SoundCraft", b"EffectCraft", b"LightCraft"):
             self.assertIn(app, response.data)
-        self.assertIn(b"Not hosted. storytold/effectcraft#2719 is merged.", response.data)
+        self.assertIn(b"Not hosted. storytold/effectcraft#2719 is in releases from 0.20.0 on.", response.data)
         self.assertIn(b'href="https://github.com/storytold/cadcraft/pull/1904"', response.data)
         self.assertIn(b'data-theme-toggle', response.data)
 
@@ -282,7 +283,7 @@ class McpServerTests(unittest.IsolatedAsyncioTestCase):
         # The apps aren't installed in the test environment, which on Render is a fault.
         self.assertEqual(rows["WordCraft"]["health"], "error")
         self.assertEqual(rows["EffectCraft"]["health"], "off")
-        self.assertEqual(len(data["apps"]), 13)
+        self.assertEqual(len(data["apps"]), 15)
         self.assertEqual(data["overall"], "error")
         body = response.get_data(as_text=True).lower()
         for secret in ("key", "token", "secret", "password", "bucket", "/opt/craft"):
