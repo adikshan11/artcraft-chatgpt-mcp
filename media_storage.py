@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 Adithya Shankaran
 
-"""Per-user media storage for the hosted ArtCraft Studio service.
+"""Per-user media storage for the hosted BridgeCraft Studio service.
 
 Every object lives under ``users/<user-id>/`` so one signed-in user can never
 name another user's files. Media is ``media/<media-id>``. The ArtCraft grant and
