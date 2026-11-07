@@ -421,7 +421,7 @@ def status_json():
 
 @app.get("/")
 def index():
-    from site_status import NOT_HOSTED_APPS
+    from site_status import NOT_HOSTED_APPS, RELATED_PROJECTS
     from studio_mcp import RETENTION_DAYS
 
     return render_template(
@@ -434,6 +434,7 @@ def index():
         app_icons=APP_ICONS,
         hosted_apps=HOSTED_APPS,
         not_hosted_apps=NOT_HOSTED_APPS,
+        related_projects=RELATED_PROJECTS,
         retention_days=RETENTION_DAYS,
     )
 
