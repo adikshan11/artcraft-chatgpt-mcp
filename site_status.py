@@ -40,6 +40,31 @@ for _app in NOT_HOSTED_APPS:
         {"number": n, "kind": "issue", "url": f"{_base}/issues/{n}"} for n in _app.get("issues", [])]
 
 
+# Other public tools and projects. Kept separate from the official app list above:
+# AniCraft is an ArtCraft-team source project with no published release or checked folder lock.
+# Launcher installs local apps; SolidCraft is an independent project, not an official Storytold app.
+RELATED_PROJECTS = [
+    {
+        "title": "AniCraft",
+        "status": "ArtCraft team project · MCP source, but no published release or verified folder lock",
+        "repo_url": "https://github.com/storytold/AniCraft",
+        "releases_url": "https://github.com/storytold/AniCraft/releases",
+    },
+    {
+        "title": "ArtCraft Launcher",
+        "status": "Installs and updates Craft apps locally · latest stable v0.16.0",
+        "repo_url": "https://github.com/storytold/craft-launcher",
+        "releases_url": "https://github.com/storytold/craft-launcher/releases/latest",
+    },
+    {
+        "title": "SolidCraft",
+        "status": "Independent CAD project by Tangency Labs · stable v0.30.1; v0.40.0-rc.2 is prerelease; folder lock not verified",
+        "repo_url": "https://github.com/Tangency-Labs/SolidCraft",
+        "releases_url": "https://github.com/Tangency-Labs/SolidCraft/releases",
+    },
+]
+
+
 def _duration(seconds: float) -> str:
     minutes = int(seconds // 60)
     if minutes < 1:
