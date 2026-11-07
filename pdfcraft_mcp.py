@@ -17,7 +17,7 @@ from local_paths import craft_cli_path, documents_dir
 
 
 # Matches the PdfCraft release pinned for the hosted Studio in craft_apps.json.
-PDFCRAFT_VERSION = "0.18.2"
+PDFCRAFT_VERSION = "0.19.0"
 PDFCRAFT_ROOT = documents_dir()
 PDFCRAFT_CLI_PATH = craft_cli_path("pdfcraft", PDFCRAFT_VERSION)
 
