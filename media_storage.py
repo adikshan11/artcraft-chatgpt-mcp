@@ -39,7 +39,7 @@ ALLOWED_EXTENSIONS = {
     "presentation": {"pptx", "deckcraft"},
     # Native Craft project files and other layered design formats.
     "project": {"pcraft", "vectorcraft", "psd", "ai", "designcraft", "idml", "figcraft", "fig", "scraft",
-                "ecproj", "tcraft", "mcraft", "obj", "glb", "gltf", "fbx"},
+                "ecproj", "tcraft", "mcraft", "sbs", "mcmat", "obj", "glb", "gltf", "fbx"},
 }
 EXTENSION_KIND = {ext: kind for kind, exts in ALLOWED_EXTENSIONS.items() for ext in exts}
 
