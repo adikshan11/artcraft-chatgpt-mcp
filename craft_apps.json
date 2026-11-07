@@ -4,7 +4,7 @@
     {
       "name": "wordcraft",
       "title": "WordCraft",
-      "version": "0.15.2",
+      "version": "0.16.0",
       "description": "Word processor: create and edit docx, odt, rtf, markdown and text documents, and export them to PDF.",
       "website": "https://getartcraft.com/apps/wordcraft",
       "extensions": [
@@ -25,10 +25,10 @@
         "ui_inspect"
       ],
       "sha256": {
-        "x86_64": "366e54e235b4631779c0c78c0777a880de511163de9130ab78ce59583f7a0b9a",
-        "aarch64": "645e8daa4785c3e68bfede740f55075ea60d45c9f428b26c9741e819082c0b1b"
+        "x86_64": "325b97f15bbf532628a3176a9c17148a7175f3e4f19b9313de323ab513609752",
+        "aarch64": "065cb440c096d099d84cbbf86f0bde26ef2a29c4580105625d0b3b28e9409510"
       },
-      "confinement_checked": "2026-11-05, 0.15.2 linux-x86_64, scripts/escape_checks.py: 847 attempts through 2 tools and 54 engine commands, 0 reached outside the roots",
+      "confinement_checked": "2026-11-07, 0.16.0 linux-x86_64, scripts/escape_checks.py: 847 attempts through 2 tools and 54 engine commands, 0 reached outside the roots",
       "blocked_commands": [
         "font.add"
       ]
@@ -36,7 +36,7 @@
     {
       "name": "deckcraft",
       "title": "DeckCraft",
-      "version": "0.15.1",
+      "version": "0.16.0",
       "description": "Presentations: build and edit pptx slide decks with layouts, shapes, pictures, tables and charts, and export slides to PDF or images.",
       "website": "https://getartcraft.com/apps/deckcraft",
       "extensions": [
@@ -52,15 +52,15 @@
         "call_app"
       ],
       "sha256": {
-        "x86_64": "e2d45129d4b0f5d282232455b73b35d2dc16a4f587bf69a1db80939b0ade78cd",
-        "aarch64": "d1205205b6dcbc9979e8da1275941cb08b94dc51920bec1fb986bbf99263bcdf"
+        "x86_64": "eed572b2f62395d0f5cfe246a728189651e95e4ecdf4c3e0ad87b77a3831e086",
+        "aarch64": "8258fca0d7e5647d22cce79a1be6cacb9c21426fb06812b90a893752feda1647"
       },
-      "confinement_checked": "2026-11-05, 0.15.1 linux-x86_64, scripts/escape_checks.py: 737 attempts through 4 tools and 54 engine commands, 0 reached outside the roots"
+      "confinement_checked": "2026-11-07, 0.16.0 linux-x86_64, scripts/escape_checks.py: 737 attempts through 4 tools and 54 engine commands, 0 reached outside the roots"
     },
     {
       "name": "pdfcraft",
       "title": "PdfCraft",
-      "version": "0.18.2",
+      "version": "0.19.0",
       "description": "PDF editor: edit text and pages, combine and split, fill and create forms, redact, comment, OCR, check accessibility, and export to Word, PowerPoint, text or images.",
       "website": "https://getartcraft.com/apps/pdfcraft",
       "extensions": [
@@ -82,15 +82,15 @@
         "js_run"
       ],
       "sha256": {
-        "x86_64": "323bad7b373392076461e2cad5db63b22f47a032ba005a6c4a35f3483d05dae4",
-        "aarch64": "6ac0f63a3b8ce422046053e601e44be6276d8e5576a084c0c709b0e3a3f65eb6"
+        "x86_64": "3657aa40fe146d4af40fab0507c97f6ee2c6ce5ba9938567194439be3335ba8b",
+        "aarch64": "bb7ef777f3cb8874f6028a35942a6093ae0a30eb009b5c6e5ee1247846389f11"
       },
-      "confinement_checked": "2026-11-05, 0.18.2 linux-x86_64, scripts/escape_checks.py: 1507 attempts through 61 tools and 28 engine commands, 0 reached outside the roots"
+      "confinement_checked": "2026-11-07, 0.19.0 linux-x86_64, scripts/escape_checks.py: 1716 attempts through 64 tools and 30 engine commands, 0 reached outside the roots"
     },
     {
       "name": "photocraft",
       "title": "PhotoCraft",
-      "version": "0.20.2",
+      "version": "0.21.0",
       "description": "Photo editor: layers, adjustments, filters, selections and text on PNG, JPEG, WebP, TIFF and PSD images, saved as images or lossless .pcraft projects.",
       "website": "https://getartcraft.com/apps/photocraft",
       "extensions": [
@@ -114,15 +114,15 @@
         "ui_set"
       ],
       "sha256": {
-        "x86_64": "09e013d68d8313eb0b1cd6f24612f5b5fd0d993fffe3a7c12cecdfe5cd131a46",
-        "aarch64": "a1c3761d132d9ec162691d50f06ed98473bcdc0aed7c171a097df9adcfc38072"
+        "x86_64": "3115e56cc646dbad3541e39b6323b8a24318fee6194d784ddf6d065f7b5d2d37",
+        "aarch64": "748dce025c14b0bc162edae6b38b5fb552f8d248417544fcc3ac43d65d6d5cb9"
       },
-      "confinement_checked": "2026-11-05, 0.20.2 linux-x86_64, scripts/escape_checks.py: 4356 attempts through 8 tools and 240 engine commands, 0 reached outside the roots"
+      "confinement_checked": "2026-11-07, 0.21.0 linux-x86_64, scripts/escape_checks.py: 4444 attempts through 8 tools and 244 engine commands, 0 reached outside the roots"
     },
     {
       "name": "vectorcraft",
       "title": "VectorCraft",
-      "version": "0.21.1",
+      "version": "0.22.0",
       "description": "Vector art: draw paths, shapes, text and graphs, apply effects and pathfinder operations, and export to PDF or PNG.",
       "website": "https://getartcraft.com/apps/vectorcraft",
       "extensions": [
@@ -145,15 +145,15 @@
         "--headless"
       ],
       "sha256": {
-        "x86_64": "383bba06fbde7cb87c7e137937ad516a9a585491c5a927d8631ee54bbf1d4e93",
-        "aarch64": "2e6f3026856b0f9609acb1529bb138dcda7bee2e34a285e06549937696ac3604"
+        "x86_64": "6e812a92caec4dba23fd74734fa20a327886ef20427b55f2f887fe9334a0933f",
+        "aarch64": "e7572bf70b6262fdbe29e6db06c67a7665b12b6c466869035fd9afad3eec9a97"
       },
-      "confinement_checked": "2026-11-05, 0.21.1 linux-x86_64, scripts/escape_checks.py: 7931 attempts through 5 tools and 362 engine commands, 0 reached outside the roots"
+      "confinement_checked": "2026-11-07, 0.22.0 linux-x86_64, scripts/escape_checks.py: 8074 attempts through 5 tools and 367 engine commands, 0 reached outside the roots"
     },
     {
       "name": "designcraft",
       "title": "DesignCraft",
-      "version": "0.17.2",
+      "version": "0.18.0",
       "description": "Page layout: build multi-page documents with text frames, images and styles, open IDML, and export to PDF or PNG.",
       "website": "https://getartcraft.com/apps/designcraft",
       "extensions": [
@@ -179,15 +179,15 @@
         "dialog_cancel"
       ],
       "sha256": {
-        "x86_64": "b92e9067db11b8de1bb348232c0955d32469366fa3952d5dd96c18ca180a28ce",
-        "aarch64": "326b493e680538423fe62fcfd1b74915c36d6afa96fb500b108335a7403b383c"
+        "x86_64": "53987cb66be7de93854ed57000427fbe1c072a0427bc8cbaf501ff3672d5432c",
+        "aarch64": "f1c0e6e2f7ecb9ba6468e1d3acc32fd3197e5a44b5e5018e3118df29d521018a"
       },
-      "confinement_checked": "2026-11-05, 0.17.2 linux-x86_64, scripts/escape_checks.py: 2464 attempts through 5 tools and 162 engine commands, 0 reached outside the roots"
+      "confinement_checked": "2026-11-07, 0.18.0 linux-x86_64, scripts/escape_checks.py: 2541 attempts through 5 tools and 164 engine commands, 0 reached outside the roots"
     },
     {
       "name": "figcraft",
       "title": "FigCraft",
-      "version": "0.15.1",
+      "version": "0.16.0",
       "description": "Interface design: frames, shapes, text, components and auto layout; open .fig files and export to PNG, JPG, PDF or WebP.",
       "website": "https://getartcraft.com/apps/figcraft",
       "extensions": [
@@ -210,15 +210,15 @@
         "plugins."
       ],
       "sha256": {
-        "x86_64": "d5775efadc8bb673a0b741ccda289c1ebeca6fb3f827895a40cd57ff09c474d1",
-        "aarch64": "cbae0a38309d1c0ab50be78a37c0c92c85554410113a10247d3998a36114115c"
+        "x86_64": "d5e7f99f49d3a703d7f5241854dc756fb3d55fc94d0c95d2970db84a33391f5a",
+        "aarch64": "442393770be3eb6458e6712a332496fcf372b107b1efe36077ba39fa3b9e90ca"
       },
-      "confinement_checked": "2026-11-05, 0.15.1 linux-x86_64, scripts/escape_checks.py: 2167 attempts through 4 tools and 149 engine commands, 0 reached outside the roots"
+      "confinement_checked": "2026-11-07, 0.16.0 linux-x86_64, scripts/escape_checks.py: 2167 attempts through 4 tools and 149 engine commands, 0 reached outside the roots"
     },
     {
       "name": "soundcraft",
       "title": "SoundCraft",
-      "version": "0.17.1",
+      "version": "0.18.0",
       "description": "Audio editing and mixing: import audio and MIDI, arrange clips on tracks, mix, and bounce to WAV, AIFF or FLAC.",
       "website": "https://getartcraft.com/apps/soundcraft",
       "extensions": [
@@ -248,15 +248,15 @@
         "setup.disk_allocation"
       ],
       "sha256": {
-        "x86_64": "e7ac140bb9fd69ade4dd02643af8e5d4c14a5c82cd670b2030e52688febb3cb4",
-        "aarch64": "c0a03f2c2cce9e0063702b44867c73eafdd45596caaabd8e2d0899f17984eba2"
+        "x86_64": "338d1fe72b9692a5d99ff435503df58c853f5b96c2e95b2821d883f31f8b5a66",
+        "aarch64": "7d7749b565ae72a7be3a6754456e1d979b1d0546f718b476c826e1cbc449102f"
       },
-      "confinement_checked": "2026-11-05, 0.17.1 linux-x86_64, scripts/escape_checks.py: 693 attempts through 4 tools and 49 engine commands, 0 reached outside the roots"
+      "confinement_checked": "2026-11-07, 0.18.0 linux-x86_64, scripts/escape_checks.py: 693 attempts through 4 tools and 49 engine commands, 0 reached outside the roots"
     },
     {
       "name": "effectcraft",
       "title": "EffectCraft",
-      "version": "0.21.1",
+      "version": "0.22.0",
       "description": "Motion graphics: build compositions with layers, text, effects and keyframes, and render frames to PNG.",
       "website": "https://getartcraft.com/apps/effectcraft",
       "extensions": [
@@ -295,16 +295,16 @@
         "window.restoreScriptPanels"
       ],
       "sha256": {
-        "x86_64": "ec39afa51fb0a2c0b58a8c1102325e2355016fe754563d24075fa29b3e1c5315",
-        "aarch64": "77a91020eff524617fc9db4b7443c8fc22f7874f4b0c85b74b15fa0eebc825fe"
+        "x86_64": "5fe9b0ae5746ac29b61f7dea10bd67b71e996c1e0188824c4f81a96623c3bee9",
+        "aarch64": "b3cf2810bfbacf066d5e1cd5224328d0a03542e0483c0d6632425e73eb340ba7"
       },
-      "confinement_checked": "2026-11-05, 0.21.1 linux-x86_64, scripts/escape_checks.py: 2002 attempts through 6 tools and 143 engine commands, 0 reached outside the roots",
+      "confinement_checked": "2026-11-07, 0.22.0 linux-x86_64, scripts/escape_checks.py: 2123 attempts through 6 tools and 149 engine commands, 0 reached outside the roots",
       "absolute_paths": true
     },
     {
       "name": "texturecraft",
       "title": "TextureCraft",
-      "version": "0.3.2",
+      "version": "0.4.0",
       "description": "3D texture painting: paint materials on built-in or uploaded meshes, bake maps and export textures.",
       "website": "https://getartcraft.com/apps/texturecraft",
       "extensions": [
@@ -325,15 +325,15 @@
         "viewport_screenshot"
       ],
       "sha256": {
-        "x86_64": "4f8febc4af593dee1bacb51293aefcf102d7a898136d3cccc44f5ad4c19bc0d0",
-        "aarch64": "fa6acdfd9926425aae330360d60f44ef719d1157dd4530b13be1f9156e739283"
+        "x86_64": "ed84769ebbad2231666bd000dfce8a3791f2b107766f5d568a5545d5de0844cf",
+        "aarch64": "750b3954161e87f1f826b6e37ff00089a37583a6342bce845178cec94969f0bd"
       },
-      "confinement_checked": "2026-11-05, 0.3.2 linux-x86_64, scripts/escape_checks.py: 836 attempts through 10 tools and 46 engine commands, 0 reached outside the roots"
+      "confinement_checked": "2026-11-07, 0.4.0 linux-x86_64, scripts/escape_checks.py: 836 attempts through 10 tools and 46 engine commands, 0 reached outside the roots"
     },
     {
       "name": "materialcraft",
       "title": "MaterialCraft",
-      "version": "0.1.2",
+      "version": "0.2.0",
       "description": "Procedural materials: build node graphs from templates and export base color, normal and roughness maps.",
       "website": "https://getartcraft.com/apps/materialcraft",
       "extensions": [
@@ -357,10 +357,10 @@
         "--write-root"
       ],
       "sha256": {
-        "x86_64": "22b782c3b4147893c3d9c5a7e6965778fc8d80b4ccfdd1abc2012a3ba206fe4d",
-        "aarch64": "aa3160ee398d20a6bb4d4bae9e011395f6bbec31790882a0ed40d754253bd0b3"
+        "x86_64": "3c7b6c1a4755e204ce6e0ea6813f1622eb1c36c15a45d53ba3722735780b26f6",
+        "aarch64": "f8b9fd8b18d83dc6912edf4e7d7b6b2371988c1bca43793ea6da591448ba5da5"
       },
-      "confinement_checked": "2026-11-05, 0.1.2 linux-x86_64, scripts/escape_checks.py: 385 attempts through 4 tools and 17 engine commands, 0 reached outside the roots"
+      "confinement_checked": "2026-11-07, 0.2.0 linux-x86_64, scripts/escape_checks.py: 473 attempts through 5 tools and 22 engine commands, 0 reached outside the roots"
     }
   ]
 }
