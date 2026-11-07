@@ -309,6 +309,7 @@
       "website": "https://getartcraft.com/apps/texturecraft",
       "extensions": [
         "tcraft",
+        "mcmat",
         "obj",
         "glb",
         "gltf",
@@ -338,6 +339,8 @@
       "website": "https://getartcraft.com/apps/materialcraft",
       "extensions": [
         "mcraft",
+        "sbs",
+        "mcmat",
         "png",
         "jpg",
         "jpeg",

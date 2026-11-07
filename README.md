@@ -578,8 +578,8 @@ Eleven apps are included:
 | FigCraft 0.16.0 | Interface design | .figcraft, .fig, images; exports PNG, JPG, PDF, WebP |
 | SoundCraft 0.18.0 | Audio editing and mixing | .scraft, wav, aiff, flac, mp3, ogg, m4a, mid; bounces WAV, AIFF, FLAC |
 | EffectCraft 0.22.0 | Motion graphics | .ecproj, images, video, wav; renders PNG frames |
-| TextureCraft 0.4.0 | 3D texture painting | .tcraft, obj, glb, gltf, fbx, images; exports textures |
-| MaterialCraft 0.2.0 | Procedural materials | .mcraft, images; exports texture maps |
+| TextureCraft 0.4.0 | 3D texture painting | .tcraft, .mcmat, obj, glb, gltf, fbx, images; exports textures |
+| MaterialCraft 0.2.0 | Procedural materials | .sbs, .mcmat, .mcraft, images; exports texture maps |
 
 Each session runs its app as a separate process that can't read the server's memory or
 environment, can't gain privileges, and has no network where the host allows that. `/status`

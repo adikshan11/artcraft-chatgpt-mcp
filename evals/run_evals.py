@@ -272,14 +272,16 @@ async def texturecraft(job: Job):
 
 async def materialcraft(job: Job):
     await job.open()
-    await job.tool("graph_new", template="bricks", size=64)
+    await job.tool("graph_new", template="pbr", size=64)
     await job.tool("outputs_export", dir="maps", format="png")
-    await job.tool("package_save", path="demo.mcraft")
+    await job.tool("material_export", path="demo.mcmat")
+    await job.tool("package_save", path="demo.sbs")
     await job.save()
-    job.check("the package was saved", checks.not_empty, "demo.mcraft")
+    job.check("the package was saved", checks.not_empty, "demo.sbs")
+    job.check("the portable material was saved", checks.not_empty, "demo.mcmat")
     maps = [name for name in job.saved if name.endswith(".png")]
     job.record("the maps were exported", bool(maps), "" if maps else f"saved {sorted(job.saved)}")
-    await job.reopens("package_open", "demo.mcraft")
+    await job.reopens("package_open", "demo.sbs")
 
 
 JOBS = {job.__name__: job for job in (wordcraft, deckcraft, pdfcraft, photocraft, vectorcraft, designcraft, figcraft, soundcraft, effectcraft, texturecraft, materialcraft)}
