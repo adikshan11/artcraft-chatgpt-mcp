@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 Adithya Shankaran
 
-"""Media processing for ArtCraft Studio: video (FFmpeg), images (Pillow), PDFs.
+"""Media processing for BridgeCraft Studio: video (FFmpeg), images (Pillow), PDFs.
 
 Each function reads local input files and writes one new local output file.
 Storage, auth, and tool wiring live in ``studio_mcp.py``.
@@ -640,7 +640,7 @@ def pdf_sign(
         pdf.setFillColor(HexColor("#333333"))
         pdf.setFont("Helvetica", 6.5)
         pdf.drawString(x + 8, y + 15, f"Electronically signed by {signer_name}")
-        pdf.drawString(x + 8, y + 6, f"{signed_at.isoformat()} · ArtCraft Studio · ref {original_hash[:12]}")
+        pdf.drawString(x + 8, y + 6, f"{signed_at.isoformat()} · BridgeCraft Studio · ref {original_hash[:12]}")
 
     target.merge_page(_overlay_page(width, height, draw))
 
@@ -655,7 +655,7 @@ def pdf_sign(
             ("Signature placed on page", str(index + 1)),
             ("Reason", (reason or "Not stated")[:200]),
             ("Original document SHA-256", original_hash),
-            ("Signing service", "ArtCraft Studio (open source)"),
+            ("Signing service", "BridgeCraft Studio (open source)"),
         ]
         line_y = height - 110
         for label, value in rows:
@@ -665,7 +665,7 @@ def pdf_sign(
             pdf.drawString(230, line_y, value)
             line_y -= 20
         pdf.setFont("Helvetica-Oblique", 8)
-        pdf.drawString(54, line_y - 10, "The signer authenticated with their ArtCraft Studio account and "
+        pdf.drawString(54, line_y - 10, "The signer authenticated with their BridgeCraft Studio account and "
                        "explicitly asked to sign this document.")
 
     writer.add_page(_overlay_page(width, height, audit))

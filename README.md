@@ -527,7 +527,7 @@ docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges \
   python -m evals.run_evals > evals.json
 ```
 
-## ArtCraft Studio (public, multi-user)
+## BridgeCraft Studio (public, multi-user)
 
 `/studio` is the public MCP endpoint for anyone using ChatGPT, Claude, or another
 MCP client. Users sign in with OAuth; every tool works only on the signed-in

@@ -4,7 +4,7 @@
 {% block content %}
 <p>
   BridgeCraft is run by Adithya Shankaran as an independent open-source project.
-  It is not operated by Storytold or the ArtCraft team. This policy covers ArtCraft
+  It is not operated by Storytold or the ArtCraft team. This policy covers BridgeCraft
   Studio, the connector at <code>{{ site_url }}/studio</code>, and this website.
 </p>
 
@@ -37,7 +37,7 @@
 <ul>
   <li>Files are kept in a private storage bucket (S3-compatible), under
     <code>users/&lt;id&gt;/</code> for your account only. Other users can't list or open them.</li>
-  <li>Files are deleted {{ retention_days }} days after your session ends. Deleting a
+  <li>Files are deleted {{ retention_days }} days after your session ends, at the next hourly cleanup. Deleting a
     file, disconnecting, or closing your account deletes them immediately, along with
     any earlier versions. When a file is replaced, the storage bucket can keep the old copy
     until the next cleanup, which runs every hour.</li>
