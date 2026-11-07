@@ -271,6 +271,7 @@ async def texturecraft(job: Job):
 
 
 async def materialcraft(job: Job):
+    """Check graph creation, exports, and package save and reopen."""
     await job.open()
     await job.tool("graph_new", template="pbr", size=64)
     await job.tool("outputs_export", dir="maps", format="png")
