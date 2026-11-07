@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 Adithya Shankaran
 
-"""Hosted Craft app sessions for ArtCraft Studio.
+"""Hosted Craft app sessions for BridgeCraft Studio.
 
 Each session runs one copy of a Craft app's MCP server (`<app>-cli mcp`) for one
 signed-in user, in a private temporary folder. The app is started inside that
@@ -417,7 +417,7 @@ class SessionManager:
         await client.request("initialize", {
             "protocolVersion": PROTOCOL_VERSION,
             "capabilities": {},
-            "clientInfo": {"name": "artcraft-studio", "version": "1.0.0"},
+            "clientInfo": {"name": "bridgecraft", "version": "1.0.0"},
         })
         await client.notify("notifications/initialized")
         tools, cursor = [], None

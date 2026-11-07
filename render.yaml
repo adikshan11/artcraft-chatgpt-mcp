@@ -10,7 +10,7 @@ services:
     envVars:
       - key: PUBLIC_BASE_URL
         value: https://bridgecraft.onrender.com
-      # OAuth (Auth0 or Clerk). See README "ArtCraft Studio".
+      # OAuth (Auth0 or Clerk). See README "BridgeCraft Studio".
       - key: OAUTH_ISSUER
         sync: false
       # The audience is fixed in the connector at

@@ -126,7 +126,7 @@ def _auth_config():
 _verifier, _auth_settings = _auth_config()
 
 studio = MCPServer(
-    "artcraft-studio",
+    "bridgecraft",
     title="BridgeCraft Studio",
     description="Edit video, images, and PDFs (including e-signatures) in your own BridgeCraft workspace.",
     website_url=SITE_URL,
