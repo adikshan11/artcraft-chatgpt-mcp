@@ -219,8 +219,8 @@
               <a class="app-name" href="{{ project.repo_url }}" target="_blank" rel="noopener noreferrer">{{ project.title }}</a>
               <span class="app-kind">{{ project.status }}</span>
               <span class="app-prs">
-                <a href="{{ project.repo_url }}" target="_blank" rel="noopener noreferrer">Source</a>
-                <a href="{{ project.releases_url }}" target="_blank" rel="noopener noreferrer">Releases</a>
+                <a href="{{ project.repo_url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ project.title }} source repository">Source</a>
+                <a href="{{ project.releases_url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ project.title }} releases">Releases</a>
               </span>
             </div>
           </li>
