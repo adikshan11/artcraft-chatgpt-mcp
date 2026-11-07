@@ -211,6 +211,22 @@
           </li>
           {% endfor %}
         </ul>
+        <h3 class="app-group-title">Other projects and tools</h3>
+        <ul class="app-grid">
+          {% for project in related_projects %}
+          <li>
+            <div class="app-cell">
+              <a class="app-name" href="{{ project.repo_url }}" target="_blank" rel="noopener noreferrer">{{ project.title }}</a>
+              <span class="app-kind">{{ project.status }}</span>
+              <span class="app-prs">
+                <a href="{{ project.repo_url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ project.title }} source repository">Source</a>
+                <a href="{{ project.releases_url }}" target="_blank" rel="noopener noreferrer" aria-label="{{ project.title }} releases">Releases</a>
+              </span>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        <p class="app-kind">These are separate from the official hosted Craft apps. BridgeCraft does not host them.</p>
       </section>
 
       <section class="section" id="limits">
