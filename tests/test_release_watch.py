@@ -4,6 +4,7 @@
 import importlib.util
 import json
 import os
+import re
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -183,7 +184,31 @@ class BumpTests(unittest.TestCase):
         self.assertEqual(moved[0]["version"], "9.9.9")
         self.assertEqual(moved[0]["sha256"]["x86_64"], "x" * 64)
         self.assertEqual(moved[0]["confinement_checked"], "pending the release-watch run")
+        self.assertEqual(moved[0]["hidden_tools"], app["hidden_tools"])
         self.assertEqual(moved[1:], apps[1:])
+
+    def test_a_bump_puts_vectorcraft_script_tools_back(self):
+        bump = load_script("bump_apps")
+        text = (ROOT / "craft_apps.json").read_text()
+        apps = json.loads(text)["apps"]
+        app = next(entry for entry in apps if entry["name"] == "vectorcraft")
+        digests = {f"vectorcraft-9.9.9-linux-{arch}.tar.gz": arch[0] * 64 for arch in bump.ARCHES}
+        kept = json.loads(bump.bump_manifest(text, app, "9.9.9", digests))["apps"]
+        self.assertEqual(next(entry for entry in kept if entry["name"] == "vectorcraft")["hidden_tools"], app["hidden_tools"])
+        start = text.index('"name": "vectorcraft"')
+        end = text.find('"name": "', start + 10)
+        block = re.sub(
+            r'"hidden_tools": \[(.*?)]', '"hidden_tools": [\n        "ui_inspect"\n      ]',
+            text[start:end], count=1, flags=re.S,
+        )
+        stripped = text[:start] + block + text[end:]
+        regenerated = {**app, "hidden_tools": ["ui_inspect"]}
+        moved = json.loads(bump.bump_manifest(stripped, regenerated, "9.9.9", digests))["apps"]
+        got = next(entry for entry in moved if entry["name"] == "vectorcraft")
+        self.assertEqual(got["hidden_tools"], ["ui_inspect", "run_command", "script.run"])
+        self.assertEqual(got["mcp_args"], app["mcp_args"])
+        self.assertEqual([entry for entry in moved if entry["name"] != "vectorcraft"],
+                         [entry for entry in apps if entry["name"] != "vectorcraft"])
 
     def test_the_readme_table_follows(self):
         bump = load_script("bump_apps")
