@@ -140,7 +140,7 @@ class RealCraftAppTests(CraftTestCase):
 
     @needs("vectorcraft")
     async def test_draw_vector_art_headless(self):
-        hidden = {"ui_inspect", "ui_screenshot", "inspect_ui", "type_text", "answer_dialog", "open_panel"}
+        hidden = {"ui_inspect", "ui_screenshot", "inspect_ui", "type_text", "answer_dialog", "open_panel", "run_command", "script.run"}
         sid = (await self.open_session("vectorcraft", hidden))["session_id"]
         await self.assert_ok(sid, "draw_shape", shape="ellipse", x=20, y=20, width=200, height=120, fill="#3366ff")
         await self.assert_ok(sid, "add_text", x=40, y=200, text="Hosted Craft")
