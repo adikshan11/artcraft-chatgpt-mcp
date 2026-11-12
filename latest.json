@@ -1,0 +1,291 @@
+{
+  "schema": 1,
+  "generated_at": "2026-11-12T13:12:59+00:00",
+  "commit": "cc09f8c",
+  "passed": true,
+  "apps": [
+    {
+      "app": "wordcraft",
+      "title": "WordCraft",
+      "version": "0.18.1",
+      "passed": true,
+      "ms": 176,
+      "checks": [
+        {
+          "name": "opens",
+          "passed": true
+        },
+        {
+          "name": "the Word file has the words",
+          "passed": true
+        },
+        {
+          "name": "the PDF has the words",
+          "passed": true
+        },
+        {
+          "name": "letter.docx opens again",
+          "passed": true
+        },
+        {
+          "name": "the reopened file has the words",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "app": "deckcraft",
+      "title": "DeckCraft",
+      "version": "0.18.1",
+      "passed": true,
+      "ms": 155,
+      "checks": [
+        {
+          "name": "opens",
+          "passed": true
+        },
+        {
+          "name": "the slides have the words",
+          "passed": true
+        },
+        {
+          "name": "the PDF has the words",
+          "passed": true
+        },
+        {
+          "name": "deck.pptx opens again",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "app": "pdfcraft",
+      "title": "PdfCraft",
+      "version": "0.21.1",
+      "passed": true,
+      "ms": 85,
+      "checks": [
+        {
+          "name": "opens",
+          "passed": true
+        },
+        {
+          "name": "the new PDF has 2 pages",
+          "passed": true
+        },
+        {
+          "name": "the combined PDF has 4 pages",
+          "passed": true
+        },
+        {
+          "name": "both.pdf opens again",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "app": "photocraft",
+      "title": "PhotoCraft",
+      "version": "0.23.1",
+      "passed": true,
+      "ms": 76,
+      "checks": [
+        {
+          "name": "opens",
+          "passed": true
+        },
+        {
+          "name": "the export keeps the photo's size and colour",
+          "passed": true
+        },
+        {
+          "name": "the project was saved",
+          "passed": true
+        },
+        {
+          "name": "edit.pcraft opens again",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "app": "vectorcraft",
+      "title": "VectorCraft",
+      "version": "0.24.1",
+      "passed": true,
+      "ms": 75,
+      "checks": [
+        {
+          "name": "opens",
+          "passed": true
+        },
+        {
+          "name": "the PDF has the words",
+          "passed": true
+        },
+        {
+          "name": "the project was saved",
+          "passed": true
+        },
+        {
+          "name": "art.vectorcraft opens again",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "app": "designcraft",
+      "title": "DesignCraft",
+      "version": "0.20.1",
+      "passed": true,
+      "ms": 91,
+      "checks": [
+        {
+          "name": "opens",
+          "passed": true
+        },
+        {
+          "name": "the page shows the placed photo",
+          "passed": true
+        },
+        {
+          "name": "the PDF has 1 page",
+          "passed": true
+        },
+        {
+          "name": "flyer.designcraft opens again",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "app": "figcraft",
+      "title": "FigCraft",
+      "version": "0.18.1",
+      "passed": true,
+      "ms": 77,
+      "checks": [
+        {
+          "name": "opens",
+          "passed": true
+        },
+        {
+          "name": "the export shows the coloured box",
+          "passed": true
+        },
+        {
+          "name": "the project was saved",
+          "passed": true
+        },
+        {
+          "name": "card.figcraft opens again",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "app": "soundcraft",
+      "title": "SoundCraft",
+      "version": "0.20.1",
+      "passed": true,
+      "ms": 112,
+      "checks": [
+        {
+          "name": "opens",
+          "passed": true
+        },
+        {
+          "name": "the mix lasts 1 second and isn't silent",
+          "passed": true
+        },
+        {
+          "name": "the session was saved",
+          "passed": true
+        },
+        {
+          "name": "demo.scraft opens again",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "app": "effectcraft",
+      "title": "EffectCraft",
+      "version": "0.24.1",
+      "passed": true,
+      "ms": 116,
+      "checks": [
+        {
+          "name": "opens",
+          "passed": true
+        },
+        {
+          "name": "the frame is a picture",
+          "passed": true
+        },
+        {
+          "name": "the project was saved",
+          "passed": true
+        },
+        {
+          "name": "demo.ecproj opens again",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "app": "texturecraft",
+      "title": "TextureCraft",
+      "version": "0.6.1",
+      "passed": true,
+      "ms": 159,
+      "checks": [
+        {
+          "name": "opens",
+          "passed": true
+        },
+        {
+          "name": "the project was saved",
+          "passed": true
+        },
+        {
+          "name": "the textures were exported",
+          "passed": true
+        },
+        {
+          "name": "demo.tcraft opens again",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "app": "materialcraft",
+      "title": "MaterialCraft",
+      "version": "0.4.1",
+      "passed": true,
+      "ms": 108,
+      "checks": [
+        {
+          "name": "opens",
+          "passed": true
+        },
+        {
+          "name": "the package was saved",
+          "passed": true
+        },
+        {
+          "name": "the portable material was saved",
+          "passed": true
+        },
+        {
+          "name": "the maps were exported",
+          "passed": true
+        },
+        {
+          "name": "demo.sbs opens again",
+          "passed": true
+        }
+      ]
+    }
+  ]
+}
