@@ -21,7 +21,7 @@ from local_paths import craft_cli_path, documents_dir
 
 
 # Matches the PhotoCraft release pinned for the hosted Studio in craft_apps.json.
-PHOTOCRAFT_VERSION = "0.21.0"
+PHOTOCRAFT_VERSION = "0.23.1"
 PHOTOCRAFT_ROOT = documents_dir() / "ArtCraft"
 PHOTOCRAFT_CLI_PATH = craft_cli_path("photocraft", PHOTOCRAFT_VERSION)
 # Tools that drive the desktop app or reach outside the workspace, hidden as in Studio.
