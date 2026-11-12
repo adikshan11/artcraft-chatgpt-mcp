@@ -25,6 +25,8 @@ import release_watch  # noqa: E402
 RELEASE_URL = "https://api.github.com/repos/storytold/{name}/releases/tags/v{version}"
 CONSTANTS = {"photocraft": ("craft_app_mcp.py", "PHOTOCRAFT_VERSION"), "pdfcraft": ("pdfcraft_mcp.py", "PDFCRAFT_VERSION")}
 ARCHES = ("x86_64", "aarch64")
+# A regenerated entry must still hide these. VectorCraft 0.24 runs scripts through them.
+PINNED_HIDDEN = {"vectorcraft": ("run_command", "script.run")}
 
 
 def asset_digests(name: str, version: str) -> dict:
@@ -37,8 +39,30 @@ def asset_digests(name: str, version: str) -> dict:
     return {asset["name"]: asset["digest"].split(":", 1)[1] for asset in assets if asset.get("digest", "").startswith("sha256:")}
 
 
+def keep_hidden(block: str, names: list[str]) -> str:
+    """Put any missing names back on this entry's hidden_tools list, leaving the ones already there."""
+    match = re.search(r'"hidden_tools":\s*\[(.*?)]', block, re.S)
+    if not names:
+        return block
+    missing = [name for name in names if f'"{name}"' not in (match.group(1) if match else "")]
+    if not missing:
+        return block
+    insert = ",\n".join(f'        "{name}"' for name in missing)
+    if not match:
+        return block.replace('"sha256"', f'"hidden_tools": [\n{insert}\n      ],\n      "sha256"', 1)
+    body = match.group(1)
+    have = re.findall(r'"([^"]*)"', body)
+    body = "\n" + insert + "\n      " if not have else re.sub(
+        r'"' + re.escape(have[-1]) + r'"', f'"{have[-1]}",\n{insert}', body, count=1)
+    return block[:match.start(1)] + body + block[match.end(1):]
+
+
 def bump_manifest(text: str, app: dict, version: str, digests: dict) -> str:
-    """Replace one app's version and checksums in place, so the file's layout and other entries stay."""
+    """Replace one app's version and checksums in place, so the file's layout and other entries stay.
+
+    Hidden tools stay with the entry. Names in PINNED_HIDDEN are written back if a regenerated
+    entry no longer lists them, so the next bump cannot publish VectorCraft's script tools.
+    """
     old = app["version"]
     start = text.index(f'"name": "{app["name"]}"')
     end = text.find('"name": "', start + 10)
@@ -47,6 +71,11 @@ def bump_manifest(text: str, app: dict, version: str, digests: dict) -> str:
     for arch in ARCHES:
         block = block.replace(app["sha256"][arch], digests[f"{app['name']}-{version}-linux-{arch}.tar.gz"])
     block = re.sub(r'"confinement_checked": "[^"]*"', '"confinement_checked": "pending the release-watch run"', block)
+    hidden = list(app.get("hidden_tools") or [])
+    for name in PINNED_HIDDEN.get(app["name"], ()):
+        if name not in hidden:
+            hidden.append(name)
+    block = keep_hidden(block, hidden)
     return text[:start] + block + text[end:]
 
 

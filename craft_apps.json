@@ -139,7 +139,9 @@
         "inspect_ui",
         "type_text",
         "answer_dialog",
-        "open_panel"
+        "open_panel",
+        "run_command",
+        "script.run"
       ],
       "mcp_args": [
         "--headless"
