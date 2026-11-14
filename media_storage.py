@@ -20,6 +20,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+import resilience
+
 # Extensions run up to 11 characters for Craft project files such as .vectorcraft.
 MEDIA_ID_PATTERN = re.compile(r"^[0-9a-f]{32}\.[a-z0-9]{2,11}$")
 USER_ID_PATTERN = re.compile(r"^[0-9a-f]{32}$")
@@ -245,6 +247,66 @@ class LocalStorage:
         return self._path(user_id, media_id).resolve().as_uri()
 
 
+# Five failures in a row stop calls to the storage for 30 seconds.
+breaker = resilience.CircuitBreaker("Storage")
+
+
+def _storage_down(exc):
+    """True when a storage call failed because the service is unreachable or erroring."""
+    from botocore.exceptions import BotoCoreError, ClientError
+
+    if isinstance(exc, ClientError):
+        return exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode", 0) >= 500
+    return isinstance(exc, BotoCoreError)
+
+
+def _guarded(call):
+    """Run ``call`` through the storage breaker; a refused call raises StorageError at once."""
+    try:
+        breaker.before()
+    except resilience.CircuitOpen as exc:
+        raise StorageError(f"File storage is not responding. Try again in about {exc.retry_after} seconds.") from None
+    try:
+        result = call()
+    except Exception as exc:
+        breaker.failure() if _storage_down(exc) else breaker.success()
+        raise
+    breaker.success()
+    return result
+
+
+class _GuardedPaginator:
+    """A paginator whose pages are fetched through the storage breaker."""
+
+    def __init__(self, paginator):
+        self._paginator = paginator
+
+    def paginate(self, **kwargs):
+        """Yield pages; the request for each page goes through the breaker."""
+        pages = iter(self._paginator.paginate(**kwargs))
+        while True:
+            try:
+                page = _guarded(lambda: next(pages))
+            except StopIteration:
+                return
+            yield page
+
+
+class _GuardedClient:
+    """Wraps a boto3 client so every call goes through the storage breaker."""
+
+    def __init__(self, client):
+        self._client = client
+
+    def __getattr__(self, name):
+        attribute = getattr(self._client, name)
+        if name == "get_paginator":
+            return lambda operation: _GuardedPaginator(attribute(operation))
+        if not callable(attribute):
+            return attribute
+        return lambda *args, **kwargs: _guarded(lambda: attribute(*args, **kwargs))
+
+
 class S3Storage:
     """S3-compatible storage (Cloudflare R2, Backblaze B2, ...) with presigned URLs."""
 
@@ -255,14 +317,14 @@ class S3Storage:
         from botocore.config import Config
 
         self.bucket = bucket
-        self.client = boto3.client(
+        self.client = _GuardedClient(boto3.client(
             "s3",
             endpoint_url=endpoint_url,
             aws_access_key_id=access_key_id,
             aws_secret_access_key=secret_access_key,
             region_name=region,
             config=Config(signature_version="s3v4", retries={"max_attempts": 3}),
-        )
+        ))
 
     def put_file(self, user_id, media_id, source: Path):
         key = object_key(user_id, media_id)
