@@ -10,6 +10,8 @@ import sys
 import uuid
 from urllib import error, parse, request
 
+import resilience
+
 
 API_BASE_URL = "https://api.storyteller.ai"
 # ArtCraft sits behind Cloudflare, which refuses requests carrying Python's default
@@ -31,6 +33,11 @@ FAILED_JOB_STATES = {
     "cancelled_by_user",
     "cancelled_by_system",
 }
+
+
+# Five failures in a row stop calls to ArtCraft for 30 seconds, so a dead API fails at once
+# instead of holding every request for its 30-second timeout.
+breaker = resilience.CircuitBreaker("ArtCraft")
 
 
 class ArtCraftAPIError(RuntimeError):
@@ -188,17 +195,41 @@ def _request_json(path: str, method: str, payload: dict | None = None, auth: boo
         f"{API_BASE_URL}{path}", data=data, headers=headers, method=method
     )
     try:
+        ticket = breaker.before()
+    except resilience.CircuitOpen as exc:
+        raise ArtCraftAPIError(
+            f"ArtCraft is not responding right now. Try again in about {exc.retry_after} seconds."
+        ) from None
+    settled = False
+    try:
         opener = request.build_opener(_NoRedirectHandler())
         with opener.open(req, timeout=30) as response:
-            result = json.loads(response.read())
+            body = response.read()
+        result = json.loads(body)
+        breaker.success(ticket)
+        settled = True
     except ArtCraftRevoked:
+        breaker.success(ticket)
+        settled = True
         raise
     except error.HTTPError as exc:
+        # An answer below 500 means ArtCraft is up and refused this request.
+        breaker.failure(ticket) if exc.code >= 500 else breaker.success(ticket)
+        settled = True
         raise ArtCraftAPIError(_http_error_message(exc, exchanged=bearer is not None)) from exc
     except (error.URLError, TimeoutError) as exc:
+        breaker.failure(ticket)
+        settled = True
         raise ArtCraftAPIError("Could not reach the ArtCraft API.") from exc
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        # A reply that can't be read means ArtCraft isn't working properly, so it counts as a failure.
+        breaker.failure(ticket)
+        settled = True
         raise ArtCraftAPIError("ArtCraft returned an invalid JSON response.") from exc
+    finally:
+        if not settled:
+            # Any other way out, such as a dropped connection mid-read, still ends the probe.
+            breaker.failure(ticket)
 
     if not isinstance(result, dict):
         raise ArtCraftAPIError("ArtCraft returned an unexpected response.")

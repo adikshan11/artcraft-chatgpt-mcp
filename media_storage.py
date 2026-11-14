@@ -20,6 +20,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+import resilience
+
 # Extensions run up to 11 characters for Craft project files such as .vectorcraft.
 MEDIA_ID_PATTERN = re.compile(r"^[0-9a-f]{32}\.[a-z0-9]{2,11}$")
 USER_ID_PATTERN = re.compile(r"^[0-9a-f]{32}$")
@@ -245,6 +247,130 @@ class LocalStorage:
         return self._path(user_id, media_id).resolve().as_uri()
 
 
+# Five failures in a row stop calls to the storage for 30 seconds.
+breaker = resilience.CircuitBreaker("Storage")
+
+
+def _storage_down(exc):
+    """True when a storage call failed because the service is unreachable or erroring.
+
+    boto3's upload helpers wrap the storage's own error in another exception, so the chain of
+    causes is followed too.
+    """
+    from botocore.exceptions import BotoCoreError, ClientError
+
+    seen = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        if isinstance(exc, ClientError):
+            return exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode", 0) >= 500
+        if isinstance(exc, (BotoCoreError, TimeoutError, ConnectionError)):
+            return True
+        exc = exc.__cause__ or exc.__context__
+    return False
+
+
+def _guarded(call, *, settle=True):
+    """Run ``call`` through the storage breaker; a refused call raises StorageError at once.
+
+    With ``settle=False`` a success is not recorded here, because the caller still has a response
+    body to read; the returned ticket is passed to ``_settled`` when that is done.
+    """
+    try:
+        ticket = breaker.before()
+    except resilience.CircuitOpen as exc:
+        raise StorageError(f"File storage is not responding. Try again in about {exc.retry_after} seconds.") from None
+    try:
+        result = call()
+    except Exception as exc:
+        breaker.failure(ticket) if _storage_down(exc) else breaker.success(ticket)
+        raise
+    if settle:
+        breaker.success(ticket)
+        return result
+    return result, ticket
+
+
+def _settled(ticket, exc=None):
+    """Record how reading a response body went."""
+    if exc is not None and _storage_down(exc):
+        breaker.failure(ticket)
+    else:
+        breaker.success(ticket)
+
+
+class _GuardedBody:
+    """A response body whose read counts for the storage breaker, so a stalled or cut-off
+    download opens the circuit as a failed request would."""
+
+    def __init__(self, body, ticket):
+        self._body = body
+        self._ticket = ticket
+        self._done = False
+
+    def _finish(self, exc=None):
+        if not self._done:
+            self._done = True
+            _settled(self._ticket, exc)
+
+    def read(self, *args):
+        """Read the body; the outcome is recorded when it ends."""
+        try:
+            data = self._body.read(*args)
+        except Exception as exc:
+            self._finish(exc)
+            raise
+        if not args or not data:
+            self._finish()
+        return data
+
+    def close(self):
+        """Close the body, and count it as finished if nothing was read."""
+        self._finish()
+        self._body.close()
+
+    def __getattr__(self, name):
+        return getattr(self._body, name)
+
+
+class _GuardedPaginator:
+    """A paginator whose pages are fetched through the storage breaker."""
+
+    def __init__(self, paginator):
+        self._paginator = paginator
+
+    def paginate(self, **kwargs):
+        """Yield pages; the request for each page goes through the breaker."""
+        pages = iter(self._paginator.paginate(**kwargs))
+        while True:
+            try:
+                page = _guarded(lambda: next(pages))
+            except StopIteration:
+                return
+            yield page
+
+
+class _GuardedClient:
+    """Wraps a boto3 client so every call goes through the storage breaker."""
+
+    def __init__(self, client):
+        self._client = client
+
+    def __getattr__(self, name):
+        attribute = getattr(self._client, name)
+        if name == "get_paginator":
+            return lambda operation: _GuardedPaginator(attribute(operation))
+        if name == "get_object":
+            def get_object(*args, **kwargs):
+                response, ticket = _guarded(lambda: attribute(*args, **kwargs), settle=False)
+                return {**response, "Body": _GuardedBody(response["Body"], ticket)}
+
+            return get_object
+        if not callable(attribute):
+            return attribute
+        return lambda *args, **kwargs: _guarded(lambda: attribute(*args, **kwargs))
+
+
 class S3Storage:
     """S3-compatible storage (Cloudflare R2, Backblaze B2, ...) with presigned URLs."""
 
@@ -255,14 +381,14 @@ class S3Storage:
         from botocore.config import Config
 
         self.bucket = bucket
-        self.client = boto3.client(
+        self.client = _GuardedClient(boto3.client(
             "s3",
             endpoint_url=endpoint_url,
             aws_access_key_id=access_key_id,
             aws_secret_access_key=secret_access_key,
             region_name=region,
             config=Config(signature_version="s3v4", retries={"max_attempts": 3}),
-        )
+        ))
 
     def put_file(self, user_id, media_id, source: Path):
         key = object_key(user_id, media_id)
