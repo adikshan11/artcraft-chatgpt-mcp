@@ -91,8 +91,8 @@ jobs:
           TESTS: ${{ steps.tests.outcome }}
         run: |
           python scripts/release_watch_pr.py /tmp/bumps.json /tmp/escapes.json /tmp/evals.json > /tmp/body.md
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "Adithya Shankaran"
+          git config user.email "72570811+adikshan11@users.noreply.github.com"
           git checkout -B bump/craft-releases
           git add craft_apps.json README.md craft_app_mcp.py pdfcraft_mcp.py
           git commit -q -m "Move to the newest Craft releases"
