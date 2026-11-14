@@ -12,6 +12,7 @@ name: Watch
 on:
   schedule:
     - cron: "*/5 * * * *"
+    - cron: "3,33 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -24,6 +25,8 @@ concurrency:
 jobs:
   site:
     name: Site is up
+    # The half-hour schedule is only for the pull requests.
+    if: github.event_name != 'schedule' || github.event.schedule == '*/5 * * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -45,7 +48,7 @@ jobs:
     name: Craft pull requests
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # The schedule fires every five minutes; the last step lets only the half hours through.
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '3,33 * * * *'
     permissions:
       contents: read
       issues: write
@@ -56,10 +59,4 @@ jobs:
       - name: Compare with the last run
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          minute=$(date -u +%M)
-          if [ "${{ github.event_name }}" = "schedule" ] && [ $((10#$minute % 30)) -ge 5 ]; then
-            echo "Not on the half hour; skipping."
-            exit 0
-          fi
-          python3 scripts/pr_watch.py adikshan11 --repo "$GITHUB_REPOSITORY"
+        run: python3 scripts/pr_watch.py adikshan11 --repo "$GITHUB_REPOSITORY"

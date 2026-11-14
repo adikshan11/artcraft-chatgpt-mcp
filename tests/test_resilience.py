@@ -70,6 +70,35 @@ class CircuitBreakerTests(unittest.TestCase):
             self.breaker.before()
 
 
+class TicketTests(unittest.TestCase):
+    def setUp(self):
+        self.clock = Clock()
+        self.breaker = resilience.CircuitBreaker("Thing", threshold=3, cooldown=30, clock=self.clock)
+
+    def test_a_call_that_finishes_late_cannot_release_the_probe(self):
+        late = [self.breaker.before() for _ in range(2)]
+        for _ in range(3):
+            self.breaker.failure()
+        self.clock.now += 31
+        probe = self.breaker.before()
+        self.breaker.failure(late[0])  # Admitted before the circuit opened; it says nothing about the probe.
+        self.clock.now += 5
+        with self.assertRaises(resilience.CircuitOpen):
+            self.breaker.before()  # The probe is still out.
+        self.breaker.success(late[1])
+        self.assertTrue(self.breaker.is_open)
+        self.breaker.success(probe)
+        self.assertFalse(self.breaker.is_open)
+
+    def test_a_probe_that_never_reports_back_is_given_up_on(self):
+        for _ in range(3):
+            self.breaker.failure()
+        self.clock.now += 31
+        self.breaker.before()
+        self.clock.now += 31
+        self.breaker.before()
+
+
 class UpstreamBreakerTests(unittest.TestCase):
     def setUp(self):
         artcraft_api.breaker.success()
@@ -88,6 +117,25 @@ class UpstreamBreakerTests(unittest.TestCase):
             with self.assertRaisesRegex(artcraft_api.ArtCraftAPIError, "not responding right now"):
                 artcraft_api._request_json("/v1/x", "GET", auth=False)
         self.assertEqual(opener.open.call_count, calls)
+
+    def test_a_malformed_reply_ends_the_probe_instead_of_wedging_the_circuit(self):
+        artcraft_api.breaker = resilience.CircuitBreaker("ArtCraft", threshold=1, cooldown=30, clock=(clock := Clock()))
+        self.addCleanup(setattr, artcraft_api, "breaker", resilience.CircuitBreaker("ArtCraft"))
+        opener = mock.Mock()
+        opener.open.side_effect = error.URLError("down")
+        with mock.patch.object(artcraft_api.request, "build_opener", return_value=opener):
+            with self.assertRaises(artcraft_api.ArtCraftAPIError):
+                artcraft_api._request_json("/v1/x", "GET", auth=False)
+            clock.now += 31
+            reply = mock.MagicMock()
+            reply.__enter__.return_value.read.return_value = b"\xff not json"
+            opener.open.side_effect = None
+            opener.open.return_value = reply
+            with self.assertRaisesRegex(artcraft_api.ArtCraftAPIError, "invalid JSON"):
+                artcraft_api._request_json("/v1/x", "GET", auth=False)
+            clock.now += 31
+            reply.__enter__.return_value.read.return_value = b"{}"
+            self.assertEqual(artcraft_api._request_json("/v1/x", "GET", auth=False), {})
 
     def test_artcraft_refusing_a_request_does_not_count_as_down(self):
         opener = mock.Mock()
@@ -119,6 +167,62 @@ class UpstreamBreakerTests(unittest.TestCase):
         for _ in range(10):
             with self.assertRaises(ClientError):
                 media_storage._guarded(mock.Mock(side_effect=missing))
+        self.assertFalse(media_storage.breaker.is_open)
+
+
+class StorageClassificationTests(unittest.TestCase):
+    def test_an_upload_failure_that_wraps_a_server_error_counts_as_down(self):
+        from boto3.exceptions import S3UploadFailedError
+        from botocore.exceptions import ClientError
+
+        server = ClientError({"Error": {"Code": "InternalError"}, "ResponseMetadata": {"HTTPStatusCode": 503}}, "PutObject")
+        try:
+            try:
+                raise server
+            except ClientError:
+                raise S3UploadFailedError("Failed to upload: boom")
+        except S3UploadFailedError as wrapped:
+            self.assertTrue(media_storage._storage_down(wrapped))
+        refused = ClientError({"Error": {"Code": "AccessDenied"}, "ResponseMetadata": {"HTTPStatusCode": 403}}, "PutObject")
+        try:
+            try:
+                raise refused
+            except ClientError:
+                raise S3UploadFailedError("Failed to upload: denied")
+        except S3UploadFailedError as wrapped:
+            self.assertFalse(media_storage._storage_down(wrapped))
+
+    def test_a_download_cut_off_while_reading_counts_against_storage(self):
+        from botocore.exceptions import ReadTimeoutError
+
+        media_storage.breaker.success()
+        self.addCleanup(media_storage.breaker.success)
+
+        class Body:
+            def read(self, *args):
+                raise ReadTimeoutError(endpoint_url="https://s3")
+
+            def close(self):
+                pass
+
+        raw = mock.Mock()
+        raw.get_object.return_value = {"Body": Body()}
+        client = media_storage._GuardedClient(raw)
+        for _ in range(5):
+            with self.assertRaises(ReadTimeoutError):
+                client.get_object(Bucket="b", Key="k")["Body"].read()
+        with self.assertRaisesRegex(media_storage.StorageError, "not responding"):
+            client.get_object(Bucket="b", Key="k")
+
+    def test_a_download_that_finishes_counts_as_a_success(self):
+        media_storage.breaker.success()
+        self.addCleanup(media_storage.breaker.success)
+        body = mock.Mock()
+        body.read.return_value = b"data"
+        raw = mock.Mock()
+        raw.get_object.return_value = {"Body": body}
+        for _ in range(10):
+            self.assertEqual(media_storage._GuardedClient(raw).get_object(Bucket="b", Key="k")["Body"].read(), b"data")
         self.assertFalse(media_storage.breaker.is_open)
 
 
@@ -211,14 +315,22 @@ class LoadGuardTests(unittest.TestCase):
         self.assertEqual(b, 200)
 
     def test_forty_parallel_status_requests_are_served_under_the_default_limits(self):
-        client = TestClient(app_module.asgi_app)
-        self.assertEqual({client.get("/status.json").status_code for _ in range(40)}, {200})
+        from concurrent.futures import ThreadPoolExecutor
 
-    def test_the_table_of_clients_stays_bounded(self):
+        def fetch(_):
+            return TestClient(app_module.asgi_app).get("/status.json").status_code
+
+        with ThreadPoolExecutor(max_workers=40) as pool:
+            self.assertEqual(set(pool.map(fetch, range(40))), {200})
+
+    def test_the_table_of_clients_stays_bounded_and_new_clients_are_still_limited(self):
         limiter = resilience.RateLimiter(5, 60)
-        for i in range(resilience.MAX_TRACKED_CLIENTS + 500):
+        for i in range(resilience.MAX_TRACKED_CLIENTS):
             limiter.check(f"client-{i}")
-        self.assertLessEqual(len(limiter._seen), resilience.MAX_TRACKED_CLIENTS)
+        answers = [limiter.check(f"stranger-{i}") for i in range(5 * resilience.RateLimiter.OVERFLOW_FACTOR + 10)]
+        self.assertLessEqual(len(limiter._seen), resilience.MAX_TRACKED_CLIENTS + 1)
+        self.assertEqual(answers[:100], [0] * 100)
+        self.assertTrue(all(answers[100:]), "past the shared allowance, strangers are told to wait")
 
 
 class PageTests(unittest.TestCase):
@@ -261,6 +373,23 @@ class BuildTests(unittest.TestCase):
         froms = re.findall(r"^FROM (\S+)", dockerfile, re.M)
         self.assertTrue(froms and all(re.search(r"@sha256:[0-9a-f]{64}$", name) for name in froms), froms)
         self.assertIn("--require-hashes -r requirements.lock", dockerfile)
+
+    def test_every_locked_version_satisfies_the_ranges_in_requirements_txt(self):
+        def numbers(version):
+            return tuple(int(part) for part in re.findall(r"\d+", version.split("+")[0])[:3])
+
+        locked = {name.lower().replace("_", "-"): numbers(version)
+                  for name, version in re.findall(r"^([A-Za-z0-9_.\-]+)==(\S+) \\$", (ROOT / "requirements.lock").read_text(), re.M)}
+        for line in (ROOT / "requirements.txt").read_text().splitlines():
+            found = re.match(r"([A-Za-z0-9_.\-]+)(?:\[[^\]]*\])?(.*)", line.strip())
+            if not found or not line.strip() or line.startswith("#"):
+                continue
+            name, specifiers = found.group(1).lower().replace("_", "-"), found.group(2)
+            self.assertIn(name, locked, name)
+            for operator, wanted in re.findall(r"(>=|<=|<|>|==)\s*([0-9][0-9.]*)", specifiers):
+                have, want = locked[name], numbers(wanted)
+                ok = {">=": have >= want, "<=": have <= want, "<": have < want, ">": have > want, "==": have == want}[operator]
+                self.assertTrue(ok, f"{name} {operator} {wanted}, locked {have}")
 
     def test_every_locked_package_has_a_hash_and_covers_the_requirements(self):
         lock = (ROOT / "requirements.lock").read_text()

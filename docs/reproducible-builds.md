@@ -18,5 +18,10 @@ docker run --rm -v "$PWD":/w -w /w python:3.12-slim@sha256:5e2bdb1b0d542d5039cff
   sh -c 'pip install -q pip-tools==7.4.1 && pip-compile -q --generate-hashes --allow-unsafe --strip-extras --no-header --output-file=requirements.lock requirements.txt'
 ```
 
+That keeps every version already in the lock. To move to the newest versions that
+`requirements.txt` allows, add `--upgrade` to the `pip-compile` command, or `--upgrade-package NAME`
+(repeatable) to move only one. When you raise a minimum in `requirements.txt`, regenerate the lock in
+the same change; `tests/test_resilience.py` fails when a locked version falls outside the ranges.
+
 To move the base image, take the new digest of `python:3.12-slim` from Docker Hub, change it in both
 `FROM` lines and in the command above, and rebuild the lock.

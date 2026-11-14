@@ -21,6 +21,7 @@ import sys
 RISK = re.compile(r"Merge Risk:\*\* \*\*[^\w]*(\w+)\*\*")
 DOCSTRINGS = re.compile(r"Docstring coverage is ([0-9.]+)%")
 MARKER = "<!-- pr-watch:"
+FAILED = ("failure", "timed_out", "startup_failure")
 BOTS = re.compile(r"coderabbit|sonar|github-actions|\[bot\]|bot$", re.I)
 
 
@@ -42,14 +43,40 @@ def api(path):
 
 
 def open_threads(owner, name, number):
-    """The number of review threads on a pull request that nobody has resolved."""
+    """The number of review threads on a pull request that nobody has resolved, over every page."""
     query = (
-        "query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n)"
-        "{reviewThreads(first:100){nodes{isResolved}}}}}"
+        "query($o:String!,$r:String!,$n:Int!,$after:String){repository(owner:$o,name:$r){pullRequest(number:$n)"
+        "{reviewThreads(first:100,after:$after){pageInfo{hasNextPage endCursor}nodes{isResolved}}}}}"
     )
-    out = gh("api", "graphql", "-f", f"query={query}", "-F", f"o={owner}", "-F", f"r={name}", "-F", f"n={number}")
-    nodes = json.loads(out)["data"]["repository"]["pullRequest"]["reviewThreads"]["nodes"]
-    return sum(1 for node in nodes if not node["isResolved"])
+    unresolved, after = 0, None
+    while True:
+        args = ["api", "graphql", "-f", f"query={query}", "-F", f"o={owner}", "-F", f"r={name}", "-F", f"n={number}"]
+        if after:
+            args += ["-f", f"after={after}"]
+        threads = json.loads(gh(*args))["data"]["repository"]["pullRequest"]["reviewThreads"]
+        unresolved += sum(1 for node in threads["nodes"] if not node["isResolved"])
+        if not threads["pageInfo"]["hasNextPage"]:
+            return unresolved
+        after = threads["pageInfo"]["endCursor"]
+
+
+def check_runs(owner, name, sha):
+    """Every check run on a commit, over every page."""
+    pages = json.loads(gh("api", "--paginate", "--slurp", f"repos/{owner}/{name}/commits/{sha}/check-runs") or "[]")
+    return [run for page in pages for run in page.get("check_runs", [])]
+
+
+def current_decisions(reviews):
+    """Each reviewer's latest approval or request for changes, from the reviews in the order
+    GitHub returns them. A comment changes nothing; a dismissal withdraws the earlier decision."""
+    decisions = {}
+    for review in sorted(reviews, key=lambda r: r.get("submitted_at") or ""):
+        login, state = review["user"]["login"], review.get("state")
+        if state in ("APPROVED", "CHANGES_REQUESTED"):
+            decisions[login] = state
+        elif state == "DISMISSED":
+            decisions.pop(login, None)
+    return decisions
 
 
 def summarize(owner, name, number, me):
@@ -66,8 +93,9 @@ def summarize(owner, name, number, me):
         if item["user"]["login"] != me and not BOTS.search(item["user"]["login"])
     ]
     people.sort(key=lambda row: row[2])
-    changes = {u for u, s, _ in people if s == "CHANGES_REQUESTED"} - {u for u, s, _ in people if s == "APPROVED"}
-    checks = json.loads(gh("api", f"repos/{owner}/{name}/commits/{pr['head']['sha']}/check-runs") or "{}").get("check_runs", [])
+    decisions = current_decisions([r for r in reviews if not BOTS.search(r["user"]["login"]) and r["user"]["login"] != me])
+    changes = {login for login, state in decisions.items() if state == "CHANGES_REQUESTED"}
+    checks = check_runs(owner, name, pr["head"]["sha"])
     return {
         "pr": f"{owner}/{name}#{number}",
         "title": pr["title"],
@@ -76,7 +104,8 @@ def summarize(owner, name, number, me):
         "docstrings": float(docs[-1]) if docs else None,
         "threads": open_threads(owner, name, number),
         "conflicts": pr.get("mergeable_state") == "dirty",
-        "failing": sorted({c["name"] for c in checks if c.get("conclusion") == "failure"}),
+        "failing": sorted({c["name"] for c in checks if c.get("conclusion") in FAILED}),
+        "waiting_for_approval": sorted({c["name"] for c in checks if c.get("conclusion") == "action_required"}),
         "changes_requested_by": sorted(changes),
         "last_person": people[-1] if people else None,
     }
@@ -95,18 +124,21 @@ def needs_attention(row):
         reasons.append("conflicts with the base branch")
     if row["failing"]:
         reasons.append("failing: " + ", ".join(row["failing"]))
+    if row["waiting_for_approval"]:
+        reasons.append("CI waiting for a maintainer to approve it")
     if row["changes_requested_by"]:
         reasons.append("changes requested by " + ", ".join(row["changes_requested_by"]))
     return reasons
 
 
-def fingerprint(rows, finished):
-    """A short hash of everything worth telling the person, so an unchanged state stays quiet."""
+def fingerprint(rows):
+    """A short hash of the current state of the open pull requests, so an unchanged state stays
+    quiet. A pull request that closes drops out of the rows, which changes the hash."""
     state = [
         (row["pr"], row["head"], row["risk"], row["threads"], row["last_person"], needs_attention(row))
         for row in rows
     ]
-    return hashlib.sha256(json.dumps([state, sorted(finished)], default=list).encode()).hexdigest()[:16]
+    return hashlib.sha256(json.dumps(state, default=list).encode()).hexdigest()[:16]
 
 
 def render(rows, finished, me):
@@ -152,7 +184,7 @@ def main(argv=None):
     saved = saved_state(issue["body"]) if issue else ""
     previous = json.loads(saved) if saved else {"prs": [], "hash": ""}
     finished = sorted(set(previous["prs"]) - {row["pr"] for row in rows})
-    digest = fingerprint(rows, finished)
+    digest = fingerprint(rows)
     body = f"Tracks the Craft pull requests of @{args.me}. The workflow updates it; do not edit.\n\n{render(rows, [], args.me)}\n\n{MARKER}{json.dumps({'prs': [r['pr'] for r in rows], 'hash': digest})} -->"
     if args.dry_run:
         print(render(rows, finished, args.me))
@@ -163,8 +195,10 @@ def main(argv=None):
     if previous["hash"] == digest:
         print("unchanged")
         return 0
-    gh("issue", "edit", str(issue["number"]), "--repo", args.repo, "--body", body)
+    # The comment goes first. The issue body carries the saved state, so if the comment fails the
+    # next run still sees the old state and tries again.
     gh("issue", "comment", str(issue["number"]), "--repo", args.repo, "--body", render(rows, finished, args.me))
+    gh("issue", "edit", str(issue["number"]), "--repo", args.repo, "--body", body)
     return 0
 
 
