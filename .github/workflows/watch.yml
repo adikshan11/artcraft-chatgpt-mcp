@@ -1,0 +1,65 @@
+name: Watch
+
+# Runs on GitHub's machines, so it keeps going when nobody's computer is on, and costs nothing:
+# this repository is public.
+#
+# - Every five minutes it asks the site for its health. That wakes Render's free instance when
+#   it has gone to sleep, and keeps it awake, because the free plan sleeps after 15 idle minutes.
+#   If the site is down for the whole retry window, the run fails and GitHub emails the owner.
+# - Every 30 minutes it checks the Craft pull requests (CodeRabbit ratings, open threads, human
+#   reviews, conflicts, failing checks) and comments on one issue only when something changed.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+    - cron: "3,33 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  site:
+    name: Site is up
+    # The half-hour schedule is only for the pull requests.
+    if: github.event_name != 'schedule' || github.event.schedule == '*/5 * * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Each job has its own group, so a half-hour comparison is never cancelled by a health check.
+    concurrency:
+      group: watch-site
+      cancel-in-progress: true
+    steps:
+      # A cold start takes about 40 seconds, so wait up to 90 per try and try six times.
+      - name: Ask for /health
+        run: |
+          curl --fail --silent --show-error --max-time 90 --retry 5 --retry-delay 10 --retry-all-errors \
+            https://bridgecraft.onrender.com/health
+      - name: Check the status page says everything works
+        run: |
+          curl --fail --silent --show-error --max-time 60 --retry 3 --retry-delay 10 \
+            https://bridgecraft.onrender.com/status.json | python3 -c '
+          import json, sys
+          status = json.load(sys.stdin)
+          print(status.get("headline"))
+          sys.exit(0 if status.get("overall") == "ok" else 1)'
+
+  pull-requests:
+    name: Craft pull requests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: watch-pull-requests
+      cancel-in-progress: false
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '3,33 * * * *'
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Compare with the last run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/pr_watch.py adikshan11 --repo "$GITHUB_REPOSITORY"
