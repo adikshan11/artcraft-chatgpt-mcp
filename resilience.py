@@ -62,8 +62,10 @@ class CircuitBreaker:
             waited = now - self._opened_at
             if waited < self.cooldown:
                 raise CircuitOpen(self.name, self.cooldown - waited)
-            if self._probe_since is not None and now - self._probe_since < self.cooldown:
-                raise CircuitOpen(self.name, 1)
+            if self._probe_since is not None:
+                if now - self._probe_since < self.cooldown:
+                    raise CircuitOpen(self.name, 1)
+                self._epoch += 1  # The probe that never reported back can no longer settle anything.
             self._probe_since = now
             return self._epoch
 
