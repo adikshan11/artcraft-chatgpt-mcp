@@ -39,12 +39,15 @@ jobs:
       # means something is broken.
       - name: Check the status page reports no error
         run: |
+          # Written to a file, which curl starts over on each retry, so a half-sent reply never
+          # gets a second one appended to it.
           curl --fail --silent --show-error --max-time 60 --retry 5 --retry-delay 15 --retry-all-errors \
-            https://bridgecraft.onrender.com/status.json | python3 -c '
-          import json, sys
-          status = json.load(sys.stdin)
+            --output status.json https://bridgecraft.onrender.com/status.json
+          python3 -c '
+          import json
+          status = json.load(open("status.json"))
           print(status.get("headline"))
-          sys.exit(1 if status.get("overall") == "error" else 0)'
+          raise SystemExit(1 if status.get("overall") == "error" else 0)'
 
   pull-requests:
     name: Craft pull requests
