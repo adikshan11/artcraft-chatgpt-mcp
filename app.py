@@ -11,6 +11,7 @@ import secrets
 import time
 
 import log_redaction
+import resilience
 
 log_redaction.install()
 from contextlib import asynccontextmanager
@@ -31,6 +32,23 @@ from starlette.routing import Mount
 
 app = Flask(__name__)
 STATIC_MAX_AGE = 365 * 24 * 3600
+
+
+def _static_origin(value):
+    """The CDN address static files are served from, or "" to serve them from this server.
+
+    Only a plain https address is accepted, without a path, query or trailing slash, because it
+    goes into the content security policy as well as into every link.
+    """
+    value = (value or "").strip().rstrip("/")
+    return value if re.fullmatch(r"https://[a-z0-9.-]+(:\d+)?", value, re.I) else ""
+
+
+STATIC_ORIGIN = _static_origin(os.environ.get("STATIC_BASE_URL"))
+# When set, versioned static files are fetched from a CDN, which caches them at the edge near each
+# visitor. Render's own edge does not cache them. The CDN serves the same files, deployed from
+# this repository by .github/workflows/pages.yml.
+STATIC_PATH_PREFIX = os.environ.get("STATIC_PATH_PREFIX", "").strip().rstrip("/") if STATIC_ORIGIN else ""
 
 
 @lru_cache(maxsize=None)
@@ -54,6 +72,25 @@ def _version_static_urls(endpoint, values):
             values["v"] = version
 
 
+_flask_url_for = app.jinja_env.globals["url_for"]
+
+
+def _url_for(endpoint, **values):
+    """Flask's url_for, except that static files come from the CDN when one is configured."""
+    url = _flask_url_for(endpoint, **values)
+    return f"{STATIC_ORIGIN}{STATIC_PATH_PREFIX}{url}" if endpoint == "static" and STATIC_ORIGIN else url
+
+
+app.jinja_env.globals["url_for"] = _url_for
+
+
+@app.context_processor
+def static_absolute():
+    # Link previews need an absolute address; this is the CDN's when there is one.
+    return {"static_absolute": lambda name: _url_for("static", filename=name)
+            if STATIC_ORIGIN else f"{ARTCRAFT_SITE_URL}{_flask_url_for('static', filename=name)}"}
+
+
 @app.after_request
 def _cache_versioned_static(response):
     # A versioned link names one exact file, so it can be cached for a year without
@@ -74,9 +111,10 @@ def _new_csp_nonce():
 @app.after_request
 def _content_security_policy(response):
     # style-src-attr is for the style="--i: 3" attributes that place the apps on the plate.
+    cdn = f" {STATIC_ORIGIN}" if STATIC_ORIGIN else ""
     response.headers["Content-Security-Policy"] = (
-        f"default-src 'none'; script-src 'self' 'nonce-{g.csp_nonce}'; style-src 'self'; "
-        "style-src-attr 'unsafe-inline'; img-src 'self' data:; font-src 'self'; media-src 'self'; "
+        f"default-src 'none'; script-src 'self'{cdn} 'nonce-{g.csp_nonce}'; style-src 'self'{cdn}; "
+        f"style-src-attr 'unsafe-inline'; img-src 'self'{cdn} data:; font-src 'self'{cdn}; media-src 'self'{cdn}; "
         "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
     )
     return response
@@ -451,7 +489,7 @@ def mcp_allowed_hosts():
 # Sent on everything, including the connector endpoints. The icons other apps fetch still load,
 # because none of these limit which sites can read a response.
 SECURITY_HEADERS = [
-    (b"strict-transport-security", b"max-age=31536000"),
+    (b"strict-transport-security", b"max-age=31536000; includeSubDomains"),
     (b"x-content-type-options", b"nosniff"),
     (b"referrer-policy", b"strict-origin-when-cross-origin"),
     (b"permissions-policy", b"camera=(), microphone=(), geolocation=(), payment=(), usb=()"),
@@ -459,11 +497,25 @@ SECURITY_HEADERS = [
 ]
 
 
+# What a response gets when the page that made it set no policy of its own, as the connector
+# endpoints do. Nothing here is ever loaded as a page, so nothing is allowed, and no site may frame it.
+API_POLICY = (b"content-security-policy", b"default-src 'none'; frame-ancestors 'none'")
+FRAME_OPTIONS = (b"x-frame-options", b"DENY")
+
+
 def security_headers(inner):
+    """Add the shared security headers to every HTTP response, and a restrictive policy to any
+    that has none."""
+
     async def with_headers(scope, receive, send):
         async def send_with_headers(message):
             if message["type"] == "http.response.start":
-                message = {**message, "headers": [*message.get("headers", []), *SECURITY_HEADERS]}
+                existing = message.get("headers", [])
+                present = {name.lower() for name, _ in existing}
+                extra = [pair for pair in (*SECURITY_HEADERS, FRAME_OPTIONS) if pair[0] not in present]
+                if API_POLICY[0] not in present:
+                    extra.append(API_POLICY)
+                message = {**message, "headers": [*existing, *extra]}
             await send(message)
 
         await inner(scope, receive, send_with_headers)
@@ -540,7 +592,7 @@ def create_asgi_app():
             await site(scope, receive, send)
 
     craft_sessions.protect_server()
-    return security_headers(usage.counted_requests(dispatch))
+    return security_headers(resilience.load_guard(usage.counted_requests(dispatch)))
 
 
 asgi_app = create_asgi_app()

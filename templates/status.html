@@ -3,7 +3,7 @@
 {% block description %}Whether BridgeCraft's connectors, sign-in, file storage and each hosted Craft app are working right now.{% endblock %}
 {% block main %}
 {% set dot_words = {"ok": "Working", "warn": "Needs attention", "error": "Broken", "off": "Off"} %}
-<main class="status" data-status>
+<main class="status" id="main" data-status>
   <header class="status-head">
     <h1>Status</h1>
     <p class="status-lede">

@@ -15,10 +15,11 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
+    <a class="skip-link" href="#main">Skip to content</a>
 {% include "_nav.html" %}
 
     {% block main %}
-    <main class="legal">
+    <main class="legal" id="main">
       <h1>{{ self.title() }}</h1>
       <p class="legal-updated">Last updated {{ last_updated }}</p>
       {% block content %}{% endblock %}
