@@ -252,27 +252,85 @@ breaker = resilience.CircuitBreaker("Storage")
 
 
 def _storage_down(exc):
-    """True when a storage call failed because the service is unreachable or erroring."""
+    """True when a storage call failed because the service is unreachable or erroring.
+
+    boto3's upload helpers wrap the storage's own error in another exception, so the chain of
+    causes is followed too.
+    """
     from botocore.exceptions import BotoCoreError, ClientError
 
-    if isinstance(exc, ClientError):
-        return exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode", 0) >= 500
-    return isinstance(exc, BotoCoreError)
+    seen = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        if isinstance(exc, ClientError):
+            return exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode", 0) >= 500
+        if isinstance(exc, (BotoCoreError, TimeoutError, ConnectionError)):
+            return True
+        exc = exc.__cause__ or exc.__context__
+    return False
 
 
-def _guarded(call):
-    """Run ``call`` through the storage breaker; a refused call raises StorageError at once."""
+def _guarded(call, *, settle=True):
+    """Run ``call`` through the storage breaker; a refused call raises StorageError at once.
+
+    With ``settle=False`` a success is not recorded here, because the caller still has a response
+    body to read; the returned ticket is passed to ``_settled`` when that is done.
+    """
     try:
-        breaker.before()
+        ticket = breaker.before()
     except resilience.CircuitOpen as exc:
         raise StorageError(f"File storage is not responding. Try again in about {exc.retry_after} seconds.") from None
     try:
         result = call()
     except Exception as exc:
-        breaker.failure() if _storage_down(exc) else breaker.success()
+        breaker.failure(ticket) if _storage_down(exc) else breaker.success(ticket)
         raise
-    breaker.success()
-    return result
+    if settle:
+        breaker.success(ticket)
+        return result
+    return result, ticket
+
+
+def _settled(ticket, exc=None):
+    """Record how reading a response body went."""
+    if exc is not None and _storage_down(exc):
+        breaker.failure(ticket)
+    else:
+        breaker.success(ticket)
+
+
+class _GuardedBody:
+    """A response body whose read counts for the storage breaker, so a stalled or cut-off
+    download opens the circuit as a failed request would."""
+
+    def __init__(self, body, ticket):
+        self._body = body
+        self._ticket = ticket
+        self._done = False
+
+    def _finish(self, exc=None):
+        if not self._done:
+            self._done = True
+            _settled(self._ticket, exc)
+
+    def read(self, *args):
+        """Read the body; the outcome is recorded when it ends."""
+        try:
+            data = self._body.read(*args)
+        except Exception as exc:
+            self._finish(exc)
+            raise
+        if not args or not data:
+            self._finish()
+        return data
+
+    def close(self):
+        """Close the body, and count it as finished if nothing was read."""
+        self._finish()
+        self._body.close()
+
+    def __getattr__(self, name):
+        return getattr(self._body, name)
 
 
 class _GuardedPaginator:
@@ -302,6 +360,12 @@ class _GuardedClient:
         attribute = getattr(self._client, name)
         if name == "get_paginator":
             return lambda operation: _GuardedPaginator(attribute(operation))
+        if name == "get_object":
+            def get_object(*args, **kwargs):
+                response, ticket = _guarded(lambda: attribute(*args, **kwargs), settle=False)
+                return {**response, "Body": _GuardedBody(response["Body"], ticket)}
+
+            return get_object
         if not callable(attribute):
             return attribute
         return lambda *args, **kwargs: _guarded(lambda: attribute(*args, **kwargs))

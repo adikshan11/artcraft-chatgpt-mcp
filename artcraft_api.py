@@ -195,28 +195,38 @@ def _request_json(path: str, method: str, payload: dict | None = None, auth: boo
         f"{API_BASE_URL}{path}", data=data, headers=headers, method=method
     )
     try:
-        breaker.before()
+        ticket = breaker.before()
     except resilience.CircuitOpen as exc:
         raise ArtCraftAPIError(
             f"ArtCraft is not responding right now. Try again in about {exc.retry_after} seconds."
         ) from None
+    settled = False
     try:
         opener = request.build_opener(_NoRedirectHandler())
         with opener.open(req, timeout=30) as response:
-            result = json.loads(response.read())
-        breaker.success()
+            body = response.read()
+        breaker.success(ticket)
+        settled = True
+        result = json.loads(body)
     except ArtCraftRevoked:
-        breaker.success()
+        breaker.success(ticket)
+        settled = True
         raise
     except error.HTTPError as exc:
         # An answer below 500 means ArtCraft is up and refused this request.
-        breaker.failure() if exc.code >= 500 else breaker.success()
+        breaker.failure(ticket) if exc.code >= 500 else breaker.success(ticket)
+        settled = True
         raise ArtCraftAPIError(_http_error_message(exc, exchanged=bearer is not None)) from exc
     except (error.URLError, TimeoutError) as exc:
-        breaker.failure()
+        breaker.failure(ticket)
+        settled = True
         raise ArtCraftAPIError("Could not reach the ArtCraft API.") from exc
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise ArtCraftAPIError("ArtCraft returned an invalid JSON response.") from exc
+    finally:
+        if not settled:
+            # Any other way out, such as a dropped connection mid-read, still ends the probe.
+            breaker.failure(ticket)
 
     if not isinstance(result, dict):
         raise ArtCraftAPIError("ArtCraft returned an unexpected response.")

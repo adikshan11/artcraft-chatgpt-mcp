@@ -33,8 +33,13 @@ class CircuitBreaker:
     """Stops calling a failing service for a while.
 
     After ``threshold`` failures in a row the circuit opens and every call fails at once. After
-    ``cooldown`` seconds one call is let through; if it succeeds the circuit closes, and if it
-    fails the circuit stays open for another cooldown.
+    ``cooldown`` seconds one call, the probe, is let through; if it succeeds the circuit closes,
+    and if it fails the circuit stays open for another cooldown. A probe that never reports back
+    is given up on after another cooldown.
+
+    ``before()`` returns a ticket. Pass it to ``success()`` or ``failure()``: a call admitted
+    before the circuit opened or closed can finish late, and its result must not release the
+    probe or reset the count, so results from an older ticket are ignored.
     """
 
     def __init__(self, name, threshold=5, cooldown=30.0, clock=time.monotonic):
@@ -45,32 +50,45 @@ class CircuitBreaker:
         self._lock = threading.Lock()
         self._failures = 0
         self._opened_at = None
-        self._probing = False
+        self._probe_since = None
+        self._epoch = 0
 
     def before(self):
-        """Raise CircuitOpen when the call should not be made."""
+        """Raise CircuitOpen when the call should not be made; otherwise return its ticket."""
         with self._lock:
             if self._opened_at is None:
-                return
-            waited = self._clock() - self._opened_at
-            if waited < self.cooldown or self._probing:
-                raise CircuitOpen(self.name, self.cooldown - waited if waited < self.cooldown else 1)
-            self._probing = True
+                return self._epoch
+            now = self._clock()
+            waited = now - self._opened_at
+            if waited < self.cooldown:
+                raise CircuitOpen(self.name, self.cooldown - waited)
+            if self._probe_since is not None and now - self._probe_since < self.cooldown:
+                raise CircuitOpen(self.name, 1)
+            self._probe_since = now
+            return self._epoch
 
-    def success(self):
+    def success(self, ticket=None):
         """Record a call that reached the service, whatever the service answered to the request."""
         with self._lock:
+            if ticket is not None and ticket != self._epoch:
+                return
+            if self._opened_at is not None:
+                self._epoch += 1
             self._failures = 0
             self._opened_at = None
-            self._probing = False
+            self._probe_since = None
 
-    def failure(self):
+    def failure(self, ticket=None):
         """Record a call that failed because the service is unreachable or erroring."""
         with self._lock:
+            if ticket is not None and ticket != self._epoch:
+                return
             self._failures += 1
-            self._probing = False
             if self._failures >= self.threshold or self._opened_at is not None:
+                if self._opened_at is not None or self._failures == self.threshold:
+                    self._epoch += 1
                 self._opened_at = self._clock()
+                self._probe_since = None
 
     @property
     def is_open(self):
@@ -80,7 +98,15 @@ class CircuitBreaker:
 
 
 class RateLimiter:
-    """Counts requests per client in fixed windows, keeping at most MAX_TRACKED_CLIENTS clients."""
+    """Counts requests per client in fixed windows.
+
+    At most MAX_TRACKED_CLIENTS clients are tracked. When the table is full, clients it has not
+    seen share one overflow count with a larger allowance, so a flood of new addresses is still
+    limited and the table cannot grow.
+    """
+
+    OVERFLOW = "\0overflow"
+    OVERFLOW_FACTOR = 20
 
     def __init__(self, limit, window, clock=time.monotonic):
         self.limit = limit
@@ -93,14 +119,15 @@ class RateLimiter:
         """Return 0 when the request is allowed, or the seconds to wait before trying again."""
         now = self._clock()
         with self._lock:
-            started, count = self._seen.get(key, (now, 0))
-            if now - started >= self.window:
-                started, count = now, 0
             if key not in self._seen and len(self._seen) >= MAX_TRACKED_CLIENTS:
                 self._seen = {k: v for k, v in self._seen.items() if now - v[0] < self.window}
                 if len(self._seen) >= MAX_TRACKED_CLIENTS:
-                    return 0  # Never let the table grow without bound; this client goes unlimited.
-            if count >= self.limit:
+                    key = self.OVERFLOW
+            allowance = self.limit * (self.OVERFLOW_FACTOR if key == self.OVERFLOW else 1)
+            started, count = self._seen.get(key, (now, 0))
+            if now - started >= self.window:
+                started, count = now, 0
+            if count >= allowance:
                 return max(1, math.ceil(self.window - (now - started)))
             self._seen[key] = (started, count + 1)
             return 0
