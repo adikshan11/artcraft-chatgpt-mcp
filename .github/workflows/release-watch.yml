@@ -79,7 +79,7 @@ jobs:
         if: steps.changes.outputs.apps != ''
         continue-on-error: true
         run: |
-          pip install -r requirements.txt
+          pip install --require-hashes -r requirements.lock
           python -m unittest discover -s tests
 
       - name: Open or update the pull request
