@@ -94,9 +94,17 @@ class TicketTests(unittest.TestCase):
         for _ in range(3):
             self.breaker.failure()
         self.clock.now += 31
-        self.breaker.before()
+        first = self.breaker.before()
         self.clock.now += 31
-        self.breaker.before()
+        second = self.breaker.before()
+        self.breaker.success(first)  # The abandoned probe finishing late changes nothing.
+        self.assertTrue(self.breaker.is_open)
+        self.breaker.failure(first)
+        self.clock.now += 5
+        with self.assertRaises(resilience.CircuitOpen):
+            self.breaker.before()  # The replacement probe is still out and not restarted.
+        self.breaker.success(second)
+        self.assertFalse(self.breaker.is_open)
 
 
 class UpstreamBreakerTests(unittest.TestCase):
@@ -136,6 +144,18 @@ class UpstreamBreakerTests(unittest.TestCase):
             clock.now += 31
             reply.__enter__.return_value.read.return_value = b"{}"
             self.assertEqual(artcraft_api._request_json("/v1/x", "GET", auth=False), {})
+
+    def test_replies_that_cannot_be_read_open_the_circuit_too(self):
+        opener = mock.Mock()
+        reply = mock.MagicMock()
+        reply.__enter__.return_value.read.return_value = b"<html>"
+        opener.open.return_value = reply
+        with mock.patch.object(artcraft_api.request, "build_opener", return_value=opener):
+            for _ in range(5):
+                with self.assertRaisesRegex(artcraft_api.ArtCraftAPIError, "invalid JSON"):
+                    artcraft_api._request_json("/v1/x", "GET", auth=False)
+            with self.assertRaisesRegex(artcraft_api.ArtCraftAPIError, "not responding right now"):
+                artcraft_api._request_json("/v1/x", "GET", auth=False)
 
     def test_artcraft_refusing_a_request_does_not_count_as_down(self):
         opener = mock.Mock()
@@ -376,7 +396,9 @@ class BuildTests(unittest.TestCase):
 
     def test_every_locked_version_satisfies_the_ranges_in_requirements_txt(self):
         def numbers(version):
-            return tuple(int(part) for part in re.findall(r"\d+", version.split("+")[0])[:3])
+            # Padded, so that 2.0 and 2.0.0 compare equal, as they do under PEP 440.
+            parts = [int(part) for part in re.findall(r"\d+", version.split("+")[0])][:4]
+            return tuple(parts + [0] * (4 - len(parts)))
 
         locked = {name.lower().replace("_", "-"): numbers(version)
                   for name, version in re.findall(r"^([A-Za-z0-9_.\-]+)==(\S+) \\$", (ROOT / "requirements.lock").read_text(), re.M)}

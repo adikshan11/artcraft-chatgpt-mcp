@@ -14,7 +14,7 @@ import pr_watch  # noqa: E402
 def row(**changes):
     base = {
         "pr": "Storytold/x#1", "title": "A fix", "head": "abc12345", "risk": "Minimal", "docstrings": 100.0,
-        "threads": 0, "conflicts": False, "failing": [], "waiting_for_approval": [], "changes_requested_by": [],
+        "threads": 0, "conflicts": False, "failing": [], "needs_action": [], "changes_requested_by": [],
         "last_person": None,
     }
     return {**base, **changes}
@@ -27,10 +27,10 @@ class WatchTests(unittest.TestCase):
     def test_each_problem_is_named(self):
         reasons = pr_watch.needs_attention(row(
             risk="Moderate", docstrings=80.0, threads=2, conflicts=True, failing=["gate"], changes_requested_by=["reviewer"],
-            waiting_for_approval=["CI"],
+            needs_action=["CI"],
         ))
         self.assertEqual(len(reasons), 7)
-        self.assertIn("CI waiting for a maintainer to approve it", reasons)
+        self.assertIn("checks require action: CI", reasons)
         self.assertIn("CodeRabbit rates it Moderate", reasons)
         self.assertIn("changes requested by reviewer", reasons)
 
@@ -71,6 +71,15 @@ class WatchTests(unittest.TestCase):
         for conclusion in ("failure", "timed_out", "startup_failure"):
             self.assertIn(conclusion, pr_watch.FAILED)
         self.assertNotIn("action_required", pr_watch.FAILED)
+
+    def test_a_suite_that_failed_before_making_any_run_is_reported(self):
+        out = json.dumps([{"check_suites": [
+            {"app": {"name": "GitHub Actions"}, "conclusion": "startup_failure", "latest_check_runs_count": 0},
+            {"app": {"name": "Other"}, "conclusion": "failure", "latest_check_runs_count": 3},
+            {"app": {"name": "Fine"}, "conclusion": "success", "latest_check_runs_count": 1},
+        ]}])
+        with mock.patch.object(pr_watch, "gh", lambda *a, **k: out):
+            self.assertEqual(pr_watch.failed_suites("o", "r", "sha"), ["GitHub Actions (suite)"])
 
     def test_review_threads_are_counted_over_every_page(self):
         pages = [

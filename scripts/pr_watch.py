@@ -66,6 +66,16 @@ def check_runs(owner, name, sha):
     return [run for page in pages for run in page.get("check_runs", [])]
 
 
+def failed_suites(owner, name, sha):
+    """Check suites that failed before creating any check run, so no run shows the failure."""
+    pages = json.loads(gh("api", "--paginate", "--slurp", f"repos/{owner}/{name}/commits/{sha}/check-suites") or "[]")
+    return sorted({
+        f"{suite['app']['name']} (suite)"
+        for page in pages for suite in page.get("check_suites", [])
+        if suite.get("conclusion") in FAILED and not suite.get("latest_check_runs_count")
+    })
+
+
 def current_decisions(reviews):
     """Each reviewer's latest approval or request for changes, from the reviews in the order
     GitHub returns them. A comment changes nothing; a dismissal withdraws the earlier decision."""
@@ -104,8 +114,9 @@ def summarize(owner, name, number, me):
         "docstrings": float(docs[-1]) if docs else None,
         "threads": open_threads(owner, name, number),
         "conflicts": pr.get("mergeable_state") == "dirty",
-        "failing": sorted({c["name"] for c in checks if c.get("conclusion") in FAILED}),
-        "waiting_for_approval": sorted({c["name"] for c in checks if c.get("conclusion") == "action_required"}),
+        "failing": sorted({c["name"] for c in checks if c.get("conclusion") in FAILED}
+                          | set(failed_suites(owner, name, pr["head"]["sha"]))),
+        "needs_action": sorted({c["name"] for c in checks if c.get("conclusion") == "action_required"}),
         "changes_requested_by": sorted(changes),
         "last_person": people[-1] if people else None,
     }
@@ -124,8 +135,8 @@ def needs_attention(row):
         reasons.append("conflicts with the base branch")
     if row["failing"]:
         reasons.append("failing: " + ", ".join(row["failing"]))
-    if row["waiting_for_approval"]:
-        reasons.append("CI waiting for a maintainer to approve it")
+    if row["needs_action"]:
+        reasons.append("checks require action: " + ", ".join(row["needs_action"]))
     if row["changes_requested_by"]:
         reasons.append("changes requested by " + ", ".join(row["changes_requested_by"]))
     return reasons

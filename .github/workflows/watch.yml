@@ -18,10 +18,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: watch
-  cancel-in-progress: true
-
 jobs:
   site:
     name: Site is up
@@ -29,6 +25,10 @@ jobs:
     if: github.event_name != 'schedule' || github.event.schedule == '*/5 * * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # Each job has its own group, so a half-hour comparison is never cancelled by a health check.
+    concurrency:
+      group: watch-site
+      cancel-in-progress: true
     steps:
       # A cold start takes about 40 seconds, so wait up to 90 per try and try six times.
       - name: Ask for /health
@@ -48,6 +48,9 @@ jobs:
     name: Craft pull requests
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    concurrency:
+      group: watch-pull-requests
+      cancel-in-progress: false
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '3,33 * * * *'
     permissions:
       contents: read

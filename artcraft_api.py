@@ -205,9 +205,9 @@ def _request_json(path: str, method: str, payload: dict | None = None, auth: boo
         opener = request.build_opener(_NoRedirectHandler())
         with opener.open(req, timeout=30) as response:
             body = response.read()
+        result = json.loads(body)
         breaker.success(ticket)
         settled = True
-        result = json.loads(body)
     except ArtCraftRevoked:
         breaker.success(ticket)
         settled = True
@@ -222,6 +222,9 @@ def _request_json(path: str, method: str, payload: dict | None = None, auth: boo
         settled = True
         raise ArtCraftAPIError("Could not reach the ArtCraft API.") from exc
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        # A reply that can't be read means ArtCraft isn't working properly, so it counts as a failure.
+        breaker.failure(ticket)
+        settled = True
         raise ArtCraftAPIError("ArtCraft returned an invalid JSON response.") from exc
     finally:
         if not settled:
