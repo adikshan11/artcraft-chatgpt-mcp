@@ -8,8 +8,16 @@ services:
     plan: free
     healthCheckPath: /health
     envVars:
+      # Render's proxy sits behind Cloudflare, which sets this header and overwrites any the client
+      # sends. It is what the per-address request limit counts. Left unset elsewhere, the socket's
+      # address is used.
+      - key: CLIENT_IP_HEADER
+        value: cf-connecting-ip
       - key: PUBLIC_BASE_URL
         value: https://bridgecraft.onrender.com
+      # Static files from a CDN. Set once .github/workflows/pages.yml has deployed and Pages is on:
+      #   STATIC_BASE_URL=https://adikshan11.github.io  STATIC_PATH_PREFIX=/bridgecraft
+      # Unset, this server serves them itself.
       # OAuth (Auth0 or Clerk). See README "BridgeCraft Studio".
       - key: OAUTH_ISSUER
         sync: false
